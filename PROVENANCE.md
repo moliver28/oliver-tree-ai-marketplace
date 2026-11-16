@@ -16,7 +16,7 @@ Published assets in this repo must originate with us (moliver28 / Hermes Agent /
 | engineering/meta-decision (port) | Michael Oliver + Hermes Agent | ours, published (de-Hermes-ized 0.2.0) |
 | research/nlp-analyst (port) | Michael Oliver + Hermes Agent | ours, published (decoupled from internal stores, 0.2.0) |
 | business/side-business-gtm (port) | Michael Oliver | ours, published (de-personalized) |
-| media/media-taste-algo (port) | agent-authored for Michael | ours, published (de-personalized; engine code stays private, documented boundary) |
+| hobby/media-taste-algo (port) | agent-authored for Michael | ours, published (de-personalized; engine code stays private, documented boundary) |
 | ~~humanizer (35-pattern SKILL mirror)~~ | Siqi Chen / blader + Wikipedia AI-signs project (MIT) | REMOVED from mirror. The tell knowledge is enforced in our own voice-gate code; a from-scratch our-own writing-scan SKILL.md is the rewrite debt, tracked in issue #1. |
 | ~~engineering/plan, spike~~ | obra/superpowers, gsd-build/get-shit-done adaptations | REMOVED. Rewrite from our own methodology before publishing. |
 | ~~engineering/systematic-debugging, test-driven-development, requesting-code-review~~ | obra/superpowers adaptations | REMOVED. Same. |
