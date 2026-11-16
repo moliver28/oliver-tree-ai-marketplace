@@ -19,7 +19,8 @@ Voice skill sets register and structure; humanizer's 35 patterns plus the patter
 
 - **corpus-kb**: local RAG/KG/SQL corpus. Code and docs at `moliver28/corpus-kb` (public repo); live data in `~/.corpus-kb/corpus.db`. Do NOT copy corpus content into this marketplace; tools connect directly.
 - **Obsidian vault**: KB notes live in `moliver28/obsidian-vault`. Referenced by wikilink, never copied here.
-- **Daneel-style linter engine**: the plugin/CLI lives in Hermes runtime (`~/.hermes/scripts/daneel_style_lint.py`); only the portable rules YAML is mirrored here.
+- **Daneel-style linter engine**: mirrored in `plugins/daneel-style/` plus the runtime CLI `~/.hermes/scripts/daneel_style_lint.py`; only the portable rules YAML also sits in `anti-patterns/`.
+- **Voice-gate hook (humanizer mechanical enforcement)**: mirrored in `plugins/voice-gate/` (voice-gate.py, voice-check.py, voice-tells.py, voice-vector-build.py). Runs as a pre_tool_call hook with regex + vector layers, fail-open when Ollama is down. Live install is `~/.hermes/agent-hooks/`.
 
 ## Canonical copy policy
 
