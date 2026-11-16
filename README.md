@@ -15,6 +15,24 @@ Private index of reusable system assets for pointing ANY AI tool (Claude, Codex,
 | Triage of everything else | `catalog.md` | Assessed: move-port / list / exclude, with reasons. |
 | Provenance ledger | `PROVENANCE.md` | Origin verification per published asset; community-derived pulls |
 
+## Install (Claude Code)
+
+```
+claude plugin marketplace add moliver28/oliver-tree-ai-marketplace
+claude plugin install humanizer-voice@oliver-tree-ai-marketplace
+claude plugin install voice-gate@oliver-tree-ai-marketplace
+```
+
+Then `/voice <text>` after one onboarding pass. Consumable from any other AI tool by pointing it at `CLAUDE.md` in this repo.
+
+## Verify
+
+```
+python3 scripts/verify.py
+```
+
+Exit 0 = manifests parse, all skills carry frontmatter, and the delivery gate demonstrably fails sloppy text and passes clean text. Run before any publish claim.
+
 ## Pairing rule
 
 Profile sets register and structure; the tell scan plus the aphorism budget (max one kicker per section, two to three per piece) gate the pass before delivery. Enforcement code in `plugins/voice-gate/`.

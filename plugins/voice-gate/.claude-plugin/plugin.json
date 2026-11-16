@@ -1,0 +1,9 @@
+{
+  "name": "voice-gate",
+  "description": "Deterministic pre-delivery tell gate: 55-pattern regex scan with optional embedder cosine, fail-open, span-level repair contracts.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Michael Oliver"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,9 @@
+{
+  "name": "humanizer-voice",
+  "description": "Apply the user's learned voice profile to public-facing copy via /voice. Quiet learn/hooks stages, one-line gate status out.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Michael Oliver"
+  },
+  "license": "MIT"
+}
