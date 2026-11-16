@@ -9,6 +9,10 @@ Private index of reusable system assets for pointing ANY AI tool (Claude, Codex,
 | Voice spec (Michael Oliver) | `voice/voice-michael-oliver/` | Generation half: register, structure, validation gates for any prose carrying Michael's name. `voice-spec-ssot.txt` is the authoritative spec. |
 | Humanizer (35 anti-AI patterns) | `humanizer/` | Enforcement half: the tell scan + aphorism budget gate before any public prose ships. |
 | Voice onboarding template | `onboarding/VOICE_ONBOARDING.template.md` | Fill-in profile for any end user: voice, reader, channels/situations, hard rules, conditions, validation gates. |
+| Author voice learner (LinkedIn) | `writing/linkedin-style-learner/` | Derive an author's voice + post gates from their existing posts; pairs with the voice system. |
+| Engineering workflows | `engineering/` | systematic-debugging, TDD, requesting-code-review, codebase-inspection, spike, llm-integration, plan, node/python debuggers. |
+| Research workflows | `research/` | grounded-citations, document-to-action-items, meeting-action-items. |
+| Triage of everything else | `catalog.md` | Assessed: move-port / list / exclude, with reasons. |
 
 ## Pairing rule
 
