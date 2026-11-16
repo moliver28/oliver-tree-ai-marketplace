@@ -1,6 +1,6 @@
 {
   "name": "voice-gate",
-  "description": "Deterministic pre-delivery tell gate: 55-pattern regex scan with optional embedder cosine, fail-open, span-level repair contracts.",
+  "description": "Deterministic pre-delivery AI-tell gate: 55-pattern regex scan plus optional embedder cosine; fails open, repairs in place. Use when the user says: 'check this for AI tells', 'gate this before it goes out', 'scan my draft'.",
   "version": "0.1.0",
   "author": {
     "name": "Michael Oliver"

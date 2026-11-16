@@ -28,6 +28,17 @@ for p in data["plugins"]:
     ck((src / ".claude-plugin" / "plugin.json").is_file(), f"manifest {p['name']}")
     mj = json.loads((src / ".claude-plugin" / "plugin.json").read_text())
     ck(mj.get("name") == p["name"], f"manifest name matches for {p['name']}")
+    ck(mj.get("version") == p.get("version"), f"version parity {p['name']} (manifest vs marketplace)")
+    d = mj.get("description", "")
+    ck(len(d) <= 256, f"description <=256 chars for {p['name']} ({len(d)})")
+    ck("'" in d and "use when the user says" in d.lower(), f"description carries human trigger phrases for {p['name']}")
+    chlog = src / "CHANGELOG.md"
+    ck(chlog.is_file(), f"changelog exists for {p['name']}")
+    ck(f"[{p.get('version')}]" in chlog.read_text(), f"changelog entry for {p.get('version')} in {p['name']}")
+    if p["name"] == "humanizer-voice":
+        ck((src / "learned" / "phrases.log").exists(), "learned sidecar exists")
+        cmd = (src / "commands" / "voice.md").read_text()
+        ck("phrases.log" in cmd, "/voice logs learned phrases deterministically")
 
 skills = list(ROOT.glob("**/SKILL.md"))
 for s in skills:

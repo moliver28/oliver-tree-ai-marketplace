@@ -28,6 +28,23 @@ Pass = zero tokens delivered to the model. Fail = one repair contract, at most 5
 
 `python3 scripts/verify.py` must exit 0 after every change, and you must verify the remote tree (`gh api .../git/trees/main?recursive=1`), not the local commit. CI runs the same script on every push and PR: `.github/workflows/verify.yml`. A local pre-commit hook runs it before commit (`git config core.hooksPath scripts/hooks` after clone).
 
-## 7. Issue law
+## 8. Auto-update law
 
-Anything not implemented NOW becomes a GitHub issue with a scope tag (`provenance`, `onnx`, `detection-thresholds`, `de-personalization`) and acceptance criteria. Unimplemented intentions do not live in prose only.
+- Every plugin carries `CHANGELOG.md` with one entry per released version (Keep a Changelog headings, semver). A version bump without a changelog entry fails verification.
+- Manifest versions and marketplace.json versions must match exactly; the verifier enforces parity per plugin.
+- End users update with `claude plugin update <name>@oliver-tree-ai-marketplace` (marketplace add once; add/install commands live in README). The install section of README.md must always name the update path so consumers never pin a stale version by accident.
+
+## 9. Description law (skill + plugin text)
+
+- Descriptions follow the official Claude Code skill-authoring guide: third person, says WHAT the skill does and WHEN to use it, in one string, max 256 chars for plugins, with two to four real human invocation phrases in quotes (phrases an end user would actually type, not abstract categories).
+- Banned in descriptions: category abstractions alone ("Use when managing writing assets"), feature lists without triggers, internal jargon.
+- New trigger phrases come from the learned sidecar (below), not invention; seed phrases are hand-written from real user language and revised when the learned log contradicts them.
+
+## 10. Learned invocation terms (zero-LLM loop)
+
+`plugins/humanizer/learned/phrases.log` is append-only, written by the /voice command after each successful run: the verbatim $ARGUMENTS line plus a date. This costs zero LLM tokens (a shell redirect, not a model call). During any repo maintenance pass, distill recurring phrasings from the log into the plugin description's trigger-phrase list (dedupe, cap the description at the length limit, keep the change within description law). The maintenance pass, not the runtime, is the only place the description changes; the gate never spends tokens on vocabulary updates.
+
+## 7 (renumber 11). Issue law
+
+Anything not implemented NOW becomes a GitHub issue with a scope tag (`provenance`, `onnx`, `detection-thresholds`, `de-personalization`, `descriptions`, `auto-update`) and acceptance criteria. Unimplemented intentions do not live in prose only.
+
