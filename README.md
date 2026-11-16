@@ -1,4 +1,4 @@
-# AI Marketplace
+# Oliver Tree AI Marketplace
 
 Private index of reusable system assets for pointing ANY AI tool (Claude, Codex, other Hermes profiles) at, without copy-pasting prompts each session.
 
