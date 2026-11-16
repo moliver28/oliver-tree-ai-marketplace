@@ -1,6 +1,6 @@
 ---
 name: voice-michael-oliver
-description: "Write in Michael Oliver's voice: zen Asimov clarity filtered through Foreign Affairs / Economist / Financial Times analytical rigour, applied to UX research, HCI, human factors, and decision science. Load this skill before drafting, rewriting, or editing any written prose."
+description: "Writes and edits prose in Michael Oliver's voice for blogs, LinkedIn posts, reports, and emails. Use when the user says: 'write this in my voice', 'polish this draft to sound like me', 'ghostwrite my blog post', 'edit this cover letter'."
 ---
 
 # VOICE SKILL: MICHAEL OLIVER

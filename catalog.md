@@ -19,5 +19,5 @@ Daneel persona assets (persona voice rules, style-enforcement plugin) are privat
 
 ## Provenance pull (2026-11-16)
 
-Published skills must originate with us. Removed from the mirror as derivative community tooling: engineering/plan + spike (gsd-build), systematic-debugging + test-driven-development + requesting-code-review (obra/superpowers), the humanizer 35-pattern SKILL.md mirror (blader). Details and rewrite debt: PROVENANCE.md and issue #1.
+Published skills must originate with us. DROPPED (owner decision 2026-11-16, not rewritten): plan, spike (gsd-build), systematic-debugging, test-driven-development, requesting-code-review (obra/superpowers), the humanizer 35-pattern SKILL.md mirror (blader). Provenance law: community derivatives are dropped by default; rewrite only on explicit owner approval. Details: PROVENANCE.md; issue #1 closed.
 Added ports (ours, de-personalized): engineering/meta-decision, research/nlp-analyst, business/side-business-gtm, hobby/media-taste-algo (loop-level port; engine code stays private, boundary documented in the skill).

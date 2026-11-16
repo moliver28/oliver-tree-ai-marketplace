@@ -1,6 +1,6 @@
 ---
 name: linkedin-style-learner
-description: Use when deriving an author's LinkedIn voice and post gates.
+description: "Derives an author's LinkedIn voice rules, post templates, and enforceable quality gates from their published posts. Use when the user says: 'learn my LinkedIn style from these posts', 'make my posts sound like me', 'catch AI tells in my drafts'."
 version: 0.1.0
 author: Michael Oliver
 license: MIT

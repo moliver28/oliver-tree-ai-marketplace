@@ -1,6 +1,6 @@
 ---
 name: node-inspect-debugger
-description: "Debug Node.js via --inspect + Chrome DevTools Protocol CLI."
+description: "Debugs Node.js with real breakpoints, stepping, and closure inspection on the running process. Use when the user says: 'this node test fails and console.log is not enough', 'step through the script and watch the state', 'attach and capture a CPU profile'."
 version: 1.0.0
 author: Hermes Agent
 license: MIT

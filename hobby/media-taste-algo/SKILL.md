@@ -3,7 +3,7 @@ name: media-taste-algo
 version: 0.1.0
 author: Michael Oliver
 license: MIT
-description: Use when a person rates shows/movies or gives verdicts, when taste training or retraining matters, when per-person pick lists or watchlist scoring are asked for, or when tuning the recommendation loop.
+description: "Learns each person's movie and show taste from their verdicts and scores watchlists into ranked picks. Use when the user says: 'log that we hated that show', 'what did it learn from my ratings', 'refresh the picks for tonight'."
 metadata:
   tags: [media, recommendations, taste-algorithm, feedback-loop, ratings]
 ---

@@ -3,7 +3,7 @@ name: side-business-gtm
 version: 0.1.0
 author: Michael Oliver
 license: MIT
-description: Use when developing or selling a side-revenue business (opportunity research, GTM, outreach waves, pricing, validation).
+description: "Develops and validates a side-revenue business from the operator's skills: opportunity ranking, go-to-market research, pricing, and outreach waves. Use when the user says: 'turn my skills into a side business', 'find my first ten outreach targets', 'is this side-business idea viable'."
 metadata:
   tags: [business, gtm, outreach, validation, side-revenue]
 ---

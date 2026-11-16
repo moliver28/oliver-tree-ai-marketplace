@@ -18,7 +18,7 @@ Canonical skill copies live in the Hermes runtime (`~/.hermes/skills/`); this re
 
 ## 4. Provenance law
 
-Before adding any skill: grep its header for `author`, `ported/adapted from`, upstream URLs. Community-derived tooling does not publish. If origin is unclear, file an issue tagged `provenance` and stop; you do not decide lineage in-flight.
+Before adding any skill: grep its header for `author`, `ported/adapted from`, upstream URLs. Community-derived tooling does not publish, and the DEFAULT disposition is removal: if the marketplace loses coverage by dropping a derivative, we lose the coverage; no rewrite is started without explicit owner approval in chat. If origin is unclear, file an issue tagged `provenance` and stop; you do not decide lineage in-flight, and you do not decide rewrite-or-drop either.
 
 ## 5. Token law (gate/hook changes)
 

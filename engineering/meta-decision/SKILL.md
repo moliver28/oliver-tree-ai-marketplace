@@ -1,6 +1,6 @@
 ---
 name: meta-decision
-description: "One-way-door decisions: EXPAND, CONTRACT, EMBED, REVIEW."
+description: "Runs a four-phase stress-test for one-way-door decisions: widen the option space, converge, embed the choice so it re-fires, and review before commit. Use when the user says: 'decide whether to commit to this architecture', 'pick between these dependencies', 'think through this irreversible call'."
 version: 0.2.0
 author: Michael Oliver (moliver28)
 license: MIT

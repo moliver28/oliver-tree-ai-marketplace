@@ -1,6 +1,6 @@
 ---
 name: grounded-citations
-description: "Ground answers and documents in cited, verifiable sources."
+description: "Grounds answers and documents in numbered inline citations backed by a verifiable source ledger. Use when the user says: 'add citations to this report', 'where did that claim come from', 'fact-check this brief', 'what is the current state of X'."
 version: 1.2.0
 author: Hermes Agent + Teknium
 license: MIT

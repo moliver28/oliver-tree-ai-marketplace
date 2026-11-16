@@ -1,6 +1,6 @@
 # Provenance
 
-Published assets in this repo must originate with us (moliver28 / Hermes Agent / collaborators), not be slightly modified community tools. Every asset carries an origin row. Community-derived items are removed from the mirror until rewritten as our own work (tracked in the linked issue), even when their license permits copying.
+Published assets in this repo must originate with us (moliver28 / Hermes Agent / collaborators), not be slightly modified community tools. Every asset carries an origin row. Community-derived items are removed from the mirror and dropped, not rewritten, unless the owner approves a rewrite in chat (decision 2026-11-16: all six dropped, issue #1 closed).
 
 ## Origin table (verified 2026-11-16 by header grep)
 

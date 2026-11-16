@@ -44,6 +44,12 @@ skills = list(ROOT.glob("**/SKILL.md"))
 for s in skills:
     head = s.read_text()[:400]
     ck("name:" in head and "description:" in head, f"frontmatter {s.relative_to(ROOT)}")
+    m = re.search(r'description:(.+)', head)
+    if m:
+        d = m.group(1).strip()
+        ck(len(d) <= 310, f"skill description <=300 chars {s.relative_to(ROOT)} ({len(d)})")
+        ck("use when the user says" in d.lower(), f"skill description carries invocation trigger {s.relative_to(ROOT)}")
+        ck(len(re.findall(r"'", d)) >= 4 or len(re.findall(r'\\"', d)) >= 4 or d.count("'") >= 4, f"skill description carries quoted human phrases {s.relative_to(ROOT)}")
 ck(len(skills) >= 6, f"skill count {len(skills)} >= 6")
 
 hooks = ROOT / "plugins" / "humanizer" / "hooks" / "gate.py"

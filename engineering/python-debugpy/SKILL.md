@@ -1,6 +1,6 @@
 ---
 name: python-debugpy
-description: "Debug Python: pdb REPL + debugpy remote (DAP)."
+description: "Debugs Python interactively with pdb breakpoints and attaches debugpy to remote or long-running processes. Use when the user says: 'why is this value wrong in my test', 'step through this function', 'attach to the running daemon and inspect locals', 'post-mortem that crash'."
 version: 1.0.0
 author: Hermes Agent
 license: MIT

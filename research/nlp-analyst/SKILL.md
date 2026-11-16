@@ -1,6 +1,6 @@
 ---
 name: nlp-analyst
-description: "Use for non-LLM NLP analysis or technique scouting."
+description: "Applies non-LLM NLP methods (NER, embeddings, classification, topics) to local corpora and scouts techniques from arXiv and ACL sources. Use when the user says: 'what is the best way to cluster these texts', 'survey current NER methods', 'run topic modeling on this corpus'."
 version: 0.2.0
 author: Michael Oliver (moliver28)
 license: MIT

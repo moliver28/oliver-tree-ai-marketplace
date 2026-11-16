@@ -1,6 +1,6 @@
 ---
 name: llm-integration
-description: "Use when scripts call LLM APIs: JSON mode, retries, gates."
+description: "Hardens scripts that call LLM chat APIs: JSON-mode fallbacks, token-budget retries, and quality gates on generated text. Use when the user says: 'the LLM call returns empty content', 'why does my script fail against LM Studio', 'add a gate that catches bad drafts'."
 version: 0.1.0
 author: Daneel curator
 license: MIT

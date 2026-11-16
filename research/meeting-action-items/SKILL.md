@@ -1,6 +1,6 @@
 ---
 name: meeting-action-items
-description: "Turn meeting notes into cited decisions, owners, tickets."
+description: "Turns meeting notes or transcripts into cited action items with owners, due dates, and follow-up tickets. Use when the user says: 'extract action items from this meeting', 'what did we decide and who owns what', 'draft the follow-up and create tickets'."
 version: 0.1.0
 author: Ben Barclay (benbarclay), Hermes Agent
 license: MIT

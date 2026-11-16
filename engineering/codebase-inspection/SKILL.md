@@ -1,6 +1,6 @@
 ---
 name: codebase-inspection
-description: "Inspect codebases w/ pygount: LOC, languages, ratios."
+description: "Measures a repository's lines of code, language breakdown, and code-vs-comment ratios with pygount. Use when the user says: 'how big is this repo', 'count the lines of code', 'what languages is this codebase written in', 'code vs comments breakdown'."
 version: 1.0.0
 author: Hermes Agent
 license: MIT
