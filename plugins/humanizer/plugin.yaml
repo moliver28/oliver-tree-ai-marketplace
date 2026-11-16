@@ -1,0 +1,14 @@
+plugin:
+  name: humanizer-voice
+  version: 0.1.0
+  description: Learned voice profile + quiet delivery gate; user surface is the /voice command only.
+  author: moliver28
+  entry: SKILL.md
+  command: /voice
+  stages:
+    learn: read onboarding template from repo root; store filled profile per platform convention
+    hooks: optional pre-delivery scan (reference implementation in ../voice-gate/)
+    apply: /voice <target> -> rewrite in learned profile -> gate scan -> copy + one status line
+  surfaces:
+    user_facing: [/voice]
+    background: [learn, scan hooks, logs]

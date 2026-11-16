@@ -7,22 +7,23 @@ Private index of reusable system assets for pointing ANY AI tool (Claude, Codex,
 | Asset | Path | Use |
 |---|---|---|
 | Voice spec (Michael Oliver) | `voice/voice-michael-oliver/` | Generation half: register, structure, validation gates for any prose carrying Michael's name. `voice-spec-ssot.txt` is the authoritative spec. |
-| Humanizer (35 anti-AI patterns) | `humanizer/` | Enforcement half: the tell scan + aphorism budget gate before any public prose ships. |
+| /voice plugin (user surface) | `plugins/humanizer/` | The quiet system: learn profile -> optional scan hooks -> `/voice <target>` applies voice+gate; one status line out. |
 | Voice onboarding template | `onboarding/VOICE_ONBOARDING.template.md` | Fill-in profile for any end user: voice, reader, channels/situations, hard rules, conditions, validation gates. |
 | Author voice learner (LinkedIn) | `writing/linkedin-style-learner/` | Derive an author's voice + post gates from their existing posts; pairs with the voice system. |
 | Engineering workflows | `engineering/` | systematic-debugging, TDD, requesting-code-review, codebase-inspection, spike, llm-integration, plan, node/python debuggers. |
 | Research workflows | `research/` | grounded-citations, document-to-action-items, meeting-action-items. |
 | Triage of everything else | `catalog.md` | Assessed: move-port / list / exclude, with reasons. |
+| Provenance ledger | `PROVENANCE.md` | Origin verification per published asset; community-derived pulls |
 
 ## Pairing rule
 
-Voice skill sets register and structure; humanizer's 35 patterns plus the pattern 35 aphorism budget (max one kicker per section, two to three per piece) gate the pass before delivery.
+Profile sets register and structure; the tell scan plus the aphorism budget (max one kicker per section, two to three per piece) gate the pass before delivery. Enforcement code in `plugins/voice-gate/`.
 
 ## Out of scope (pointed, not stored here)
 
 - **corpus-kb**: local RAG/KG/SQL corpus. Code and docs at `moliver28/corpus-kb` (public repo); live data in `~/.corpus-kb/corpus.db`. Do NOT copy corpus content into this marketplace; tools connect directly.
 - **Obsidian vault**: KB notes live in `moliver28/obsidian-vault`. Referenced by wikilink, never copied here.
-- **Voice-gate hook (humanizer mechanical enforcement)**: mirrored in `plugins/voice-gate/` (voice-gate.py, voice-check.py, voice-tells.py, voice-vector-build.py). Runs as a pre_tool_call hook with regex + vector layers, fail-open when Ollama is down. Live install is `~/.hermes/agent-hooks/`. Scope note: the gate as deployed also enforces personal assistant-voice rules; for public/work installs, trim the pattern list in `voice-tells.py` to the public-facing tells only.
+- **Delivery-gate hook (mechanical enforcement)**: mirrored in `plugins/voice-gate/` (voice-gate.py, voice-check.py, voice-tells.py, voice-vector-build.py). Runs as a pre_tool_call hook with regex + vector layers, fail-open when Ollama is down. Live install is `~/.hermes/agent-hooks/`. Scope note: the gate as deployed also enforces personal assistant-voice rules; for public/work installs, trim the pattern list in `voice-tells.py` to the public-facing tells only.
 
 ## Canonical copy policy
 

@@ -1,6 +1,6 @@
 # Voice onboarding template
 
-Fill in every `<FILL>` block, then delete this header. The completed profile tells any AI tool (Claude, Codex, or another agent) how to speak as THIS person: voice, channels, situations, conditions, and hard rules. Pair it with the humanizer scan: profile sets register and structure, the 35-pattern scan plus the aphorism budget gates every delivery pass.
+Fill in every `<FILL>` block, then delete this header. The completed profile tells any AI tool (Claude, Codex, or another agent) how to speak as THIS person: voice, channels, situations, conditions, and hard rules. Pair it with the delivery gate: profile sets register and structure; the tell scan plus the aphorism budget (enforcement in `plugins/voice-gate/`, user surface in `plugins/humanizer/`) gates every delivery pass.
 
 ## 1. Identity and context
 
@@ -61,7 +61,7 @@ List absolute bans, one per line:
 - [ ] One idea per paragraph; no paragraph over six lines
 - [ ] Strongest counterargument acknowledged, not dodged
 - [ ] Reader can name one thing to do differently
-- [ ] Passed the humanizer 35-pattern scan (one kicker max per section, two or three per piece)
+- [ ] Passed the delivery tell scan (one kicker max per section, two or three per piece)
 
 ## 8. Calibration
 

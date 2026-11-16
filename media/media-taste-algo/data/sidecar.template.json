@@ -1,0 +1,94 @@
+{
+  "_doc": "Fill-in ratings sidecar template (schema only, no data). Replace <placeholder> values. Live file is the SSOT; keep a repo snapshot in data/. Engine code and learned data stay in disjoint paths so code pulls never clobber learned state.",
+  "imdb_rated": [
+    {
+      "title": "Example Film",
+      "year": null,
+      "user_rating": null,
+      "date_rated": null,
+      "imdb_rating": null,
+      "num_votes": null,
+      "runtime_mins": null,
+      "directors": []
+    }
+  ],
+  "chat_ratings": [
+    { "title": "Example Show", "rating": 8, "who": "<primary-user>", "source": "chat-YYYY-MM-DD-<lane>", "landed_ts": null }
+  ],
+  "manual": {},
+  "chat_watched": ["<title>"],
+  "chat_watched_note": "",
+  "negative_signals": ["<title-or-pattern>"],
+  "stretch_lane_state": {},
+  "mid_band": ["<title stuck mediocre after 2+ exposures>"],
+  "watchlist_only": ["<title not in library>"],
+  "lanes": {
+    "<lane-name>": ["<seed-title-1>", "<seed-title-2>"]
+  },
+  "coview_seeds": ["<shared-title>"],
+  "persona_shelves": {
+    "<person>": {
+      "lanes": { "<lane>": ["<seed-title>"] },
+      "genres": ["<bonus-genre>"],
+      "genre_penalty": ["<demoted-genre>"],
+      "negatives": ["<excluded-title>"],
+      "notes": "one string; free-text notes only",
+      "content_flags": { "gore_tolerance": null, "hard_no": ["<content hard-no>"] },
+      "demographics": {
+        "demo_segment": "<fill-in>",
+        "household_role": "<fill-in>",
+        "franchise_loyalty": "<fill-in>",
+        "sensitivity": "<fill-in, e.g. loud/stress formats>"
+      }
+    }
+  },
+  "<person>_ratings": [
+    { "title": "Example Show", "rating": 7.5, "who": "<person>", "source": "chat-YYYY-MM-DD" }
+  ],
+  "surfaced_history": [],
+  "trained_params": {
+    "_doc": "Derived by the trainer only; never hand-edited. Holds lane multipliers, negative penalties, hard-demote list, persona blocks, and trained_params.config snapshot.",
+    "_placeholder": true
+  },
+  "config": {
+    "_doc": "Every operator knob. Code fallbacks exist for all keys; the sidecar value wins.",
+    "anti_lanes": [
+      { "name": "<anti-lane-name>", "match": ["<genre>"], "penalty": 0.5, "media": null, "reason": "<why>" }
+    ],
+    "auto_watchlist": { "enabled": false, "max_per_run": 2, "min_aud": null, "min_aud_discovery": null },
+    "franchise_keywords": ["<franchise>"],
+    "max_per_franchise": 2,
+    "genre_tags_core": ["<genre>"],
+    "graph": { "hops": 1, "hop2_seeds": 20, "hop2_weight": 0.4, "edge_cache": "<CACHE_DIR>/similar_edges.json", "cache_ttl_hours": 168, "ppr_alpha": 0.15, "ppr_iterations": 8 },
+    "seed_creators": ["<director-or-writer>"],
+    "indie_studios": ["<boutique-studio>"],
+    "filler_franchises": ["<sequel-mill-franchise>"],
+    "suggestions_cooldown_weeks": 6,
+    "watchlist_decay_months": 4,
+    "watchlist_decay_floor": 0.3,
+    "franchise_cross_run": { "weeks": 4, "decay": 0.6, "floor": 0.3 },
+    "rewatch_ok": ["<comfort-tier-lane>"],
+    "ask": { "enabled": true, "n": 2 },
+    "explain": true,
+    "slots": { "thompson": { "enabled": false, "prior_alpha": 2, "prior_beta": 2, "solo_extra_threshold": 0.5, "lane_threshold": 0.45, "wildcard_threshold": 0.55 } },
+    "training": { "shrink_k": 3.0, "recency_half_life_days": 50, "recency_floor": 0.2, "implicit_weight": 0.25, "skip_threshold": 5 },
+    "algorithm": {
+      "eb_shrink_enabled": true,
+      "exponential_recency_enabled": true,
+      "implicit_positives_enabled": true,
+      "graded_skips_enabled": true,
+      "ppr_enabled": false,
+      "watchlist_decay_enabled": true,
+      "franchise_cross_run_enabled": true,
+      "thompson_slots_enabled": false,
+      "rewatch_fill_enabled": true
+    },
+    "embeddings": { "enabled": false, "bonus": 0.5, "endpoint": "<local-embeddings-endpoint>", "model": "<st-model>", "timeout_s": 10 },
+    "persona_aliases": { "<alias>": "<person>" },
+    "persona_movie_keyword_block": ["<keyword>"],
+    "discoveries": {
+      "_doc": "Enrichment + discovery keys also live here: max_items_per_run 300, max_age_days 14, api keys, rss feeds, awards pages; see references/operator-config.md",
+      "enabled": false
+    }
+  }
+}

@@ -7,7 +7,7 @@ Skills present in the Hermes runtime, triaged against the marketplace scope (por
 | agent-engineering: deliberation | move-port | Portable once delegate_task language is generalized to "parallel subagents". |
 | agent-engineering: meta-decision | move-port | Strong generic framework; needs the same delegation-wording pass plus trimming Hermes wiring (skill_manage, cronjob, SOUL.md). |
 | software-development: node-inspect-debugger / python-debugpy | (mirrored) | Portable as-is. |
-| research: nlp-analyst | list | Depends on internal corpus-kb and cx-feedback-dataset; portable only after decoupling the local-corpus step. |
+| research: nlp-analyst | (ported) | Published at research/nlp-analyst, 0.2.0, decoupled from internal stores. |
 | research: dataset-building | list | Mostly portable; internal references block contains corpus-specific recipes. |
 | creative: claude-design, sketch, excalidraw, architecture-diagram | list | Generic and portable but off-marketplace-theme; include if the marketplace broadens beyond voice/work. |
 | machine-learning-pro | list | Generic assistant skill, unreviewed for quality. |
@@ -16,3 +16,8 @@ Skills present in the Hermes runtime, triaged against the marketplace scope (por
 ## Excluded by scope decision (2026-11-16)
 
 Daneel persona assets (persona voice rules, style-enforcement plugin) are private-assistant machinery and stay in the Hermes runtime only.
+
+## Provenance pull (2026-11-16)
+
+Published skills must originate with us. Removed from the mirror as derivative community tooling: engineering/plan + spike (gsd-build), systematic-debugging + test-driven-development + requesting-code-review (obra/superpowers), the humanizer 35-pattern SKILL.md mirror (blader). Details and rewrite debt: PROVENANCE.md and issue #1.
+Added ports (ours, de-personalized): engineering/meta-decision, research/nlp-analyst, business/side-business-gtm, media/media-taste-algo (loop-level port; engine code stays private, boundary documented in the skill).
