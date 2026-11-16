@@ -1,6 +1,6 @@
 # CLAUDE.md / any-AI-tool entry point
 
-You have access to a private marketplace of style assets. Working index and pairing rules are in `README.md`.
+Before doing anything, read `README.md` (the asset index) and, if the user has not completed one yet, walk them through `onboarding/VOICE_ONBOARDING.template.md` first. A filled onboarding profile is a prerequisite for prose work.
 
 Before writing prose that will carry Michael Oliver's name:
 1. Read `voice/voice-michael-oliver/voice-spec-ssot.txt` (authoritative voice spec) for register, structure, and validation gates.

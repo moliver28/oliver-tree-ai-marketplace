@@ -8,8 +8,7 @@ Private index of reusable system assets for pointing ANY AI tool (Claude, Codex,
 |---|---|---|
 | Voice spec (Michael Oliver) | `voice/voice-michael-oliver/` | Generation half: register, structure, validation gates for any prose carrying Michael's name. `voice-spec-ssot.txt` is the authoritative spec. |
 | Humanizer (35 anti-AI patterns) | `humanizer/` | Enforcement half: the tell scan + aphorism budget gate before any public prose ships. |
-| Anti-pattern rules (Daneel voice) | `anti-patterns/` | Regex rules YAML (em dash, completion claims, sycophancy, etc.) for assistant-voice linting. |
-| Distilled anti-patterns | `anti-patterns/anti-patterns.md` | Plain-language version for tools that cannot run YAML rules. |
+| Voice onboarding template | `onboarding/VOICE_ONBOARDING.template.md` | Fill-in profile for any end user: voice, reader, channels/situations, hard rules, conditions, validation gates. |
 
 ## Pairing rule
 
@@ -19,8 +18,7 @@ Voice skill sets register and structure; humanizer's 35 patterns plus the patter
 
 - **corpus-kb**: local RAG/KG/SQL corpus. Code and docs at `moliver28/corpus-kb` (public repo); live data in `~/.corpus-kb/corpus.db`. Do NOT copy corpus content into this marketplace; tools connect directly.
 - **Obsidian vault**: KB notes live in `moliver28/obsidian-vault`. Referenced by wikilink, never copied here.
-- **Daneel-style linter engine**: mirrored in `plugins/daneel-style/` plus the runtime CLI `~/.hermes/scripts/daneel_style_lint.py`; only the portable rules YAML also sits in `anti-patterns/`.
-- **Voice-gate hook (humanizer mechanical enforcement)**: mirrored in `plugins/voice-gate/` (voice-gate.py, voice-check.py, voice-tells.py, voice-vector-build.py). Runs as a pre_tool_call hook with regex + vector layers, fail-open when Ollama is down. Live install is `~/.hermes/agent-hooks/`.
+- **Voice-gate hook (humanizer mechanical enforcement)**: mirrored in `plugins/voice-gate/` (voice-gate.py, voice-check.py, voice-tells.py, voice-vector-build.py). Runs as a pre_tool_call hook with regex + vector layers, fail-open when Ollama is down. Live install is `~/.hermes/agent-hooks/`. Scope note: the gate as deployed also enforces personal assistant-voice rules; for public/work installs, trim the pattern list in `voice-tells.py` to the public-facing tells only.
 
 ## Canonical copy policy
 
