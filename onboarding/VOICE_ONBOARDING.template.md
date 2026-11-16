@@ -49,7 +49,16 @@ List absolute bans, one per line:
 
 - **When this profile applies:** (which surfaces get the voice + full scan)
 - **When it does NOT:** (private memos, logs, machine output)
-- **Standing order:** (e.g. "every surface that can reach another human gets the full 35-pattern scan before shipping, without being asked")
+- **STE mode (ASD-STE100 simplified technical English):** chat output is ALWAYS enforced (sentences <= 20 words, <= 3 sentences per paragraph, active voice, no filler verb chains, no vague intensifiers, no dangling "this/these"). For public copy choose one: [ ] full STE also on public  [x] STE on public only where it does not fight the voice (blog prose keeps voice; docs/specs get full STE).
+- **Source-context-only rule:** (default ON) rewrites may draw ONLY on the profile and the text you provide; no invented facts or examples; anything missing is marked `[note: needs source]`.
+- **Standing order:** (e.g. "every surface that can reach another human gets the tell scan before shipping, without being asked")
+
+## 6b. Hooks that nudge (woven, not narrated)
+
+The delivery hooks fire silently after generation and before anything reaches another human:
+- **Chat output (Discord/Slack/agent replies):** STE gate runs on every outgoing reply. Pass = nothing happens. Fail = ONE short nudge line to the assistant before it sends ("STE: sentence over 20 words; patch in place"), never shown to you unless you ask why.
+- **Public copy (posts, docs, emails):** full gate (tell scan + STE per your STE-mode choice). Same silence-on-pass; the repair contract edits flagged phrases only.
+- **Where they register:** Claude Code installs the gate with the plugin; on other platforms, point the platform's pre-send hook at `plugins/humanizer/hooks/gate.py --surface chat` (chat) / `--surface public` (public copy). If the platform has no hook support, `/voice` carries the scan inline and chat output follows the same rules without mechanical enforcement.
 
 ## 7. Validation gates (do not deliver until every line passes)
 

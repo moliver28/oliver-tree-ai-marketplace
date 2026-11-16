@@ -5,8 +5,11 @@ The gate runs between generation and delivery. It is deterministic code; it neve
 | Outcome | Model tokens spent | What happens |
 |---|---|---|
 | Pass | 0 | Gate emits `{"status": "pass"}`. Nothing is re-read, nothing re-enters context. |
+| Chat nudge (STE on chat output) | <= ~60 | One STE fix line to the assistant before it sends; the user never sees it unless they ask why. Fail-open on scan error. |
 | Fail | <= ~200 | Gate emits the hit JSON: distinct patterns (max 5), one span each, one fix line each, plus one instruction block: "REPAIR, DO NOT REWRITE." The model patches the named spans only; the pass is not regenerated and the whole output is not re-emitted. |
 | Scan error | 0 | Fail-open: the gate logs and delivers (designed posture; availability misses must not block delivery). |
+
+Surfaces: `--surface chat` = STE layer only, always on (Discord/Slack/agent replies); `--surface public` = tell scan + STE (or the onboarding STE-mode choice). Same token economy per outcome below.
 
 Conditional design rules:
 

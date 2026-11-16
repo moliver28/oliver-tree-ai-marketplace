@@ -55,6 +55,11 @@ ck(len(skills) >= 6, f"skill count {len(skills)} >= 6")
 hooks = ROOT / "plugins" / "humanizer" / "hooks" / "gate.py"
 sloppy = "The tool serves as a foundation for innovation, and that is okay. It is not just about speed, it is about unlocking value at the end of the day."
 clean = "The scanner loads the rules from the shared module, so the hook and the checker cannot drift."
+r_chat = subprocess.run(["python3", str(hooks), "--surface", "chat"], input="The configuration was completed in order to provide a really robust system that everybody in the building uses daily without any problems.", capture_output=True, text=True)
+ck(r_chat.returncode == 4, "gate chat surface fails STE-breaking text (exit 4)")
+r_chat2 = subprocess.run(["python3", str(hooks), "--surface", "chat"], input="Set the timeout. The scanner reads the config first. Save the file.", capture_output=True, text=True)
+ck(r_chat2.returncode == 0, "gate chat surface passes clean STE text (exit 0)")
+ck("Ste" not in r_chat2.stdout, "chat pass carries no nudge")
 r = subprocess.run(["python3", str(hooks)], input=sloppy, capture_output=True, text=True)
 ck(r.returncode == 4 and json.loads(r.stdout)["status"] == "fail", "gate fails sloppy text (exit 4)")
 r2 = subprocess.run(["python3", str(hooks)], input=clean, capture_output=True, text=True)

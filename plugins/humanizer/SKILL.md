@@ -21,8 +21,9 @@ Quiet-background writing profile system. Three stages, only one of which the use
 where `<target>` is the text, file, or draft slot to process. Behavior:
 
 - Load the learned profile (error once, with the onboarding pointer, if none exists).
-- Rewrite the target in that profile's register and structure (generation pass).
-- Run the delivery scan (tell scan + aphorism budget, enforcement source in `plugins/voice-gate/voice-tells.py`).
+- SOURCE-CONTEXT-ONLY RULE (ASD-STE100 discipline applied to fidelity): the rewrite may use ONLY (a) the user's onboarding profile (voice, channels, bans) and (b) the facts present in the provided text or attachments. Never add facts, statistics, examples, metaphors, or emphasis from internal priors. If a passage needs context the profile and source do not carry, write it plainly and mark `[note: needs source]`; never invent.
+- Rewrite the target in that profile's register and structure within the source boundary (generation pass).
+- Run the delivery gate: `python3 $CLAUDE_PLUGIN_ROOT/hooks/gate.py --surface public` (stdin = the generated text).
 - Return final copy plus a one-line gate status (`voice: pass` or `voice: 2 fixes applied`). Never narrates the pattern list.
 
 ## Surface contract
