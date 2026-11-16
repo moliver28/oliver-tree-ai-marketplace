@@ -8,6 +8,7 @@ Private index of reusable system assets for pointing ANY AI tool (Claude, Codex,
 |---|---|---|
 | Voice spec (Michael Oliver) | `voice/voice-michael-oliver/` | Generation half: register, structure, validation gates for any prose carrying Michael's name. `voice-spec-ssot.txt` is the authoritative spec. |
 | /voice plugin (user surface) | `plugins/humanizer/` | Rewrites copy in your learned voice, quiet tell gate, `/voice` applies and reports one line. Learns your phrasing on the side, zero LLM tokens. |
+| Zero-AI-Tells Register | `onboarding/zero-ai-tells-register.md` | The 37-pattern rulebook + hard bans behind the gate, the portable copy of the owner's canonical register. |
 | Voice onboarding template | `onboarding/VOICE_ONBOARDING.template.md` | Fill-in profile for any end user: voice, reader, channels/situations, hard rules, conditions, validation gates. |
 | Author voice learner (LinkedIn) | `writing/linkedin-style-learner/` | Derive an author's voice + post gates from their existing posts; pairs with the voice system. |
 | Engineering workflows | `engineering/` | systematic-debugging, TDD, requesting-code-review, codebase-inspection, spike, llm-integration, plan, node/python debuggers. |

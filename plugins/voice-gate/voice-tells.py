@@ -102,6 +102,13 @@ PATTERNS = [
     (r"\bwould\s+you\s+like\s+me\s+to\b", "chatbot artifact 'Would you like me to...'"),
     (r"\bi\s+hope\s+this\s+helps?\b", "chatbot artifact 'I hope this helps'"),
     (r"\bfeel\s+free\s+to\s+(?:reach\s+out|let\s+me\s+know)\b", "chatbot artifact 'feel free to...'"),
+    # Zero-AI-Tells Register adds (owner order 2026-11-11/12): patterns 36, 37
+    (r"\b(?:it\s+deserves|that\s+deserves)\s+a\s+(?:real|proper)\s+answer\b", "teaser handoff 'deserves a real answer' (register 36: carry the transition in the next section's first line of evidence)"),
+    (r"\b(?:shows?|tells?|will\s+show)\s+(?:you\s+)?what\s+that\s+costs?,?\s+with\s+(?:dates|numbers)\s+attached\b", "teaser handoff 'X shows what that costs, with dates attached' (register 36)"),
+    (r"\b(?:and\s+)?(?:someone|somebody)\s+is\s+filling\s+it\b", "teaser handoff 'someone is filling it' (register 36)"),
+    (r"\b(?:to\s+be\s+precise|want\s+to\s+be\s+precise)\s+(?:here\s+)?[,:;.]\b", "performed candor 'to be precise (here)' (register 37: state the caveat as a fact)"),
+    (r"\b(?:a\s+|the\s+)?cost\s+worth\s+stating\b", "performed candor 'a cost worth stating' (register 37)"),
+    (r"\blet\s+me\s+be\s+(?:honest|clear|precise)\b", "performed candor 'let me be honest/clear/precise' (register 37)"),
 ]
 
 _FLAGS = re.IGNORECASE
@@ -126,6 +133,8 @@ EXEMPLARS = [
     "A posting increasingly displays a decision made elsewhere, and the funeral everyone keeps describing is a reorganization.",
     "And that's okay. Every team starts somewhere, and there's nothing wrong with growing from there.",
     "They deliver robust, best-in-class, world-class solutions that supercharge productivity and enhance collaboration.",
+    "Someone is filling it. X shows what that costs, with dates attached. It deserves a real answer.",
+    "To be precise here, that is a cost worth stating, and let me be honest about the arithmetic.",
 ]
 
 _cache = None  # loaded vectors
