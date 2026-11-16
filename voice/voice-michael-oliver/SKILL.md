@@ -14,6 +14,8 @@ This skill is NOT for TTS/audio synthesis. Use `text_to_speech` for spoken outpu
 The canonical voice specification lives in:
 `/Users/moliver/Downloads/Michael Oliver's Voice.rtf`
 
+A portable mirror (extracted from the Notion Meta Agent Master Prompt) lives alongside this skill as `voice_style.md` (full Tier-3 spec) and `voice-spec-ssot.txt`. Published copy: the public repo `moliver28/oliver-tree-ai-marketplace` (voice/voice-michael-oliver).
+
 That RTF file is the authoritative reference (extracted from the Notion Meta Agent Master Prompt). If you find a discrepancy between this skill and the RTF, the RTF wins. Update this skill to match.
 
 ## VOICE DNA (in order of weight)
