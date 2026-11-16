@@ -1,0 +1,17 @@
+{
+  "_readme": "Config template for the LinkedIn post generator. Copy to ~/.hermes/scripts/linkedin_config.json to activate; or place config.json in a redirect directory and point LINKEDIN_TEMPLATES_DIR at it. With no live config file anywhere, all four scripts (linkedin_render.py, linkedin_voicebook_check.py, linkedin_lever_check.py, voice_guard.py) behave byte-identically to their built-in defaults.",
+  "template_dir": "~/.hermes/scripts/linkedin_templates",
+  "url_allowlist": ["notion\\.site", "synology-nas"],
+  "ollama_url": "http://127.0.0.1:11434/api/embed",
+  "voice_corpus": [
+    "/Users/moliver/Documents/uxr-blog/pipeline/why-ux-researchers-undertrust-ai-synthesis/final-draft.md",
+    "/Users/moliver/.hermes/cache/web/michaeleoliver.notion.site-01d31214f7.md",
+    "/Users/moliver/Documents/uxr-blog/marketing/2026-10-03-why-ux-researchers-undertrust-ai-synthesis/linkedin-post.md"
+  ],
+  "_notes": {
+    "url_allowlist": "Regex list; any match marks a URL public (used by the LINK slot gate, the checker link-line gate, and selection viability). app.notion.com is always rejected in code, regardless of config.",
+    "template_dir": "Only consulted when LINKEDIN_TEMPLATES_DIR is not set; the env var wins.",
+    "ollama_url": "Full /api/embed endpoint used by voice_guard.py; defaults to the local URL above.",
+    "voice_corpus": "Voice-corpus paths used by voice_guard.py --init/--check."
+  }
+}

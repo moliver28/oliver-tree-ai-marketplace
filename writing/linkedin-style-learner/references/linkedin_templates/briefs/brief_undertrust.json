@@ -1,0 +1,33 @@
+{
+ "title": "Why UX Researchers Undertrust AI Synthesis",
+ "primary_keyword": "distrust AI synthesis",
+ "tags": [
+  "ai synthesis",
+  "provenance",
+  "epistemic access",
+  "distrust AI synthesis"
+ ],
+ "link": "https://michaeleoliver.notion.site/3f1ef56cb23c8146a144e14126da3a65",
+ "stat": "88 percent of surveyed UX researchers call AI-assisted analysis the top trend this year, and 77 percent already use AI somewhere in their workflow",
+ "source": "A published survey of UX researchers this year",
+ "topic_claim": "the distrust of AI synthesis is the field's stated position",
+ "story_examples": [
+  "One agent scanned four hundred papers and chose the twelve that counted as sources.",
+  "Another ranked a season of interview notes by strategic fit against our scoring sheet.",
+  "A third drafted the synthesis report before anyone opened the raw quote file."
+ ],
+ "thesis": "That gap is why researchers distrust AI synthesis even when the output reads well: refusing to ship unverifiable claims is professional, not stubborn. The teams that keep access build differently, with traceable claims and counter-evidence on the record. Provenance gates, inspectable rationales, and a record of what got filtered before anyone looked are the specification",
+ "design_moves": [
+  "put provenance gates in front of every synthesized claim",
+  "keep inspectable rationales on the record",
+  "surface counter-evidence by default"
+ ],
+ "counter": "Researchers who refuse to hide the work are keeping the craft honest, and refusing to automate guards nothing on its own",
+ "definition": "Epistemic access is a researcher's ability to walk backward from a claim to the evidence that holds it up",
+ "gap_stat_a": "61 percent of researchers trust AI to find patterns",
+ "gap_stat_b": "only 47.6 percent trust it to turn patterns into recommendations",
+ "takeaway": "Keep epistemic access inspectable: traceable claims, rationales on the record, counter-evidence surfaced by default.",
+ "question_tail": "What would it take for your stack to pass that test?",
+ "person_context": "I run agentic pipelines for research every week",
+ "consensus_holder": "most UX researchers I read"
+}

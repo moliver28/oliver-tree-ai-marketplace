@@ -1,0 +1,31 @@
+{
+ "title": "Human Judgment in the Agent Workflow",
+ "primary_keyword": "human judgment",
+ "tags": [
+  "human judgment",
+  "agent workflows"
+ ],
+ "link": "https://michaeleoliver.notion.site/52f6da05b3244f0c841c2e1264a70db5",
+ "stat": "69 percent of UX researchers now use AI in at least some of their projects, a 19-point jump from last year",
+ "source": "A published industry survey of UX researchers this year",
+ "topic_claim": "human judgment in agent workflows is the fixed line",
+ "story_examples": [
+  "One agent scanned four hundred papers and chose the twelve that counted as sources.",
+  "Another ranked a season of interview notes by strategic fit against our scoring sheet.",
+  "A third drafted the synthesis report before anyone opened the raw quote file."
+ ],
+ "thesis": "The question stops being human versus machine and becomes architecture: which judgment calls stay human, which get automated, and who verifies both. The machine's rationale needs to be on the record. Expose the calls, and the boundary moves by design",
+ "design_moves": [
+  "keep interpretation and recommendation human",
+  "expose the rationale",
+  "log what got filtered before you looked"
+ ],
+ "counter": "Teams lean on the boundary when they configure their workflows. The framing reads as prudence, and prudence calms stakeholders more than it protects the research",
+ "definition": "Judgment surface is the set of calls an agent workflow makes before a human reads a word",
+ "gap_stat_a": "61 percent of researchers trust AI to find patterns",
+ "gap_stat_b": "only 47.6 percent trust it to turn patterns into recommendations",
+ "takeaway": "Build for traceability: keep interpretation human, expose the rationale, log every filter.",
+ "question_tail": "Where in your workflow does human judgment still make a call you never see?",
+ "person_context": "I have spent the past year building AI-augmented research workflows",
+ "consensus_holder": "most UX researchers I read"
+}

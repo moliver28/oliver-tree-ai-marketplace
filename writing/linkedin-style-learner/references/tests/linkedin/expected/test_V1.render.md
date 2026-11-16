@@ -1,0 +1,9 @@
+74 percent of research teams now run an AI step inside synthesis, up from 41 percent two years ago. the practice of treating survey provenance as settled is now the field's default answer.
+
+Configure an agent workflow and the story breaks: one agent scanned four hundred papers and chose the twelve that counted as sources. Another ranked a season of interview notes by strategic fit against our scoring sheet. A third drafted the synthesis report before anyone opened the raw quote file.
+
+That changes the work. Every fix costs more than it should because nothing tracks which claim a correction touched. Corrections matter less than correction effort, the time a fix costs a reader who wants to disagree. The fix queue is where that cost gets paid, one note at a time.
+
+I have shipped agent pipelines for two years. Build for that deliberately: keep a claim-level change log, require the source quote next to every fixed line, review the fix instead of the document. Write the filter you would want run on you: expose rationale, log the cut, show the raw. Which step in your pipeline still claims survey provenance it cannot show?
+
+https://michaeleoliver.notion.site/9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b
