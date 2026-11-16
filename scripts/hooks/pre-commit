@@ -1,0 +1,9 @@
+#!/bin/sh
+# Marketplace pre-commit: the enforcement half of MAINTENANCE.md.
+
+cd "$(git rev-parse --show-toplevel)"
+python3 scripts/verify.py || {
+  echo ""
+  echo "BLOCKED by marketplace verify. Read MAINTENANCE.md and fix before committing."
+  exit 1
+}
