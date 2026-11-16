@@ -31,4 +31,4 @@ where `<target>` is the text, file, or draft slot to process. Behavior:
 - The plugin never asks the user to fill things in twice; learning happens once at setup.
 - Default output is the copy, not commentary. Status line last, one line.
 - If no profile exists yet, `/voice <text>` responds with a single line: "No voice profile yet. Run setup (the onboarding template) once; then /voice works everywhere."
-- `/voice --dry` runs the scan only and emits the report without rewriting.
+- `/voice --dry` runs the gate only: no rewrite, no profile work, no learning log write. Pipe the raw `--dry` text through `python3 $CLAUDE_PLUGIN_ROOT/hooks/gate.py --surface public`, then respond with the one-line status and (on fail) the repair list, so the author can edit by hand.

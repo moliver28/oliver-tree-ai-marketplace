@@ -4,8 +4,8 @@ Skills present in the Hermes runtime, triaged against the marketplace scope (por
 
 | Item | Source tier | Assessment |
 |---|---|---|
-| agent-engineering: deliberation | move-port | Portable once delegate_task language is generalized to "parallel subagents". |
-| agent-engineering: meta-decision | move-port | Strong generic framework; needs the same delegation-wording pass plus trimming Hermes wiring (skill_manage, cronjob, SOUL.md). |
+| agent-engineering: deliberation | on-request | Not mirrored; portable once the delegate_task language is generalized to "parallel subagents". Ask in chat to trigger the port; it is not scheduled on its own. |
+| agent-engineering: meta-decision | (ported) | Published at engineering/meta-decision, 0.2.0, de-Hermes-ized. The original catalog row is superseded. |
 | software-development: node-inspect-debugger / python-debugpy | (mirrored) | Portable as-is. |
 | research: nlp-analyst | (ported) | Published at research/nlp-analyst, 0.2.0, decoupled from internal stores. |
 | research: dataset-building | list | Mostly portable; internal references block contains corpus-specific recipes. |
