@@ -11,8 +11,15 @@ Private index of reusable system assets for pointing ANY AI tool (Claude, Codex,
 | Zero-AI-Tells Register | `onboarding/zero-ai-tells-register.md` | The 37-pattern rulebook + hard bans behind the gate, the portable copy of the owner's canonical register. |
 | Voice onboarding template | `onboarding/VOICE_ONBOARDING.template.md` | Fill-in profile for any end user: voice, reader, channels/situations, hard rules, conditions, validation gates. |
 | Author voice learner (LinkedIn) | `writing/linkedin-style-learner/` | Derive an author's voice + post gates from their existing posts; pairs with the voice system. |
-| Engineering workflows | `engineering/` | systematic-debugging, TDD, requesting-code-review, codebase-inspection, spike, llm-integration, plan, node/python debuggers. |
-| Research workflows | `research/` | grounded-citations, document-to-action-items, meeting-action-items. |
+| Engineering workflows | `engineering/` | codebase-inspection, llm-integration, node/python debuggers, meta-decision, prompt-engineering, deliberation, iit-hci-integration. |
+| Research workflows | `research/` | grounded-citations, document-to-action-items, meeting-action-items, nlp-analyst, academic, literature-review. |
+| Prompt engineering | `engineering/prompt-engineering/` | COSTAR prompt optimization with evidence-based technique selection; explains every change it makes. |
+| Deliberation | `engineering/deliberation/` | Multi-perspective stress-test: initial analysis, simulated stakeholder reactions from parallel subagents, refined conclusion. |
+| IIT+HCI integration | `engineering/iit-hci-integration/` | Discovers the agent CLI's components at runtime, maps workflow gaps, wires dual-layer enforcement. |
+| Academic sourcing | `research/academic/` | Parallel scholarly database search; peer-review status, evidence hierarchy, citation rigor. |
+| Literature review | `research/literature-review/` | FSM-based systematic review protocol: scoping through PRISMA-style reporting. |
+| Decision advisor plugin | `plugins/decision-advisor/` | `/decide` and the decision-advisor agent run the meta-decision pipeline on one-way doors; pairs with `engineering/meta-decision/`. |
+| UXR plugin | `plugins/uxr-plugin/` | UX research operations: studies, specs, recruitment, interview scripts, reports, decks, tracker tickets. |
 | Triage of everything else | `catalog.md` | Assessed: move-port / list / exclude, with reasons. |
 | Provenance ledger | `PROVENANCE.md` | Origin verification per published asset; community-derived pulls |
 
@@ -22,11 +29,15 @@ Private index of reusable system assets for pointing ANY AI tool (Claude, Codex,
 claude plugin marketplace add moliver28/oliver-tree-ai-marketplace
 claude plugin install humanizer-voice@oliver-tree-ai-marketplace
 claude plugin install voice-gate@oliver-tree-ai-marketplace
+claude plugin install decision-advisor@oliver-tree-ai-marketplace
+claude plugin install uxr-plugin@oliver-tree-ai-marketplace
 
 Updates (run after any release note here):
 ```
 claude plugin update humanizer-voice@oliver-tree-ai-marketplace
 claude plugin update voice-gate@oliver-tree-ai-marketplace
+claude plugin update decision-advisor@oliver-tree-ai-marketplace
+claude plugin update uxr-plugin@oliver-tree-ai-marketplace
 ```
 
 Then `/voice <text>` after one onboarding pass. Consumable from any other AI tool by pointing it at `CLAUDE.md` in this repo.

@@ -1,0 +1,61 @@
+# Plugin CI. The smoke gate is authoritative locally and in CI; the
+# `claude plugin validate` step is non-blocking because the CLI may
+# require auth in CI.
+name: plugin-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".claude-plugin/**"
+      - "hooks/**"
+      - "scripts/**"
+      - "commands/**"
+      - "skills/**"
+      - "agents/**"
+      - "lib/**"
+      - "config/**"
+      - "templates/**"
+      - "references/**"
+      - "README.md"
+      - "CHANGELOG.md"
+      - ".github/workflows/plugin-ci.yml"
+  pull_request:
+    paths:
+      - ".claude-plugin/**"
+      - "hooks/**"
+      - "scripts/**"
+      - "commands/**"
+      - "skills/**"
+      - "agents/**"
+      - "lib/**"
+      - "config/**"
+      - "templates/**"
+      - "references/**"
+      - "README.md"
+      - "CHANGELOG.md"
+      - ".github/workflows/plugin-ci.yml"
+
+jobs:
+  plugin-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install test dependencies
+        run: python3 -m pip install pyyaml jsonschema
+
+      - name: Run the smoke test
+        run: python3 scripts/smoke_test.py
+
+      # Non-blocking: the Claude Code CLI may require auth in CI, and the
+      # smoke gate above is authoritative locally and in CI.
+      - name: Validate the plugin manifest
+        continue-on-error: true
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude plugin validate .

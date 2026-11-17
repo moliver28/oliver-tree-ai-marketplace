@@ -1,0 +1,9 @@
+{
+  "name": "decision-advisor",
+  "description": "Meta-cognitive decision analysis for one-way doors: expand options, contract to the elegant solution, embed enforcement. Use when the user says: 'decide whether to...', 'run a meta-decision on...', 'stress-test this decision'.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Michael Oliver"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,158 @@
+---
+description: "Fill one study with participants: internal calendar-slot outreach with holds and reply tracking, or the external funnel (size, source, exclusions, booking page, mail merge) with one pre-send stop"
+argument-hint: "<KEY> [--recruit=<name>] [--reply=<name>] [--level=i|ii|iii] [--external] [--status] [--check] [--dry-run]"
+---
+
+Recruit participants for one study in a single command. The internal flow
+(default) offers calendar slots, drafts a chat DM and an email, places
+private holds, and tracks replies. The external flow (`--external`) sizes
+the eligible group, sources contacts, applies exclusions, builds a booking
+page, drafts the mail merge, and stops exactly once at the pre-send review.
+Every run ends with the recruitment table from `scripts/recruit_funnel.py`.
+
+## Safety rules (read before any step; they override everything below)
+
+1. **Drafts only.** Never send a chat message or an email. The single
+   exception is the external self-test, which goes only to the user's own
+   inbox.
+2. **Per-move consent.** Every event move needs its own "go" for that one
+   proposal. A private hold with no attendees is the only event created
+   without a separate go.
+3. **Never move** an event that has an attendee outside
+   `org.internal_domains`, whatever the level or `--allow`. At most 3 moves
+   per recruit per run (`calendar.max_moves_per_recruit`).
+4. **Exclusions fail closed.** If the do-not-contact tab or the open-deal
+   list cannot be read, stop. `scripts/source_contacts.py` exits 2; never
+   improvise around it.
+5. **Customer personal data stays in the spreadsheet store.** No customer
+   email or account list goes into the repository, the ticket (outside
+   engaged roster rows), or chat logs. Refer to a contact as account plus
+   first name. `recruit_funnel.py` scrubs emails from its output; do not
+   paste them back in.
+6. **No URL in a mail draft body** when the mail tool rewrites links: keep
+   the booking link in its merge column, or print it for the user to paste.
+   Retest with check V2 on the user's own mail tool.
+7. `--dry-run` writes nothing: no spec change, no event, no draft.
+
+## Inputs
+
+`$ARGUMENTS` is `<KEY>` with any of: `--recruit=<name>`, `--reply=<name>`,
+`--level=i|ii|iii` (default `ii`), `--allow=<eventId>`, `--keep=<eventId>`,
+`--window=<N>` (default 14, max 60), `--external`, `--coordinate`,
+`--status`, `--check`, `--dry-run`, `--nudge-after=<N>` (default 2 business
+days).
+
+## Setup (every run)
+
+1. Load configuration once (`python "${CLAUDE_PLUGIN_ROOT}/lib/config.py"
+   --print`). Note `recruit.*` (statuses, window_days, session_minutes,
+   nudge_after_days, sheets, wave_tab_headers, booking_url_regex),
+   `calendar.*`, `org.internal_domains`, and `org.notetaker_email`.
+2. Resolve the workspace with `scaffold_workspace.py lookup-workspace
+   --ticket <KEY> --readme <research_root>/README.md`.
+3. Read the ticket: summary, status, start date, target end date. Load the
+   roster from the spec at `<state_dir>/specs/<KEY>.spec.json` (never
+   parse it from the ticket body; a missing spec means run
+   `backfill_spec.py` first, read-only).
+4. Window start = the later of today and the start date. Window end = the
+   earlier of the target date and today plus `--window` days. If the end
+   is not after the start, print "The study window is closed; pass
+   `--window=<N>` to extend it." and stop.
+5. Empty roster: print the `roster+=Name|email|slack|reason|status|channel`
+   hint (via `uxr-edit`) and stop.
+6. Run `scaffold_workspace.py validate-recruitment --path
+   <workspace>/recruitment/participants.md --method <method_key> --channel
+   <channel>`; its warnings are advisory; never block on them.
+
+## Internal flow (default)
+
+| Phase | What you do |
+|---|---|
+| A. Read | The setup steps above. Take the first research question as `top_rq` for the drafts. |
+| B. Pick | Filter roster rows by `--recruit=<name>`, else the initial status (Potential Candidate). Skip `channel: external` rows with a one-line pointer to `--external`. |
+| C. Slots | Save the window's calendar events to a JSON dump, then run `scripts/calendar_prep.py <dump> --manager "<calendar.manager_names>" [--keep <id>] [--allow <id>]`. Follow `references/calendar-rules.md` for the level rules. Free slots come from the classes: level i free only; level ii free plus movable; level iii free plus anything not immovable. Pick 3 to 5 slots across days, rounded to 15 minutes, inside `calendar.working_hours`. Fewer than 3: say so and ask to try `--level=iii`. |
+| D. Draft | For each picked recruit: a chat DM draft (only when the roster row has a slack handle) and an email draft (always), shaped by `references/recruit-outreach.md` with `top_rq` as `why_this_recruit`. Place one private hold per slot: title `[HOLD] {study_short_name} chat: {first_initial}. {last_name} ({day_abbrev} {M/D})`, no attendees, description per the reference. Print the block with reply options `sent`, `edit slack`, `edit email`, `skip`, `go ahead and move <id>`. `--dry-run` prints the drafts and hold titles and creates none of them. |
+| E. Sent | On `sent`: `scripts/roster_apply.py --spec <spec> --ops '{"update":[{"match":"<name>","set":{"status":"Outreach Sent"}}]}' --out <body.json>` (survey studies use `Survey Sent`), push the body through `references/tracker.md` `update_item`, append one `outreach-log.md` entry with `scaffold_workspace.py append-outreach-entry`, and remind the user to update `participants.md`. |
+| F. Reply | `--reply=<name>`: ask the user to paste the reply. Slot picked with a hold: tell the user to add the recruit to the hold guests, set the row to `Scheduled` with `roster_apply.py`, and remind them to delete the other holds. Decline: `Cancelled`. Reschedule: back to phase C for new slots and holds. |
+| G. Moves | Only on `go ahead and move <id>`: show the current time, the proposed time, the attendees, and the rule from `calendar-rules.md`; wait for a plain `yes`; then move, read the event back, and show the result. One go moves one event; count to 3 per recruit per run. |
+| H. Check | `--check`: for each active study, find roster rows in an outreach status, search chat and mail for replies over the last 14 days, classify each (slot picked, wants new options, declined, no reply), and propose exactly one action per row: `book <name>`, `send <name>`, `edit`, `skip`, `decline`, `go`. Then run `recruit_funnel.py --reminder` logic: after `--nudge-after` business days with no reply, draft one shorter follow-up. |
+
+Finish every internal run (and every `--status`) by printing the
+recruitment table: `recruit_funnel.py --spec <spec> [--funnel-data
+<export>]`. `--status` prints the table and nothing else.
+
+## External flow (`--external`)
+
+One run, one stop at the pre-send review. Never re-source a person already
+on a wave tab.
+
+1. **Resume.** Read roster rows past the initial status and every tab in
+   `funnel.tabs`.
+2. **Fit.** On the first wave, define the persona as a product-analytics
+   cohort and record `funnel.fit` (`users`, `accounts`, `as_of`, `basis`)
+   via `roster_apply.py` funnel ops. Keep the first fit unless the user
+   says `refit`.
+3. **Size.** Default cold wave: 50 sends, 1 to 2 contacts per account,
+   most active accounts first.
+4. **Source.** Export the allowed-to-send, do-not-contact, and open-deal
+   tabs to CSV, then `scripts/source_contacts.py --contacts <csv> --dnc
+   <csv> --deals <csv> --accounts "<list>" [--filter --industry
+   --job-level --segment] [--stale-days <N>]`. Exit 2 means stop: the
+   exclusions failed closed.
+5. **Email ladder.** Ask every connected channel, merge by email, and
+   record the lowest-numbered source in the wave tab's Email Source
+   column: (1) the contact sheet; (2) the analytics cohort; (3) the
+   feedback knowledge graph; (4) mail and calendar search on the account
+   domain; (5) call-recording profiles; (6) roster rows; (7) any other
+   connected CRM. Never guess an address from a pattern. Never probe a
+   mail server.
+6. **Clear.** `source_contacts.py --check-emails "<emails>" --accounts
+   "<accounts>"`. Drop do-not-contact, withheld, open-deal, and opt-out
+   contacts; hold an at-risk account for the account manager's OK (with
+   `--coordinate`, draft the chat notes asking for those OKs and the warm
+   intro; never send them).
+7. **Booking page.** Reuse a verified page or build one to the settings in
+   `references/recruit-outreach.md`. Verify the public link shows bookable
+   slots.
+8. **Mail merge.** Copy the merge template sheet once per study and save
+   it to `funnel.sheet`. Create the draft, then run the checks: V1 with
+   `recruit_funnel.py --check-draft <draft>`; V2 self-test to the user's
+   own inbox only; V3 open the link; V4 `recruit_funnel.py --spec <spec>
+   --preflight --funnel-data <export>`.
+9. **Wave tab.** Build the tab with the headers from the reference; each
+   skip is a row with `skip: <reason>` in Email Sent. Save the tab name
+   into `funnel.tabs` with `roster_apply.py`.
+10. **Pre-send review (the stop).** Show the recruitment table, off-sheet
+    contacts, the no-email-found list, flagged accounts, proposed calendar
+    moves, the exact subject and body, and the V1 to V4 results. Last line:
+    "Click Mail Merge > Send Emails on the <tab> tab, or reply `send` and
+    I will." Wait. `--dry-run` never reaches this stop.
+11. **After the send.** Rerun V4, confirm the active tab, mark bounces
+    " (bounced)" (never delete a row), append everyone emailed to the
+    do-not-contact tab, and flip named roster rows with `roster_apply.py`.
+12. **Replies.** Every later run: find booking-page bookings and add each
+    booker as `Scheduled` in one `roster_apply.py` batch.
+
+Finish the external run with the recruitment table from
+`recruit_funnel.py --spec <spec> --funnel-data <export> --wave <tab>`.
+Output never contains an email address; keep it that way in anything you
+paste into chat or the ticket.
+
+## Scripts
+
+| Script | Contract |
+|---|---|
+| `scripts/recruit_funnel.py --spec <path> [--wave <tab>] [--preflight] [--reminder] [--funnel-data <json>] [--check-draft <file>] [--today <date>]` | Prints the nine-row recruitment table; `--preflight` exits 2 with `BLOCK <account> / <first>: <reason>` lines or prints `PREFLIGHT OK: <n> rows ready on <tab>`; `--reminder` drafts nudges; `--check-draft` is check V1. Output never contains an email address. |
+| `scripts/source_contacts.py` | Sources and clears contacts; account match is normalized whole words ("Box" never matches "Dropbox"); missing do-not-contact or open-deal tab exits 2 and sources nothing. |
+| `scripts/roster_apply.py --spec <path> --ops <json-or-@file> --out <body.json> [--dry-run]` | The only spec write path: validate, render, then write spec and body; exit 3 on validation failure with nothing written; duplicate adds promote only, never demote. |
+| `scripts/calendar_prep.py <events.json> [--manager <names>] [--keep <id>] [--allow <id>]` | Classifies the window's events into `pto`, `immovable`, `movable`, `other`; weekends and declined events are skipped. |
+| `scripts/scaffold_workspace.py lookup-workspace / append-outreach-entry / validate-recruitment` | Workspace resolution, outreach log entries, participants table checks (from issue 08). |
+
+## Rules of last resort
+
+- Every gate waits for a plain human word: `sent`, `yes`, `go`, `send`,
+  `skip`, `decline`, `edit`. Never act on a guessed confirmation.
+- One `update_item` per run via the spec pipeline; comments carry the
+  `comments.footer`.
+- If the user asks "who have we contacted", answer with `--status`'s table,
+  not a chat search transcript.

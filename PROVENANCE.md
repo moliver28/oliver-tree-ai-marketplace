@@ -17,6 +17,14 @@ Published assets in this repo must originate with us (moliver28 / Hermes Agent /
 | research/nlp-analyst (port) | Michael Oliver + Hermes Agent | ours, published (decoupled from internal stores, 0.2.0) |
 | business/side-business-gtm (port) | Michael Oliver | ours, published (de-personalized) |
 | hobby/media-taste-algo (port) | agent-authored for Michael | ours, published (de-personalized; engine code stays private, documented boundary) |
+| engineering/prompt-engineering (port) | Michael Oliver + ZCode agent (zcode), built in zcode runtime, ported 2026-11-17 | ours, published |
+| engineering/deliberation (port) | Michael Oliver + ZCode agent (zcode), built in zcode runtime, ported 2026-11-17 | ours, published (delegate_task language generalized to parallel subagents) |
+| engineering/iit-hci-integration (port) | Michael Oliver + ZCode agent (zcode), built in zcode runtime, ported 2026-11-17 | ours, published (runtime paths generalized to any agent CLI) |
+| research/academic (port) | Michael Oliver + ZCode agent (zcode), built in zcode runtime, ported 2026-11-17 | ours, published (internal-workflow marker removed) |
+| research/literature-review (port) | Michael Oliver + ZCode agent (zcode), built in zcode runtime, ported 2026-11-17 | ours, published |
+| engineering/meta-decision/reference.md | Michael Oliver + ZCode agent (zcode), built in zcode runtime, ported 2026-11-17 | ours, published (full-form companion to the 0.2.0 SKILL.md; additive file, no version bump) |
+| plugins/decision-advisor (port) | Michael Oliver + ZCode agent (zcode), built in zcode runtime, ported 2026-11-17 | ours, published (decision bundle: agent + /decide, over engineering/meta-decision) |
+| plugins/uxr-plugin (port) | Michael Oliver + ZCode agent (zcode), built in zcode runtime, ported 2026-11-17 | ours, published (org values redacted to placeholders; vetting in the plugin's VET-NOTES.md) |
 | ~~humanizer (35-pattern SKILL mirror)~~ | Siqi Chen / blader + Wikipedia AI-signs project (MIT) | REMOVED from mirror. The tell knowledge is enforced in our own voice-gate code; a from-scratch our-own writing-scan SKILL.md is the rewrite debt, tracked in issue #1. |
 | ~~engineering/plan, spike~~ | obra/superpowers, gsd-build/get-shit-done adaptations | REMOVED. Rewrite from our own methodology before publishing. |
 | ~~engineering/systematic-debugging, test-driven-development, requesting-code-review~~ | obra/superpowers adaptations | REMOVED. Same. |

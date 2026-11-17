@@ -4,7 +4,13 @@ Skills present in the Hermes runtime, triaged against the marketplace scope (por
 
 | Item | Source tier | Assessment |
 |---|---|---|
-| agent-engineering: deliberation | on-request | Not mirrored; portable once the delegate_task language is generalized to "parallel subagents". Ask in chat to trigger the port; it is not scheduled on its own. |
+| agent-engineering: deliberation | (ported) | Published at engineering/deliberation, 0.1.0, delegate_task language generalized to parallel subagents. Port approved in chat 2026-11-17; this row supersedes the earlier ask-in-chat note. |
+| agent-engineering: prompt-engineering | (ported) | Published at engineering/prompt-engineering, 0.1.0, dangling skill references generalized to "if your agent has one". |
+| agent-engineering: iit-hci-integration | (ported) | Published at engineering/iit-hci-integration, 0.1.0, runtime config paths generalized to any agent CLI. |
+| research: academic | (ported) | Published at research/academic, 0.1.0, internal-workflow marker removed. |
+| research: literature-review | (ported) | Published at research/literature-review, 0.1.0. |
+| plugins: decision-advisor | (ported) | Published at plugins/decision-advisor, 0.1.0; packaging of the decision bundle (agent + /decide) over engineering/meta-decision; the full-form meta-decision text lives at engineering/meta-decision/reference.md. |
+| plugins: uxr-plugin | (ported) | Published at plugins/uxr-plugin, 0.1.0; vetted staging, org values redacted to placeholders (see the plugin's VET-NOTES.md). |
 | agent-engineering: meta-decision | (ported) | Published at engineering/meta-decision, 0.2.0, de-Hermes-ized. The original catalog row is superseded. |
 | software-development: node-inspect-debugger / python-debugpy | (mirrored) | Portable as-is. |
 | research: nlp-analyst | (ported) | Published at research/nlp-analyst, 0.2.0, decoupled from internal stores. |
