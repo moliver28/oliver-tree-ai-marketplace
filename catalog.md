@@ -10,7 +10,7 @@ Skills present in the Hermes runtime, triaged against the marketplace scope (por
 | research: academic | (ported) | Published at research/academic, 0.1.0, internal-workflow marker removed. |
 | research: literature-review | (ported) | Published at research/literature-review, 0.1.0. |
 | plugins: decision-advisor | (ported) | Published at plugins/decision-advisor, 0.1.0; packaging of the decision bundle (agent + /decide) over engineering/meta-decision; the full-form meta-decision text lives at engineering/meta-decision/reference.md. |
-| plugins: uxr-plugin | (ported) | Published at plugins/uxr-plugin, 0.1.0; vetted staging, org values redacted to placeholders (see the plugin's VET-NOTES.md). |
+| plugins: uxr-plugin | approved, gated | Owner-approved 2026-11-17; NOT published yet — the local security gate (Mimosa) blocks publication on 8 static findings (6 false-positive-class path-traversal on local CLI file args, 1 SSRF class, https-guard applied; full triage pending owner ruling). Staged copy with applied fixes lives in the zcode workspace staging repo; two fixed files preserved on the feat branch stash. |
 | agent-engineering: meta-decision | (ported) | Published at engineering/meta-decision, 0.2.0, de-Hermes-ized. The original catalog row is superseded. |
 | software-development: node-inspect-debugger / python-debugpy | (mirrored) | Portable as-is. |
 | research: nlp-analyst | (ported) | Published at research/nlp-analyst, 0.2.0, decoupled from internal stores. |
