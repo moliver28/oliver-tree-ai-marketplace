@@ -1,0 +1,12 @@
+name: Idea / marketplace update prompt
+description: Contribute an idea at any depth of rigor. MO + zcode + Daneel all review here.
+labels: [triage-inbox]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+      description: One line or fully specified; triage picks the level.
+      placeholder: e.g. "- [ ] add onnx embedder fallback doc page"
+    validations:
+      required: true
