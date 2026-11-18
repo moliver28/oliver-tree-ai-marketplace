@@ -24,7 +24,7 @@ command files instead):
   plus every non-empty status vocabulary in
   ``config/org.example.yaml`` (``workflow.*``, ``recruit.statuses.*``).
 - ``methods``    -- the ``## Method table`` rows of
-  ``references/research-craft.md``.
+  ``prompts/classify/methods.json``.
 - ``template``   -- the ``## `` section names of
   ``templates/workspace/00-overview.md``.
 
@@ -64,7 +64,7 @@ COMMANDS_DIR = PLUGIN_ROOT / "commands"
 EDIT_COMMAND = "uxr-edit.md"
 CONFIG_FILE = PLUGIN_ROOT / "config" / "org.example.yaml"
 PHASE_GATES_FILE = PLUGIN_ROOT / "lib" / "phase_gates.py"
-CRAFT_FILE = PLUGIN_ROOT / "references" / "research-craft.md"
+METHODS_FILE = PLUGIN_ROOT / "prompts" / "classify" / "methods.json"
 OVERVIEW_FILE = PLUGIN_ROOT / "templates" / "workspace" / "00-overview.md"
 
 GENERATED_SECTIONS = ("commands", "flags", "shorthands", "fields", "workflow", "methods", "template")
@@ -188,20 +188,10 @@ def workflow_statuses() -> list[str]:
 
 
 def method_rows() -> list[tuple[str, str]]:
-    """``(dominant RQ shape, method)`` pairs from the craft reference."""
-    text = CRAFT_FILE.read_text(encoding="utf-8", errors="replace")
-    match = re.search(r"^## Method table(.*?)(?=^## )", text, re.MULTILINE | re.DOTALL)
-    section = match.group(1) if match else ""
-    rows: list[tuple[str, str]] = []
-    for line in section.splitlines():
-        stripped = line.strip()
-        if not stripped.startswith("|") or set(stripped) <= set("|-: "):
-            continue
-        cells = [cell.strip().strip("`") for cell in stripped.strip("|").split("|")]
-        if len(cells) < 2 or cells[0] == "Dominant RQ shape":
-            continue
-        rows.append((cells[0], cells[1]))
-    return rows
+    """``(dominant RQ shape, method)`` pairs from the method data file."""
+    data = json.loads(METHODS_FILE.read_text(encoding="utf-8"))
+    return [(str(rule.get("shape", "")), str(rule.get("method", "")))
+            for rule in data.get("rules") or []]
 
 
 def template_sections() -> list[str]:
@@ -319,7 +309,7 @@ def build_methods_section(rows: list[tuple[str, str]]) -> str:
         for shape, method in rows
     )
     return (
-        "<p>Method rows (from <code>references/research-craft.md</code>): "
+        "<p>Method rows (from <code>prompts/classify/methods.json</code>): "
         "pick the row for the dominant research question shape.</p>\n"
         '<table class="grid"><thead><tr><th>Dominant RQ shape</th><th>Method</th></tr></thead>\n'
         f"<tbody>\n{body}\n</tbody></table>"

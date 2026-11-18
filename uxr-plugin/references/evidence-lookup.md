@@ -1,14 +1,15 @@
 # Evidence lookup
 
-The query playbook for the `/uxr-plugin:uxr-new` evidence sweep. The sweep
-runs every enabled source in ONE parallel batch of tool calls (no waiting
-between sources), then prints one synthesis block. Which sources run comes
-from `evidence.sources` in the config; chat channels come from
-`evidence.chat_channels`. A source whose tool call fails is logged
+The law for the `/uxr-plugin:uxr-new` evidence sweep. The sweep runs every
+enabled source in ONE parallel batch of tool calls (no waiting between
+sources) against the query plan `scripts/evidence_sweep.py plan` prints;
+`digest` compresses the results into the evidence digest and renders the
+synthesis table. A source whose tool call fails is logged
 `<Tool>: unavailable (skipped)` in the synthesis block and the sweep
 continues. Never skip a source silently; never retry a failed source twice.
 
-The named sources this playbook defines:
+Which sources run comes from `evidence.sources` in the config; chat channels
+come from `evidence.chat_channels`.
 
 | Config key in `evidence.sources` | Source | Window | Limit |
 |---|---|---|---|
@@ -22,74 +23,21 @@ The named sources this playbook defines:
 | `personas` | Personas source from `ssot.personas_url` | - | top 3-5 |
 | `chat_discovery` | Chat channel discovery for the study | - | - |
 
-A configured key this file does not define is logged
-`<key>: unavailable (skipped)`. Jira reference calls (`tracker.kind` is
-`jira`): `tracker_recent` and `tracker_topic` use `search(filter)`
-(`references/tracker.md`) with `NOT project = <project_key>` plus the
-window and an `ORDER BY updated DESC`; `tracker_recent` filters
-`assignee = <current user>`, `tracker_topic` searches the topic phrase in
-summary and description.
+A configured key the plan does not define is logged `<key>: unavailable
+(skipped)`. The feedback store is NEVER skipped silently when the topic is
+churn, satisfaction, or adoption: the digest names the gap the study
+carries. `wiki` is skipped for a tactical study (a build-or-ship question
+for one team this quarter; a strategic study sets direction across
+quarters). `jtbd` and `personas` results become the spec's `jtbd_refs` and
+`persona_refs` (`{label, url, ring}` with ring `internal`, `external`, or
+`synthetic`; a synthetic persona is never used without the user's explicit
+yes). `chat_discovery` proposes the study's `slack_channel` and the user
+confirms it.
 
-## Per-source notes
+## Top signals
 
-- `tracker_recent` (90 days, limit 20): what the requester and the team
-  have been logging lately in other projects; it reveals work this study
-  would collide with or duplicate.
-- `tracker_topic` (180 days, limit 10): prior studies and engineering
-  issues about the same topic; each hit is a candidate Resources row and a
-  candidate "hypotheses in flight".
-- `drive`: full-text search for the topic (limit 15), plus the 25 most
-  recently modified files in the team's shared research folders. Record
-  doc names and owners; the shareability pass (below) tags every URL.
-- `feedback`: the customer feedback store (the reference implementation
-  reads an Enterpret knowledge graph). Query the topic, return the
-  strongest themes with counts. NEVER skip this source when the topic is
-  churn, satisfaction, or adoption, even if the tool is slow; if it fails,
-  the synthesis block says so and names the gap the study would carry.
-- `chat` (limit 20): search only the channels in `evidence.chat_channels`;
-  return threads that name the topic, pain, or a decision in flight.
-- `wiki` (180 days, limit 10): skip this source for a tactical study. A
-  tactical study answers a build-or-ship question for one team this
-  quarter; a strategic study sets direction across quarters, and wiki
-  context matters there.
-- `jtbd`, `personas`: take the top 3 to 5 jobs or personas that touch the
-  topic, each with a ring tag (`internal`, `external`, or `synthetic`).
-  These become the spec's `jtbd_refs` and `persona_refs`
-  (`{label, url, ring}`). A synthetic persona is never used without the
-  user's explicit yes (safety gate).
-- `chat_discovery`: find the channels where this study's participants and
-  stakeholders talk (channel list search on the topic words, plus
-  `routing.group_to_channels` for the group). Propose the best channel as
-  the study's `slack_channel` (`{name, id}`) and confirm it with the user.
-
-## Synthesis block
-
-After the batch returns, print one block, nothing between the calls and
-this block:
-
-```
-## Evidence sweep
-
-| Source | Hits |
-|---|---|
-| Tracker: your recent items (other projects) | 6 |
-| Tracker: topic search (other projects) | 3 |
-| Drive | 9 |
-| Feedback store | 41 |
-| Chat | 12 |
-| Wiki | 4 |
-| JTBD | 3 |
-| Personas | 2 |
-
-- Slack: unavailable (skipped)
-
-Top signals
-- Owning group: <group the evidence clusters under>
-- Hypotheses in flight: <claims already being tested elsewhere, one line each>
-- Pain strength: high | medium | low
-- Stakeholders: <people who own or touched the evidence>
-```
-
+The four signals lines are the sweep's one model call (`prompt:
+signals@1`), consumed with the digest ONLY - never raw search results.
 Pain strength: `high` when the feedback store or chat shows repeated,
 recent, unresolved pain on the topic; `medium` when pain appears but is
 scattered or old; `low` when the evidence is mostly neutral or absent.

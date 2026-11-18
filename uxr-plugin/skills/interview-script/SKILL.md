@@ -11,7 +11,7 @@ sends or shares anything.
 
 ## Setup
 
-1. Read configuration once: run `python "${CLAUDE_PLUGIN_ROOT}/lib/config.py" --print`.
+1. Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - and follow it.
    Note `tracker.kind` (the ticket header label follows the tracker, for
    example `Jira Ticket:` on Jira, `Linear Issue:` on Linear),
    `tracker.ticket_regex`, `script.default_minutes`, `script.time_buffer`,
