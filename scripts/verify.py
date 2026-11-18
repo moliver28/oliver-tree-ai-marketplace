@@ -13,6 +13,14 @@ Checks:
 6. learn/apply drift: the runtime gate's embedded rule data must hash-match the
    published mirror, and a state file present on the machine must parse under the
    shared loader. No runtime on the machine (CI) -> explicit SKIP line.
+7. Organization law (issue #8, flatten): top-level dirs and level-2 entries inside
+   group dirs are whitelisted; a new group or entry requires a verify.py edit
+   (explicit owner approval); grouping depth max 2 (entry-internal anatomy exempt).
+   A `plugins/` grouping dir must not reappear.
+8. Zero-stub law (deterministic, no LLM inference): no 0-byte files, no tracked
+   `__pycache__`/`*.pyc`, no stub markers in plugin/skill text files (inline
+   `verify-allow` whitelists honored), no `pass`/`...`-only function bodies in
+   plugin `.py` files, no dangling catalog/PROVENANCE path rows.
 
 Exit 0 = marketplace verified working; nonzero = broken, do not publish.
 """
@@ -278,7 +286,7 @@ for s in skills:
         ck(len(re.findall(r"'", d)) >= 4 or len(re.findall(r'\\"', d)) >= 4 or d.count("'") >= 4, f"skill description carries quoted human phrases {s.relative_to(ROOT)}")
 ck(len(skills) >= 6, f"skill count {len(skills)} >= 6")
 
-hooks = ROOT / "plugins" / "humanizer" / "hooks" / "gate.py"
+hooks = ROOT / "humanizer" / "hooks" / "gate.py"
 sloppy = "The tool serves as a foundation for innovation, and that is okay. It is not just about speed, it is about unlocking value at the end of the day."
 clean = "The scanner loads the rules from the shared module, so the hook and the checker cannot drift."
 r_chat = subprocess.run(["python3", str(hooks), "--surface", "chat"], input="The configuration was completed in order to provide a really robust system that everybody in the building uses daily without any problems.", capture_output=True, text=True)
@@ -292,10 +300,127 @@ r2 = subprocess.run(["python3", str(hooks)], input=clean, capture_output=True, t
 ck(r2.returncode == 0 and json.loads(r2.stdout)["status"] == "pass", "gate passes clean text (exit 0)")
 
 readme = (ROOT / "README.md").read_text()
-for m in re.findall(r"`([\w/.\-]+/)(?:[\w/.\-]+\s*\|)?", readme):
-    pass
-ck("plugins/humanizer" in readme, "README indexes humanizer plugin")
+ck("`humanizer/`" in readme, "README indexes humanizer plugin")
 ck("PROVENANCE.md" in readme, "README links provenance ledger")
+
+# --- Organization law (issue #8, MO ruling 2026-11-17): flatten + grouping cap ---
+# Top-level folders are the highest grouping. Level 1 = top-level groups and
+# top-level plugin entries; level 2 = entries inside a group. Entry-internal
+# anatomy (a plugin's own hooks/, commands/, .claude-plugin/, a skill's
+# references/) is NOT grouping and is unrestricted in depth. Adding a level-1
+# dir or a level-2 entry requires editing these whitelists -> reviewable code
+# change = explicit owner approval. Zero stubs / markers enforced below.
+TOP_GROUPS = {"business", "engineering", "hobby", "onboarding", "research", "voice", "writing"}
+TOP_PLUGINS = {"decision-advisor", "humanizer", "voice-gate", "uxr-plugin"}
+TOP_WHITELIST = TOP_GROUPS | TOP_PLUGINS | {"scripts"}
+LEVEL2_WHITELIST = {
+    "business": ["side-business-gtm"],
+    "engineering": ["codebase-inspection", "deliberation", "iit-hci-integration", "llm-integration",
+                    "meta-decision", "node-inspect-debugger", "prompt-engineering", "python-debugpy"],
+    "hobby": ["media-taste-algo"],
+    "onboarding": ["VOICE_ONBOARDING.template.md", "zero-ai-tells-register.md"],
+    "research": ["academic", "document-to-action-items", "grounded-citations", "literature-review",
+                 "meeting-action-items", "nlp-analyst"],
+    "voice": ["voice-michael-oliver"],
+    "writing": ["linkedin-style-learner"],
+}
+for name in sorted(p.name for p in ROOT.iterdir() if p.is_dir() and not p.name.startswith(".")):
+    ck(name in TOP_WHITELIST, f"top-level dir whitelisted (issue #8): {name}/")
+ck(not (ROOT / "plugins").is_dir(), "no plugins/ grouping dir at top level (issue #8)")
+for group in sorted(LEVEL2_WHITELIST):
+    gp = ROOT / group
+    if not gp.is_dir():
+        ck(False, f"group dir present (issue #8): {group}/")
+        continue
+    for entry in sorted(p.name for p in gp.iterdir()):
+        ck(entry in LEVEL2_WHITELIST[group], f"level-2 entry whitelisted in {group}/ (issue #8): {entry}")
+
+# --- Zero-stub law (MO ruling 2026-11-18): pure deterministic file/regex checks ---
+TEXT_EXTS = {".md", ".py", ".yaml", ".yml", ".json", ".txt"}
+MARKER_RE = re.compile(
+    r"\b(?:TODO|FIXME|XXX|HACK|stub|NotImplementedError)\b"
+    r"|not yet implemented|not implemented|coming soon|to be implemented",
+    re.IGNORECASE)
+MARKER_EXEMPT = {"catalog.md", "PROVENANCE.md"}  # honest-ledger rows legitimately describe pending states
+DEF_STUB_RE = re.compile(
+    r"^(?:async\s+)?def\s+\w+\s*\([^)]*\)\s*(?:->[^:]*)?:[ \t]*\n[ \t]+(?:pass|\.\.\.)[ \t]*(?:#.*)?$",
+    re.MULTILINE)
+
+# 0-byte files anywhere in the repo (except .git). Named exception: the
+# learned-phrase sink `*/learned/phrases.log` is empty until the first /voice
+# run appends to it; the contract is existence (checked above), not content.
+for p in sorted(ROOT.rglob("*")):
+    if ".git" in p.parts:
+        continue
+    if p.is_file() and p.stat().st_size == 0 and not (p.parent.name == "learned" and p.name == "phrases.log"):
+        ck(False, f"0-byte file (zero-stub law): {p.relative_to(ROOT)}")
+
+# no tracked __pycache__/*.pyc anywhere: runtime bytecode artifacts are
+# gitignored, so anything tracked here is committed cruft (the uxr-plugin husk
+# pattern). Disk-local, gitignored pycache from running the gate locally is not
+# repo content and does not fail.
+tracked = [t for t in subprocess.run(["git", "-C", str(ROOT), "ls-files", "-z"],
+                                     capture_output=True).stdout.split(b"\x00") if t]
+tracked = [t.decode("utf-8", "replace") for t in tracked]
+pyc_cruft = [t for t in tracked
+             if t.endswith(".pyc") or "__pycache__" in pathlib.PurePosixPath(t).parts]
+ck(not pyc_cruft, f"no tracked __pycache__/*.pyc anywhere (zero-stub law): {pyc_cruft[:5]}")
+
+# stub markers in plugin/skill text files (word-boundary matched: prose like
+# "stubborn" is not a marker). Inline `verify-allow: stub-marker` on the same
+# or preceding line whitelists a load-bearing construct; rare and explicit.
+for base in sorted(TOP_GROUPS | TOP_PLUGINS):
+    bp = ROOT / base
+    if not bp.is_dir():
+        continue
+    for p in sorted(bp.rglob("*")):
+        if not (p.is_file() and p.suffix.lower() in TEXT_EXTS) or p.name in MARKER_EXEMPT:
+            continue
+        lines = p.read_text(errors="replace").splitlines()
+        for i, line in enumerate(lines, 1):
+            m = MARKER_RE.search(line)
+            if not m:
+                continue
+            if "verify-allow" in line or (i > 1 and "verify-allow" in lines[i - 2]):
+                continue
+            ck(False, f"stub marker {m.group(0)!r} in {p.relative_to(ROOT).as_posix()}:{i} (zero-stub law)")
+
+# pass-only / `...`-only function bodies in plugin .py files (fail-open
+# `except: pass` handlers are not def bodies and are not flagged)
+for base in sorted(TOP_PLUGINS):
+    bp = ROOT / base
+    if not bp.is_dir():
+        continue
+    for p in sorted(bp.rglob("*.py")):
+        src = p.read_text(errors="replace")
+        for m in DEF_STUB_RE.finditer(src):
+            if "verify-allow" in m.group(0):
+                continue
+            ln = src[:m.start()].count("\n") + 1
+            ck(False, f"pass/...-only function body in {p.relative_to(ROOT).as_posix()}:{ln} (zero-stub law)")
+
+# dangling catalog/PROVENANCE path rows: a path named in a row must exist on
+# disk. A token counts as a repo path only if its group segment is a whitelisted
+# level-2 entry (prose like "beyond voice/work" and the strikethrough REMOVED
+# rows are not repo paths); trailing punctuation is stripped (Windows tolerates
+# a trailing dot in paths, Linux CI does not). "Published at X" statements are
+# checked unconditionally; gated uxr-plugin carries no "Published at" row.
+TOP_ALT = "|".join(sorted(TOP_WHITELIST))
+ROW_PATH_RE = re.compile(rf"\b(?:{TOP_ALT})(?:/[\w.-]+)+")
+for doc in ("catalog.md", "PROVENANCE.md"):
+    dp = ROOT / doc
+    if not dp.is_file():
+        continue
+    for i, line in enumerate(dp.read_text(errors="replace").splitlines(), 1):
+        for m in ROW_PATH_RE.finditer(line):
+            ref = m.group(0).rstrip(".,;:")
+            parts = ref.split("/")
+            if parts[0] in LEVEL2_WHITELIST and parts[1] not in LEVEL2_WHITELIST[parts[0]]:
+                continue
+            ck((ROOT / ref).exists(), f"{doc}:{i} referenced path exists: {ref}")
+        pm = re.search(r"Published at ([\w./-]+)", line)
+        if pm:
+            ck((ROOT / pm.group(1)).is_dir(), f"{doc}:{i} Published-at target exists: {pm.group(1)}")
 
 print(f"\n{len(fails)} failure(s)")
 sys.exit(1 if fails else 0)

@@ -7,21 +7,21 @@
   "plugins": [
     {
       "name": "humanizer-voice",
-      "source": "./plugins/humanizer",
+      "source": "./humanizer",
       "description": "Learned voice profile + quiet delivery gate; user surface is /voice. Learn once, scan in background, patch-in-place repairs.",
       "version": "0.2.0",
       "category": "writing"
     },
     {
       "name": "voice-gate",
-      "source": "./plugins/voice-gate",
+      "source": "./voice-gate",
       "description": "Deterministic pre-delivery tell gate: 55-pattern regex + embedder cosine (Ollama fast path, ONNX fallback, per-class thresholds), fail-open. Use when the user says: 'check this for AI tells', 'gate this before it goes out', 'scan my draft'.",
       "version": "0.3.0",
       "category": "writing"
     },
     {
       "name": "decision-advisor",
-      "source": "./plugins/decision-advisor",
+      "source": "./decision-advisor",
       "description": "Meta-cognitive decision analysis for one-way doors: expand options, contract to the elegant solution, embed enforcement. Use when the user says: 'decide whether to...', 'run a meta-decision on...', 'stress-test this decision'.",
       "version": "0.1.0",
       "category": "engineering"

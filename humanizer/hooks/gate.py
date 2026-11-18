@@ -2,7 +2,7 @@
 """Delivery gate adapter for the /voice plugin.
 
 Contract (token economy):
-- Deterministic scan only (regex tell scan from plugins/voice-gate/voice-tells.py + an ASD-STE100 layer). Zero LLM tokens to evaluate.
+- Deterministic scan only (regex tell scan from voice-gate/voice-tells.py + an ASD-STE100 layer). Zero LLM tokens to evaluate.
 - Surfaces: --surface public (default: tell scan + STE) or --surface chat (STE always enforced; the onboarding STE row decides whether public mode also carries STE).
 - PASS: emit {"status": "pass", "tokens_to_model": 0} and stop. The model is never re-engaged.
 - FAIL: emit the violated pattern labels (one line each, max 5) with nearby context, plus one instruction

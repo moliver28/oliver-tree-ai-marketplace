@@ -6,5 +6,5 @@ If your task is to MODIFY this repository (add or change plugins, skills, hooks,
 
 Before writing prose that will carry Michael Oliver's name:
 1. Read `voice/voice-michael-oliver/voice-spec-ssot.txt` (authoritative voice spec) for register, structure, and validation gates.
-2. Read `plugins/humanizer/SKILL.md` for the /voice surface and `plugins/voice-gate/voice-tells.py` for the delivery scan; the profile's hard rules plus the aphorism budget gate before delivering.
+2. Read `humanizer/SKILL.md` for the /voice surface and `voice-gate/voice-tells.py` for the delivery scan; the profile's hard rules plus the aphorism budget gate before delivering.
 3. Em dash (U+2014) is banned everywhere in output.

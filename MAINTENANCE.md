@@ -8,7 +8,7 @@ CLAUDE.md (auto-loaded) points here. Nothing may be edited in this repo before r
 
 ## 2. Manifest law (marketplace format)
 
-- The marketplace root is `.claude-plugin/marketplace.json`. Every user-installable plugin lives under `plugins/<name>/` and MUST carry `.claude-plugin/plugin.json` (name matching the marketplace entry, semver version) and, when it exposes a command, `commands/<command>.md`.
+- The marketplace root is `.claude-plugin/marketplace.json`. Every user-installable plugin lives at the top level as `<name>/` and MUST carry `.claude-plugin/plugin.json` (name matching the marketplace entry, semver version) and, when it exposes a command, `commands/<command>.md`.
 - Bump the plugin's version in BOTH its plugin.json and the marketplace entry in the same edit.
 - Skills (mirror copies under `voice/`, `writing/`, `research/`, `engineering/`, `business/`, `hobby/`) always carry `name:` + `description:` frontmatter; they are catalog assets, not plugins, and are not listed in marketplace.json.
 
@@ -42,9 +42,23 @@ Pass = zero tokens delivered to the model. Fail = one repair contract, at most 5
 
 ## 10. Learned invocation terms (zero-LLM loop)
 
-`plugins/humanizer/learned/phrases.log` is append-only, written by the /voice command after each successful run: the verbatim $ARGUMENTS line plus a date. This costs zero LLM tokens (a shell redirect, not a model call). During any repo maintenance pass, distill recurring phrasings from the log into the plugin description's trigger-phrase list (dedupe, cap the description at the length limit, keep the change within description law). The maintenance pass, not the runtime, is the only place the description changes; the gate never spends tokens on vocabulary updates.
+`humanizer/learned/phrases.log` is append-only, written by the /voice command after each successful run: the verbatim $ARGUMENTS line plus a date. This costs zero LLM tokens (a shell redirect, not a model call). During any repo maintenance pass, distill recurring phrasings from the log into the plugin description's trigger-phrase list (dedupe, cap the description at the length limit, keep the change within description law). The maintenance pass, not the runtime, is the only place the description changes; the gate never spends tokens on vocabulary updates.
 
 ## 7 (renumber 11). Issue law
 
 Anything not implemented NOW becomes a GitHub issue with a scope tag (`provenance`, `onnx`, `detection-thresholds`, `de-personalization`, `descriptions`, `auto-update`) and acceptance criteria. Unimplemented intentions do not live in prose only.
+
+## 12. Organization law (flatten + grouping cap; issue #8, MO ruling 2026-11-17)
+
+Top-level folders are the highest grouping in this repo; there is no grouping layer above or between them, and a `plugins/` grouping dir must not reappear. GROUPING depth is capped at 2:
+
+- Level 1 = top-level groups (e.g. `voice/`, `engineering/`) and top-level plugin entries (e.g. `voice-gate/`, `humanizer/`, `decision-advisor/`, `uxr-plugin/`).
+- Level 2 = entries inside a group (e.g. `voice/voice-michael-oliver/`) or a plugin entry itself.
+- Entry-internal anatomy (a plugin's own `hooks/`, `references/`, `scripts/`, `commands/`, `.claude-plugin/`; a skill's `references/`) is allowed and NOT new grouping: it is the entry's own structure. A strict repo-wide 2-level cap would outlaw plugin/skill internal anatomy (e.g. the 142-file uxr-plugin tree) and contradict issue #8's own "for all plugins" grouping intent; hence the anatomy exemption.
+- Creating a new top-level group OR a new level-2 entry requires explicit owner approval. Mechanically: the entry must be added to the whitelists in `scripts/verify.py` (top-level dir whitelist; per-group level-2 list), so approval is a reviewable code change, not a convention. The verifier fails on any unlisted level-1 dir or unlisted level-2 entry.
+- Suggest a new group only if the existing groups are <1% relevant to the content; fold into an existing group otherwise.
+
+## 13. Zero-stub law (MO ruling 2026-11-18)
+
+All plugins and skills contain zero stubs, empty files, or stated-but-unfinished work; `scripts/verify.py` enforces this mechanically (deterministic file/regex checks, no LLM inference): no 0-byte files, no `__pycache__`/`*.pyc` anywhere, no stub markers (TODO, FIXME, XXX, HACK, NotImplementedError, "not implemented", "coming soon", "to be implemented", "stub", ...) in plugin/skill text files, no `pass`-only or `...`-only function bodies in plugin `.py` files, and no dangling catalog/provenance path rows. A legitimately load-bearing construct is whitelisted inline with `# verify-allow: stub-marker` plus a reason (rare and explicit); `catalog.md`/`PROVENANCE.md` are exempt from marker scanning because honest-ledger rows legitimately describe pending states, but their path references must exist on disk. Anything genuinely unfinished is issue law (section 11), not a stub in the tree.
 

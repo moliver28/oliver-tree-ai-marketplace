@@ -1,10 +1,10 @@
 # Zero-AI-Tells Register
 
-The enforcement rulebook behind the /voice plugin and the voice-gate. Owner order, 2026-11-11/12 (Michael Oliver); this doc is the portable copy of his canonical Notion register. Every public-facing word passes this register plus the voice profile. End users: keep this list, replace Michael-specific hard bans with your own; the machine checks are in `plugins/humanizer/hooks/gate.py` and `plugins/voice-gate/voice-tells.py`.
+The enforcement rulebook behind the /voice plugin and the voice-gate. Owner order, 2026-11-11/12 (Michael Oliver); this doc is the portable copy of his canonical Notion register. Every public-facing word passes this register plus the voice profile. End users: keep this list, replace Michael-specific hard bans with your own; the machine checks are in `humanizer/hooks/gate.py` and `voice-gate/voice-tells.py`.
 
 ## How Enforcement Runs
 
-- Regex layer: pattern list in `plugins/voice-gate/voice-tells.py` (word-boundary anchored, inflection-tolerant). Public copy also passes the tell scan via the /voice gate; the repair contract patches flagged phrases in place.
+- Regex layer: pattern list in `voice-gate/voice-tells.py` (word-boundary anchored, inflection-tolerant). Public copy also passes the tell scan via the /voice gate; the repair contract patches flagged phrases in place.
 - Vector layer (on machines with a local embedder or Ollama): 18 tell exemplar families embedded locally; reworded tells get caught by cosine similarity, not keyword matching. Fail-open on service outage.
 - Chat output always passes the STE layer (ASD-STE100: sentence/paragraph length, active voice, no filler chains or vague intensifiers). Public copy runs tell scan + STE per the onboarding STE-mode choice.
 - Voice fidelity: rewrites draw only on the onboarding profile and the provided text; missing context is marked `[note: needs source]`, never invented.
