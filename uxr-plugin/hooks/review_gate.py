@@ -115,11 +115,26 @@ def _load_config() -> dict | None:
         return None
 
 
+def _strip_anchors(pattern: str) -> str:
+    """Drop one leading ``^`` and one trailing ``$`` from a regex string.
+
+    Same rule as ``provenance.ticket_regex`` (F3): the configured shape
+    doubles as a full-match validator in the commands, and an anchored
+    validator pattern never matches inside the overview's free text.
+    """
+    if pattern.startswith("^"):
+        pattern = pattern[1:]
+    if pattern.endswith("$") and not pattern.endswith("\\$"):
+        pattern = pattern[:-1]
+    return pattern
+
+
 def _ticket_regex(config: dict | None):
-    """Compile ``tracker.ticket_regex``; fall back to the generic pattern."""
+    """Compile ``tracker.ticket_regex`` for search use; fall back to the generic pattern."""
     pattern = ""
     if config and isinstance(config.get("tracker"), dict):
         pattern = str(config["tracker"].get("ticket_regex") or "").strip()
+    pattern = _strip_anchors(pattern)
     if pattern:
         try:
             return re.compile(pattern)
@@ -615,6 +630,19 @@ def _selftest() -> int:
             "study key falls back to the workspace name",
             study_key(keyless, config) == "no-ticket-yet",
             study_key(keyless, config),
+        )
+
+        # 9b. An anchored validator regex still resolves the study key (F3).
+        anchored_ws = tmp / "research" / "anchored-study"
+        (anchored_ws / SESSIONS_DIRNAME).mkdir(parents=True)
+        (anchored_ws / OVERVIEW_MARKER).write_text(
+            "# Anchored study\n\nTicket: ABC-505\n", encoding="utf-8"
+        )
+        anchored_config = {"tracker": {"kind": "jira", "ticket_regex": r"^ABC-\d+$"}}
+        check(
+            "an anchored ticket_regex still resolves the study key",
+            study_key(anchored_ws, anchored_config) == "ABC-505",
+            study_key(anchored_ws, anchored_config),
         )
 
         # 10. Stop is the marker-check backstop: it writes the marker when

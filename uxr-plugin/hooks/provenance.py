@@ -169,11 +169,35 @@ def _load_config() -> dict | None:
         return None
 
 
+def strip_anchors(pattern: str) -> str:
+    """Drop one leading ``^`` and one trailing ``$`` from a regex string.
+
+    ``tracker.ticket_regex`` doubles as a full-match validator in the
+    commands and a free-text search pattern in the hooks; an anchored
+    validator shape (``^UXR-[0-9]+$``) never matches inside a longer
+    sentence, so the hooks search with the anchors stripped.
+    """
+    if pattern.startswith("^"):
+        pattern = pattern[1:]
+    if pattern.endswith("$") and not pattern.endswith("\\$"):
+        pattern = pattern[:-1]
+    return pattern
+
+
 def ticket_regex(config: dict | None):
-    """Compile ``tracker.ticket_regex``; fall back to the generic pattern."""
+    """Compile ``tracker.ticket_regex`` for search use; fall back to the generic pattern.
+
+    The hooks search free text (user messages, tool results), so one
+    leading ``^`` and one trailing ``$`` are stripped before compiling
+    (F3): the documented validator shape ``^UXR-[0-9]+$`` is a full-match
+    check and would otherwise match nothing mid-sentence, leaving
+    ``ticket_keys`` empty. Full-match validation in the commands keeps
+    the configured pattern unchanged.
+    """
     pattern = ""
     if config and isinstance(config.get("tracker"), dict):
         pattern = str(config["tracker"].get("ticket_regex") or "").strip()
+    pattern = strip_anchors(pattern)
     if pattern:
         with contextlib.suppress(re.error):
             return re.compile(pattern)
@@ -1007,6 +1031,35 @@ def _selftest() -> int:
               hash12("x") == hash12("x") and len(hash12("x")) == 12
               and all(c in "0123456789abcdef" for c in hash12("x")),
               hash12("x"))
+
+        # 9b. An anchored validator regex still matches free text (F3).
+        anchored = ticket_regex({"tracker": {"kind": "jira",
+                                             "ticket_regex": r"^UXR-[0-9]+$"}})
+        found = anchored.search("plan UXR-101 for onboarding")
+        check("an anchored ticket_regex compiles for search",
+              found is not None and found.group(0) == "UXR-101", repr(found))
+        check("a non-anchored ticket_regex is unchanged",
+              ticket_regex({"tracker": {"kind": "jira",
+                                        "ticket_regex": r"\bUXR-\d+\b"}})
+              .search("plan UXR-101") is not None)
+        check("an anchors-only ticket_regex falls back to the generic pattern",
+              ticket_regex({"tracker": {"kind": "jira", "ticket_regex": "^$"}})
+              is FALLBACK_KEY_RE)
+        walk_anchored = TranscriptWalk(config={"tracker": {"kind": "jira",
+                                                           "ticket_regex": r"^ABC-\d+$"}})
+        walk_anchored.feed({"type": "assistant", "timestamp": "t",
+                            "message": {"role": "assistant", "content": [
+                                {"type": "tool_use", "id": "t10",
+                                 "name": "mcp__jira__createJiraIssue",
+                                 "input": {"summary": "new study"}}]}})
+        walk_anchored.feed({"type": "user", "timestamp": "t",
+                            "message": {"role": "user", "content": [
+                                {"type": "tool_result", "tool_use_id": "t10",
+                                 "content": "created ABC-300"}]}})
+        anchored_outputs = walk_anchored.result()["outputs"]
+        check("an anchored regex takes the create key from the result text",
+              bool(anchored_outputs) and anchored_outputs[0].get("id") == "ABC-300",
+              repr(anchored_outputs))
 
         # 10. The locks release (no leftover lock files).
         leftovers = list((workspace / SESSIONS_DIRNAME).glob("*.lock"))

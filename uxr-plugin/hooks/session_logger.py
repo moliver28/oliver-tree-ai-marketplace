@@ -560,6 +560,30 @@ def _selftest() -> int:
               and row.get("provenance", {}).get("relationship_count") == 3,
               repr(row.get("provenance")))
 
+        # 1b. An anchored tracker.ticket_regex still attributes keys (F3):
+        # the documented validator shape must not empty the journal row.
+        anchored_transcript = tmp / "anchored.jsonl"
+        anchored_transcript.write_text("".join(json.dumps(line) + "\n" for line in [
+            {"type": "user", "timestamp": "2026-11-09T10:00:00.000Z",
+             "message": {"role": "user",
+                         "content": "Check ABC-274 and refresh the summary"}},
+            {"type": "assistant", "timestamp": "2026-11-09T10:00:05.000Z",
+             "message": {"role": "assistant", "content": [
+                 {"type": "tool_use", "id": "a1", "name": "mcp__jira__getJiraIssue",
+                  "input": {"key": "ABC-274"}}]}},
+        ]), encoding="utf-8")
+        anchored_config = {
+            "tracker": {"kind": "jira", "ticket_regex": r"^ABC-\d+$",
+                        "base_url": "https://example.atlassian.net"},
+        }
+        anchored_stats = collect_stats(
+            {"transcript_path": str(anchored_transcript)}, anchored_config,
+            TranscriptWalk(config=anchored_config),
+            commands_dir=commands, environ={}, home=HOME)
+        check("an anchored ticket_regex still attributes journal keys",
+              anchored_stats["ticket_keys"] == ["ABC-274"],
+              repr(anchored_stats["ticket_keys"]))
+
         # 2. The workspace manifests were written.
         manifests = sorted(item.name for item in
                            (workspace / ".sessions").iterdir())
