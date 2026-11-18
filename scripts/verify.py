@@ -9,7 +9,7 @@ Checks:
 
 Exit 0 = marketplace verified working; nonzero = broken, do not publish.
 """
-import json, sys, subprocess, pathlib, re
+import json, os, sys, subprocess, pathlib, re, tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 fails = []
@@ -39,6 +39,32 @@ for p in data["plugins"]:
         ck((src / "learned" / "phrases.log").exists(), "learned sidecar exists")
         cmd = (src / "commands" / "voice.md").read_text()
         ck("phrases.log" in cmd, "/voice logs learned phrases deterministically")
+    if p["name"] == "voice-gate":
+        vt_src = (src / "voice-tells.py").read_text()
+        ck("COSINE_THRESHOLD" not in vt_src, "voice-gate global cosine threshold removed (per-class table)")
+        ck(all(l[:1] in " \t" for l in vt_src.splitlines() if "import onnxruntime" in l),
+           "onnxruntime import confined to lazy fallback path (not module scope)")
+        try:
+            cache = json.loads((src / "voice-tells-vectors.json").read_text())
+            cal = json.loads((src / "voice-tells-calibration.json").read_text())
+            labels = {ex["label"] for b in cache["backends"].values() for ex in b["vectors"]}
+            for backend, b in cache["backends"].items():
+                ck(len(b.get("vectors", [])) == 18, f"exemplar cache complete for {backend} (18)")
+                ck(set(cal["backends"][backend]["thresholds"]) >= labels,
+                   f"per-class thresholds cover every exemplar class for {backend}")
+        except Exception as e:
+            ck(False, f"voice-gate cache + calibration parse and cover: {e!r}")
+        with tempfile.TemporaryDirectory() as td:
+            vf = pathlib.Path(td) / "probe.md"
+            vf.write_text("The tool serves as a foundation for innovation, and that is okay. "
+                          "It is not just about speed, it is about unlocking value at the end of the day.")
+            env = {**os.environ, "VOICE_GATE_VECTOR": "off"}
+            r = subprocess.run(["python3", str(src / "voice-check.py"), str(vf)], capture_output=True, text=True, env=env)
+            ck(r.returncode == 1, "voice-check regex layer fails tell-laden text (exit 1)")
+            ck(not (pathlib.Path(td) / "probe.voice-pass").exists(), "voice-check writes no marker on failure")
+            vf.write_text("The scanner loads the rules from the shared module, so the hook and the checker cannot drift.")
+            r2 = subprocess.run(["python3", str(src / "voice-check.py"), str(vf)], capture_output=True, text=True, env=env)
+            ck(r2.returncode == 0 and "PASS" in r2.stdout, "voice-check passes clean text and writes marker")
 
 skills = list(ROOT.glob("**/SKILL.md"))
 for s in skills:
