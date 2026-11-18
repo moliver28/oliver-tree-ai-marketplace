@@ -15,7 +15,7 @@
     {
       "name": "voice-gate",
       "source": "./voice-gate",
-      "description": "Deterministic pre-delivery tell gate: 55-pattern regex + embedder cosine (Ollama fast path, ONNX fallback, per-class thresholds), fail-open. Use when the user says: 'check this for AI tells', 'gate this before it goes out', 'scan my draft'.",
+      "description": "Deterministic pre-delivery tell gate: 61-pattern regex + embedder cosine (Ollama fast path, ONNX fallback, per-class thresholds), fail-open. Use when the user says: 'check this for AI tells', 'gate this before it goes out', 'scan my draft'.",
       "version": "0.3.0",
       "category": "writing"
     },

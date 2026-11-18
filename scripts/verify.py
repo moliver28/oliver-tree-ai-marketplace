@@ -145,6 +145,25 @@ for p in data["plugins"]:
                        f"per-class thresholds cover every exemplar class for {backend}")
             except Exception as e:
                 ck(False, f"voice-gate cache + calibration parse and cover: {e!r}")
+            # pattern-count parity: claimed counts in published text must match PATTERNS
+            # exactly, so the prose cannot drift from the code again
+            for label, txt in (("plugin.json", d), ("marketplace.json", p.get("description", "")),
+                               ("README.md", (src / "README.md").read_text(encoding="utf-8"))):
+                m = re.search(r"(\d+)[ -](?:pattern|inflection)", txt)
+                ck(m is not None and int(m.group(1)) == len(vt.PATTERNS),
+                   f"claimed pattern count == PATTERNS ({label}): "
+                   f"{m.group(1) if m else 'none claimed'} vs {len(vt.PATTERNS)}")
+            # default calibration corpus must resolve inside the repo from top-level
+            # voice-gate/ (pure path logic; no embedder imports at module scope)
+            try:
+                _vbs = importlib.util.spec_from_file_location(
+                    "voice_vector_build_verify", src / "voice-vector-build.py")
+                vb = importlib.util.module_from_spec(_vbs)
+                _vbs.loader.exec_module(vb)
+                ck(vb.repo_root() == ROOT,
+                   "voice-vector-build resolves the default corpus root to the repo root")
+            except (SystemExit, Exception) as e:
+                ck(False, f"voice-vector-build resolves the default corpus root to the repo root: {e!r}")
         with tempfile.TemporaryDirectory() as td:
             vf = pathlib.Path(td) / "probe.md"
             vf.write_text("The tool serves as a foundation for innovation, and that is okay. "
@@ -229,6 +248,27 @@ for p in data["plugins"]:
                            "corrupt state file -> state_skip logged via _log_vec")
                     except Exception as e:
                         ck(False, f"loader case corrupt-state: {e!r}")
+                    # case: invalid regex in one state entry -> that entry dropped + logged,
+                    # valid entries still enforced at scan (entry-level failure isolation)
+                    try:
+                        if logf.exists():
+                            logf.unlink()
+                        stf.write_text(json.dumps({"format": 1, "sources": {"register": {"patterns": [
+                            {"pattern": "[unclosed", "label": "bad regex entry"},
+                            {"pattern": "\\bquuxophone\\b",
+                             "label": "state pattern 'quuxophone' (register)"}]}}}))
+                        os.environ["VOICE_RULES_STATE"] = str(stf)
+                        eff = vt.effective_rules()
+                        ck(("\\bquuxophone\\b", "state pattern 'quuxophone' (register)") in eff["patterns"]
+                           and all(p != "[unclosed" for p, _ in eff["patterns"]),
+                           "invalid state regex entry dropped, valid entries kept in the merged set")
+                        hits = vt.find_regex_hits("Please quuxophone the stack.")
+                        ck(any("quuxophone" in h for h in hits),
+                           "invalid state regex dropped: valid state pattern still enforced at scan")
+                        ck(logf.exists() and "does not compile" in logf.read_text(errors="replace"),
+                           "invalid state regex entry logged with source + entry id (state_skip)")
+                    except Exception as e:
+                        ck(False, f"loader case invalid-regex entry: {e!r}")
                     # drift-check unit cases against fabricated runtime homes
                     try:
                         fake = tdp / "hermes-fake"
@@ -276,14 +316,21 @@ for p in data["plugins"]:
 
 skills = list(ROOT.glob("**/SKILL.md"))
 for s in skills:
-    head = s.read_text()[:400]
+    text = s.read_text()
+    fm = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.DOTALL)
+    head = fm.group(1) if fm else text[:400]  # full frontmatter block, not first 400 chars
     ck("name:" in head and "description:" in head, f"frontmatter {s.relative_to(ROOT)}")
-    m = re.search(r'description:(.+)', head)
+    m = re.search(r"description:(.*)", head)
     if m:
-        d = m.group(1).strip()
-        ck(len(d) <= 310, f"skill description <=300 chars {s.relative_to(ROOT)} ({len(d)})")
+        lines = [m.group(1)]  # multi-line YAML descriptions: join indented continuation lines
+        for line in head[m.end():].splitlines():
+            if line[:1] not in (" ", "\t"):
+                break
+            lines.append(line.strip())
+        d = " ".join(l for l in lines if l and l not in (">-", "|-", "|", ">")).strip()
+        ck(len(d) <= 300, f"skill description <=300 chars {s.relative_to(ROOT)} ({len(d)})")
         ck("use when the user says" in d.lower(), f"skill description carries invocation trigger {s.relative_to(ROOT)}")
-        ck(len(re.findall(r"'", d)) >= 4 or len(re.findall(r'\\"', d)) >= 4 or d.count("'") >= 4, f"skill description carries quoted human phrases {s.relative_to(ROOT)}")
+        ck(d.count("'") >= 4 or len(re.findall(r'\\"', d)) >= 4, f"skill description carries quoted human phrases {s.relative_to(ROOT)}")
 ck(len(skills) >= 6, f"skill count {len(skills)} >= 6")
 
 hooks = ROOT / "humanizer" / "hooks" / "gate.py"
@@ -346,22 +393,24 @@ DEF_STUB_RE = re.compile(
     r"^(?:async\s+)?def\s+\w+\s*\([^)]*\)\s*(?:->[^:]*)?:[ \t]*\n[ \t]+(?:pass|\.\.\.)[ \t]*(?:#.*)?$",
     re.MULTILINE)
 
-# 0-byte files anywhere in the repo (except .git). Named exception: the
-# learned-phrase sink `*/learned/phrases.log` is empty until the first /voice
-# run appends to it; the contract is existence (checked above), not content.
-for p in sorted(ROOT.rglob("*")):
-    if ".git" in p.parts:
-        continue
-    if p.is_file() and p.stat().st_size == 0 and not (p.parent.name == "learned" and p.name == "phrases.log"):
-        ck(False, f"0-byte file (zero-stub law): {p.relative_to(ROOT)}")
-
-# no tracked __pycache__/*.pyc anywhere: runtime bytecode artifacts are
-# gitignored, so anything tracked here is committed cruft (the uxr-plugin husk
-# pattern). Disk-local, gitignored pycache from running the gate locally is not
-# repo content and does not fail.
+# tracked files are the repo's published content (git ls-files): untracked
+# machine caches (.mimosa/, .token-optimizer/, ...) are disk-local only and do
+# not fail the law — same scope rule as the tracked-pyc check below.
 tracked = [t for t in subprocess.run(["git", "-C", str(ROOT), "ls-files", "-z"],
                                      capture_output=True).stdout.split(b"\x00") if t]
 tracked = [t.decode("utf-8", "replace") for t in tracked]
+
+# 0-byte tracked files anywhere. Named exception: the learned-phrase sink
+# `*/learned/phrases.log` is empty until the first /voice run appends to it;
+# the contract is existence (checked above), not content.
+for t in tracked:
+    p = ROOT / t
+    if p.is_file() and p.stat().st_size == 0 and not (p.parent.name == "learned" and p.name == "phrases.log"):
+        ck(False, f"0-byte file (zero-stub law): {t}")
+
+# no tracked __pycache__/*.pyc anywhere: runtime bytecode artifacts are
+# gitignored, so anything tracked here is committed cruft (the uxr-plugin husk
+# pattern).
 pyc_cruft = [t for t in tracked
              if t.endswith(".pyc") or "__pycache__" in pathlib.PurePosixPath(t).parts]
 ck(not pyc_cruft, f"no tracked __pycache__/*.pyc anywhere (zero-stub law): {pyc_cruft[:5]}")
