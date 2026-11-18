@@ -1,0 +1,10 @@
+{
+  "subcommand": "decision",
+  "input": "Do we ship the left-navigation timeline entry or invest in a guided tour? Owner: Product Leadership, January planning review.",
+  "expect": {
+    "shape": "invest-a-or-b",
+    "good": true,
+    "has_owner": true,
+    "sentences": 1
+  }
+}

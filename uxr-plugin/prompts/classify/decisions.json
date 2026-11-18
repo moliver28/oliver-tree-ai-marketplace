@@ -1,0 +1,15 @@
+{
+  "id": "decisions",
+  "version": 1,
+  "owner_markers": ["owner", "owner:", "decided by", "decision owner", "sponsor"],
+  "bad_shapes": [
+    {"shape": "topic-only", "any": ["understand how", "learn about", "explore how", "get a sense of", "see how users feel"]},
+    {"shape": "validate-only", "any": ["validate", "prove that", "confirm that users"]}
+  ],
+  "good_shapes": [
+    {"shape": "invest-a-or-b", "any": ["invest in a", "invest in the", " or ", "choose between", "a or b", "either"]},
+    {"shape": "ship-ga", "any": ["ship", "launch", "ga", "release to"]},
+    {"shape": "standardize", "any": ["standardize", "standardise", "which of these", "which one"]}
+  ],
+  "note": "The trailing 'Owner: <...>' clause never counts as a second sentence. Bad shapes win over good shapes (they are what the command must tighten); among good shapes the first match wins; otherwise other-good."
+}

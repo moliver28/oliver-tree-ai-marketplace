@@ -1,0 +1,10 @@
+{
+  "subcommand": "intent",
+  "input": "I need to track a new study about onboarding",
+  "prefix": "UXR",
+  "expect": {
+    "command": "new",
+    "args": "",
+    "signal": "i need to track"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "subcommand": "method",
+  "input": [
+    "Does design A or B work better for the task?"
+  ],
+  "expect": {
+    "shape": "Does design A or B work better for task T",
+    "method": "Usability Test or Rapid Design Testing",
+    "sample": "5-8 per design",
+    "length": "45-60 min",
+    "investment": "M",
+    "matched_on": [
+      "a or b",
+      "better for"
+    ],
+    "alternative": "",
+    "rules": "qualitative leads; never a survey for a why question; a tie picks the lighter method"
+  }
+}

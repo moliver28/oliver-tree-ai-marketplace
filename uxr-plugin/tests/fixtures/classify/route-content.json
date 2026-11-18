@@ -1,0 +1,8 @@
+{
+  "subcommand": "route-finding",
+  "input": "dead ends",
+  "expect": {
+    "target": "markdown",
+    "category": "dead ends"
+  }
+}

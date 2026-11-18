@@ -1,0 +1,15 @@
+{
+  "id": "intents",
+  "version": 1,
+  "key_regex": "^(?:([A-Za-z][A-Za-z0-9]*)-)?(\\d{1,7})$",
+  "rules": [
+    {"command": "mine", "args": "", "any": ["my tickets", "my plate", "assigned to me"]},
+    {"command": "show", "args": "", "any": ["show", "read", "look at", "open"]},
+    {"command": "new", "args": "", "any": ["create", "new study", "log a study", "open a ticket", "i need to track"]},
+    {"command": "edit", "args": "", "any": ["update", "edit", "fill in", "change priority"]},
+    {"command": "move", "args": "", "any": ["move", "transition", "mark as", "push to a column"]},
+    {"command": "recruit", "args": "", "any": ["recruit", "recruiting status", "who have we contacted", "next wave"]},
+    {"command": "eod", "args": "", "any": ["end of day", "eod", "log today's work"]}
+  ],
+  "note": "First matching rule wins; a bare key (or prefix-number) with read intent routes to show. 'new' as a bare word only routes to new when no other rule matches first."
+}

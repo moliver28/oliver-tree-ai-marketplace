@@ -1,0 +1,10 @@
+{
+  "subcommand": "reply",
+  "input": "Not interested, please remove me from the list",
+  "expect": {
+    "class": "declined",
+    "action": "decline",
+    "matched": "not interested",
+    "lane": "deterministic"
+  }
+}
