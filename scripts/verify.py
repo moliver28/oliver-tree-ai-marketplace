@@ -471,5 +471,17 @@ for doc in ("catalog.md", "PROVENANCE.md"):
         if pm:
             ck((ROOT / pm.group(1)).is_dir(), f"{doc}:{i} Published-at target exists: {pm.group(1)}")
 
+# --- uxr-plugin golden parity gates (W2 efficiency pass) -------------------
+# The plugin's tests/test_parity.py regenerates every deterministic artifact
+# from its fixture and compares it against the committed expected output, and
+# hash-pins the baseline goldens (tests/goldens/, with DIFFERS markers on the
+# four F1-F4 sections). A failure here means a UX-visible output drifted.
+uxr = ROOT / "uxr-plugin"
+if uxr.is_dir():
+    parity = subprocess.run([sys.executable, str(uxr / "tests" / "test_parity.py")],
+                            capture_output=True, text=True, cwd=str(uxr))
+    tail = ((parity.stdout or "") + (parity.stderr or "")).strip().splitlines()
+    ck(parity.returncode == 0, f"uxr-plugin golden parity tests (W2): {tail[-1] if tail else parity.returncode}")
+
 print(f"\n{len(fails)} failure(s)")
 sys.exit(1 if fails else 0)
