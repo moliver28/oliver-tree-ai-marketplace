@@ -15,9 +15,19 @@ Two layers, both importable by voice-gate.py (hook) and voice-check.py:
    use) when the daemon is absent. If both backends are unavailable the
    vector layer is skipped (logged vec_skip) and the regex layer still stands.
 
+Learn/apply decoupling (issue #5): both layers load rule DATA from the runtime
+state file <HERMES_HOME>/state/voice-rules.json (path override: VOICE_RULES_STATE)
+at scan time, keyed per-source provenance (register, learn pass, owner manual
+entries). Embedded PATTERNS/EXEMPLARS below are the fail-open defaults; valid
+state entries merge/override them, per-source provenance is preserved, and an
+absent/invalid state file falls back to the embedded lists exactly as before.
+Runtime gate and published plugin share this ONE loading contract.
+
 Public API:
     find_regex_hits(text) -> list[str]
     find_vector_hits(text, chunks=None) -> list[str]
+    state_path() -> Path
+    effective_rules() -> dict (patterns/exemplars/thresholds + provenance)
 """
 import json
 import math
@@ -33,6 +43,8 @@ HERE = Path(__file__).resolve().parent
 CACHE_PATH = HERE / "voice-tells-vectors.json"    # exemplar vectors, backend-keyed
 CAL_PATH = HERE / "voice-tells-calibration.json"  # per-class thresholds, backend-keyed
 LEGACY_VEC_PATH = HOME / "state" / "voice-tells-vectors.json"
+STATE_ENV = "VOICE_RULES_STATE"   # runtime rule state override (tests, side-by-side installs)
+# Log sink resolves per call (VOICE_GATE_LOG override, tests + side-by-side installs)
 LOG = HOME / "logs" / "voice-gate.log"
 OLLAMA_URL = os.environ.get("VOICE_GATE_OLLAMA_URL", "http://localhost:11434/api/embeddings")
 MODEL = "nomic-embed-text"        # Ollama tag: fast path
@@ -124,7 +136,6 @@ PATTERNS = [
 ]
 
 _FLAGS = re.IGNORECASE
-_COMPILED = [(re.compile(p, _FLAGS), label) for p, label in PATTERNS]
 
 # ---------------- VECTOR LAYER ----------------
 # One or more exemplar strings per tell family; paraphrases of these should hit.
@@ -148,6 +159,151 @@ EXEMPLARS = [
     "Someone is filling it. X shows what that costs, with dates attached. It deserves a real answer.",
     "To be precise here, that is a cost worth stating, and let me be honest about the arithmetic.",
 ]
+
+# ---------------- STATE-FILE LAYER (learn/apply decoupling, issue #5) ----------------
+# The style learner and the owner register write rule DATA (never .py) to
+# <HERMES_HOME>/state/voice-rules.json; this module is the ONE loading contract
+# shared by the runtime gate and the published plugin. Schema:
+#   {"format": 1, "sources": {"<source>": {"patterns": [{"pattern", "label"}],
+#                                           "exemplars": ["..."],
+#                                           "thresholds": {"<label>": float}}}}
+# with <source> naming provenance (register, learn, owner, ...). Precedence:
+# embedded defaults first, then state entries in file order — an identical
+# regex replaces the earlier label in place (later source wins), exemplars
+# dedupe on exact text, thresholds override the embedded calibration per
+# class. Absent file: embedded defaults, silent (pre-loader behavior).
+# Corrupt/invalid file: embedded defaults + one `state_skip` log line per
+# state change (fail-open unchanged); entry-level problems skip just that
+# entry and log, valid entries still apply.
+
+_rules_cache = {"key": None, "value": None}  # (path, mtime_ns, size) -> parsed state
+_eff_cache = {"key": None, "value": None}    # same key -> merged view + compiled regexes
+_uncal_key = [None]                          # state key already checked for uncalibrated exemplars
+
+
+def state_path():
+    """Runtime rule state file: $VOICE_RULES_STATE or <HERMES_HOME>/state/voice-rules.json."""
+    override = os.environ.get(STATE_ENV)
+    return Path(override) if override else HOME / "state" / "voice-rules.json"
+
+
+def _read_state():
+    p = state_path()
+    try:
+        info = p.stat()
+        key = (str(p), info.st_mtime_ns, info.st_size)
+    except OSError:
+        key = (str(p), None, None)
+    if _rules_cache["key"] == key:
+        return _rules_cache["value"]
+    value = _parse_state(p, key)
+    _rules_cache["key"], _rules_cache["value"] = key, value
+    return value
+
+
+def _dead_state(st, err):
+    """Top-level unusable state: full fallback to embedded defaults, logged."""
+    st["ok"], st["err"] = False, err
+    _log_vec("state_skip", {"path": st["path"], "err": err})
+    return st
+
+
+def _parse_state(p, key):
+    st = {"key": key, "ok": False, "err": None, "path": str(p), "sources": {},
+          "patterns": [], "exemplars": [], "thresholds": {}}
+    if key[1] is None:
+        st["err"] = "absent"  # embedded-only, silent like today: no log line
+        return st
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+    except Exception as e:
+        return _dead_state(st, f"parse: {e!r}")
+    if not isinstance(raw, dict) or not isinstance(raw.get("sources"), dict):
+        return _dead_state(st, "schema: expected a top-level object with a 'sources' object")
+    st["ok"], st["sources"] = True, raw["sources"]
+    warns = []
+    for src, body in raw["sources"].items():
+        if not isinstance(body, dict):
+            warns.append(f"source '{src}' is not an object")
+            continue
+        pats = body.get("patterns")
+        if pats is not None and not isinstance(pats, list):
+            warns.append(f"source '{src}': patterns is not a list")
+        elif isinstance(pats, list):
+            for entry in pats:
+                if (isinstance(entry, dict) and isinstance(entry.get("pattern"), str)
+                        and isinstance(entry.get("label"), str)):
+                    st["patterns"].append((entry["pattern"], entry["label"], src))
+                else:
+                    warns.append(f"source '{src}': pattern entry needs pattern/label strings; skipped")
+        exs = body.get("exemplars")
+        if exs is not None and not isinstance(exs, list):
+            warns.append(f"source '{src}': exemplars is not a list")
+        elif isinstance(exs, list):
+            for text in exs:
+                if isinstance(text, str) and text.strip():
+                    st["exemplars"].append((text, src))
+                else:
+                    warns.append(f"source '{src}': non-string exemplar skipped")
+        th = body.get("thresholds")
+        if th is None:
+            continue
+        if not isinstance(th, dict):
+            warns.append(f"source '{src}': thresholds is not an object")
+            continue
+        for label, v in th.items():
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                st["thresholds"][label] = float(v)  # later sources override earlier
+            else:
+                warns.append(f"source '{src}': threshold '{label}' is not a number; skipped")
+    if warns:
+        st["err"] = "; ".join(warns)  # partial apply: valid entries stand, problems visible
+        _log_vec("state_skip", {"path": str(p), "err": st["err"]})
+    else:
+        _log_vec("state_load", {"path": str(p), "sources": len(st["sources"]),
+                                "patterns": len(st["patterns"]), "exemplars": len(st["exemplars"]),
+                                "thresholds": len(st["thresholds"])})
+    return st
+
+
+def _effective():
+    """Embedded defaults merged with state-file overrides; regexes compiled."""
+    st = _read_state()
+    if _eff_cache["key"] == st["key"]:
+        return _eff_cache["value"]
+    pats = list(PATTERNS)
+    psrc = ["embedded"] * len(pats)
+    idx = {p: i for i, (p, _) in enumerate(pats)}
+    for pat, label, src in st["patterns"]:
+        if pat in idx:
+            pats[idx[pat]], psrc[idx[pat]] = (pat, label), src
+        else:
+            idx[pat] = len(pats)
+            pats.append((pat, label))
+            psrc.append(src)
+    exs = list(EXEMPLARS)
+    esrc = ["embedded"] * len(exs)
+    seen = set(exs)
+    for text, src in st["exemplars"]:
+        if text not in seen:
+            seen.add(text)
+            exs.append(text)
+            esrc.append(src)
+    eff = {"patterns": pats, "pattern_sources": psrc, "exemplars": exs,
+           "exemplar_sources": esrc, "thresholds": dict(st["thresholds"]),
+           "state": st, "compiled": [(re.compile(p, _FLAGS), l) for p, l in pats]}
+    _eff_cache["key"], _eff_cache["value"] = st["key"], eff
+    return eff
+
+
+def effective_rules():
+    """Merged rule set (embedded + state overrides) with per-entry provenance:
+    {"patterns": [(rx, label)], "pattern_sources": [...], "exemplars": [...],
+     "exemplar_sources": [...], "thresholds": {label: float}, "state": {...}}.
+    Consumed by voice-vector-build.py (rebuild reads the effective exemplars)."""
+    e = _effective()
+    return {k: e[k] for k in ("patterns", "pattern_sources", "exemplars",
+                              "exemplar_sources", "thresholds", "state")}
 
 _cache = None       # loaded exemplar vectors (backend-keyed)
 _cal = None         # loaded calibration table (backend-keyed)
@@ -186,8 +342,9 @@ def _load_calibration():
 
 def _log_vec(event, detail):
     try:
-        LOG.parent.mkdir(parents=True, exist_ok=True)
-        with open(LOG, "a") as f:
+        log = Path(os.environ.get("VOICE_GATE_LOG", str(LOG)))
+        log.parent.mkdir(parents=True, exist_ok=True)
+        with open(log, "a") as f:
             f.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(),
                                 "event": event, **detail}) + "\n")
     except Exception:
@@ -317,7 +474,7 @@ def _chunks(text, size=1200, cap=12):
 
 def find_regex_hits(text):
     hits = []
-    for rx, label in _COMPILED:
+    for rx, label in _effective()["compiled"]:
         m = rx.search(text)
         if m:
             near = text[max(0, m.start() - 25):m.end() + 25].replace("\n", " ")
@@ -328,12 +485,21 @@ def find_regex_hits(text):
 def find_vector_hits(text):
     """Return hits from the embedding layer; empty on any infrastructure miss.
     Similarity is compared per class against the calibrated threshold for the
-    backend that produced the chunk embedding."""
+    backend that produced the chunk embedding; state-file thresholds (issue #5)
+    override the embedded calibration per class."""
     if os.environ.get("VOICE_GATE_VECTOR", "").lower() == "off":
         return []
     cache, cal = _load_vectors(), _load_calibration()
     if not cache.get("backends"):
         return []
+    eff = _effective()
+    if eff["state"]["ok"] and _uncal_key[0] != eff["state"]["key"]:
+        _uncal_key[0] = eff["state"]["key"]
+        cached = {v.get("text") for b in cache["backends"].values() for v in b.get("vectors", [])}
+        missing = [t for t, s in zip(eff["exemplars"], eff["exemplar_sources"])
+                   if s != "embedded" and t not in cached]
+        if missing:  # learned exemplars not yet vectorized: visible gap, fail-open
+            _log_vec("state_uncalibrated", {"missing": len(missing), "sample": missing[0][:60]})
     hits = []
     for chunk in _chunks(text):
         try:
@@ -348,7 +514,10 @@ def find_vector_hits(text):
             return hits
         chunk_hits = []
         for ex in entry["vectors"]:
-            t, sim = th.get(ex["label"]), _cosine(v, ex["vec"])
+            t = eff["thresholds"].get(ex["label"])
+            if t is None:
+                t = th.get(ex["label"])
+            sim = _cosine(v, ex["vec"])
             if t is not None and sim >= t:
                 chunk_hits.append(f"vector tell '{ex['label']}' sim={sim:.2f} (near exemplar: "
                                   f"{ex['text'][:70]}...)")

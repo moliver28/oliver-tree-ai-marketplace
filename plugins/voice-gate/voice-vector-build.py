@@ -9,7 +9,10 @@ Thresholds follow the owner-validated calibration recipe: per class,
 background p99 + 0.03 measured on clean repo prose (--bg, default: repo
 markdown). Background chunks colliding with a class threshold are logged
 warn-mode (vec_collision, log-only) and recorded in the calibration table,
-never fatal. Re-run after editing EXEMPLARS in voice-tells.py.
+never fatal. Re-run after editing EXEMPLARS in voice-tells.py or the runtime
+state file voice-rules.json (issue #5): the build embeds the EFFECTIVE exemplars
+(embedded + state-file, provenance-keyed; state exemplars beyond the embedded
+list get auto-labels tell-<i>).
 """
 import argparse
 import importlib.util
@@ -64,7 +67,8 @@ def main():
     cal.setdefault("format", 1); cal.setdefault("formula", "p99+0.03"); cal.setdefault("backends", {})
 
     vectors = []
-    for i, text in enumerate(vt.EXEMPLARS):
+    exemplars = vt.effective_rules()["exemplars"]  # embedded + state-file exemplars (issue #5)
+    for i, text in enumerate(exemplars):
         v, _ = vt._embed(text, timeout=30, backend=a.backend)
         label = LABELS.get(i, f"tell-{i}")
         vectors.append({"label": label, "text": text, "vec": v})
