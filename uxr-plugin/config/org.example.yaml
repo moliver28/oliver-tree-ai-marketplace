@@ -1,0 +1,415 @@
+# =============================================================================
+# UX research plugin -- organization configuration (the config contract)
+# =============================================================================
+#
+# This file documents EVERY configuration key and ships a safe placeholder or
+# default for each. It is the single source of key names: issues name config
+# keys, and every key an issue names must exist here.
+#
+# To configure the plugin, copy this file to config/org.yaml (gitignored) and
+# fill in your organization's real values. Never commit organization values.
+#
+# Every command, script, and hook reads configuration through ONE loader,
+# lib/config.py:load_config(), which merges, in order (later wins):
+#
+#   1. config/org.example.yaml  -- this file (defaults and the key contract)
+#   2. config/org.yaml          -- your values (optional, gitignored)
+#   3. environment overrides    -- UXR_CONFIG__SECTION__KEY=value
+#      '__' separates nested segments, for example:
+#      UXR_CONFIG__TRACKER__BASE_URL=https://example.atlassian.net
+#      Values are parsed as JSON when they parse as JSON, so '30' becomes a
+#      number and '["Done"]' becomes a list.
+#
+# A missing required key makes load_config() raise an error naming the key.
+
+# -----------------------------------------------------------------------------
+# tracker: the system that holds study tickets (issue 03 owns the adapter)
+# -----------------------------------------------------------------------------
+tracker:
+  # Tracker kind. One of: jira | linear | github | asana
+  kind: ""
+  # Base URL used to build item links.
+  # Example shape: https://your-company.atlassian.net
+  base_url: ""
+  # Tracker workspace identifier: Jira cloudId, Linear team id,
+  # GitHub owner/repo, or Asana workspace gid.
+  workspace_id: ""
+  # Jira project key, or the equivalent in your tracker.
+  # Example shape: UX1
+  project_key: ""
+  # Regex that matches a ticket key in text; a key like UX1-237 must match.
+  # Example shape: '\bUX1-\d+\b'
+  ticket_regex: ""
+  # Prefix that turns a bare number into a ticket key: '42' -> '<prefix>-42'.
+  bare_number_prefix: ""
+  # Tracker item type used for studies (Jira issue type name), or null when
+  # the tracker has no item types.
+  # Example shape: Idea
+  study_item_type: ""
+  # Rich-text format the body renderer targets. One of: adf | markdown | html
+  body_format: ""
+  # Statuses that count as closed, for "my open studies" queries.
+  closed_states: []
+  # Priority values the tracker accepts.
+  priority_values: []
+  # Priority applied when a ticket is created without one.
+  # Example shape: Medium High
+  default_priority: ""
+
+# -----------------------------------------------------------------------------
+# fields: one entry per structured tracker field (issue 03)
+# -----------------------------------------------------------------------------
+# Fields do not live in the spec; the plugin sets them on the ticket. Each
+# entry is keyed by the shorthand name commands use (lib/field_map.py resolves
+# `method=Survey` through the `method` entry) and shaped:
+#   <name>: { id: "", kind: ..., values: [] }
+# `id` is the tracker's field id (a Jira custom field id, or the equivalent
+# field or property name in your tracker); it stays "" until you map your
+# tracker, then holds the real value in config/org.yaml. `kind` is the field
+# type, one of:
+#   single_select | multi_select | single_name | user | url | date |
+#   interval | text | labels
+# `values` lists the allowed options for select-style fields; an empty list
+# accepts any token until you fill in your team's real list. `priority`
+# (single_name) validates against tracker.priority_values instead of `values`.
+# These are the reference names from issue 03: keep the names, change the ids
+# and values for your tracker.
+fields:
+  research-type:
+    id: ""
+    kind: single_select
+    values: ["Evaluative", "Generative", "Strategic", "Other"]
+  pod:
+    id: ""
+    kind: multi_select
+    values: []                # your team list
+  support:
+    id: ""
+    kind: multi_select
+    values: ["UXR to Lead", "UXR to Assist", "UXR to Review", "Not Sure"]
+  method:
+    id: ""
+    kind: multi_select
+    values: ["Internal Interviews", "External Interviews", "Survey", "Usability Test", "Usability Benchmark", "Rapid Design Testing", "Concept Testing", "Card Sort", "Tree Test", "Desk Research", "Data Analytics", "Design Partnership", "ReOp Work", "Not Sure"]
+  investment:
+    id: ""
+    kind: single_select
+    values: ["0", "SM", "M", "LRG", "XLG", "XXLG"]
+  outcome:
+    id: ""
+    kind: multi_select
+    values: ["Validate Design", "Presentation Deck", "JTBD Canvas", "Improvement to UX Process", "List of Product Improvement Recommendations", "Continued Research", "Summary of findings"]
+  reviewed:
+    id: ""
+    kind: single_select
+    values: ["Needs Review", "Reviewed", "N/A"]
+  feature:
+    id: ""
+    kind: text
+  start:
+    id: ""
+    kind: interval            # DATE or DATE..DATE
+  target:
+    id: ""
+    kind: interval            # DATE or DATE..DATE
+  uxr:
+    id: ""
+    kind: user                # defaults to the current user
+  pm:
+    id: ""
+    kind: user
+  pd:
+    id: ""
+    kind: user
+  em:
+    id: ""
+    kind: user
+  script:
+    id: ""
+    kind: url
+  output:
+    id: ""
+    kind: url
+  prd:
+    id: ""
+    kind: url
+  eng:
+    id: ""
+    kind: url
+  design:
+    id: ""
+    kind: url
+  summary:
+    id: ""
+    kind: text
+  priority:
+    id: ""
+    kind: single_name         # values come from tracker.priority_values
+  labels:
+    id: ""
+    kind: labels
+  duedate:
+    id: ""
+    kind: date
+
+# -----------------------------------------------------------------------------
+# workflow: study phases and their readiness (issue 07 owns the gates)
+# -----------------------------------------------------------------------------
+workflow:
+  # Status a study ticket starts in.
+  # Example shape: Unplanned
+  initial_status: ""
+  # Gated phases, in order, that /uxr-move moves a study through.
+  # Example shape: [Planned, Writing Script / Survey, Recruiting, Collecting Data, Summarizing Data, Creating Report, Done]
+  phase_order: []
+  # Phase readiness rules: phase name -> list of requirements (issue 07).
+  requirements: {}
+  # Ordered status names to match against after a script is written.
+  script_status_candidates: []
+
+# -----------------------------------------------------------------------------
+# routing: which researcher owns a study, and where outputs go
+# -----------------------------------------------------------------------------
+routing:
+  # The team's researchers: [{display_name, role: uxr|manager, area}].
+  # Role detection matches the current user's display name against
+  # display_name (without case); anyone not listed is a stakeholder.
+  researchers: []
+  # Maps the group field value to a product area. The group field routes a
+  # study to a researcher; the reference plugin calls it "Pod".
+  # Example shape: {<group value>: <area name>}
+  group_to_area: {}
+  # Maps a product area to its primary researcher and fallback chain, used
+  # when the primary is out of office.
+  # Example shape: {<area>: {primary: <name>, fallbacks: [<name>, ...]}}
+  # A plain researcher name is also accepted when there is no fallback chain.
+  area_to_researcher: {}
+  # Researcher used when no area matches; the command also prints the
+  # map-update note when this fallback fires (lib/field_map.py
+  # resolve_researcher).
+  default_researcher: ""
+  # Maps group values to chat channels for report distribution.
+  group_to_channels: {}
+  # Channel for general research posts.
+  research_channel: ""
+  # Channel for leadership-facing posts.
+  leadership_channel: ""
+
+# -----------------------------------------------------------------------------
+# org: the organization's identity and boundaries
+# -----------------------------------------------------------------------------
+org:
+  # Email domains that count as internal colleagues.
+  # Example shape: ["your-company.com", "example.com"]
+  internal_domains: []
+  # Domain used for team-wide shares (documents, drives).
+  team_share_domain: ""
+  # Organization name used in reports and decks.
+  # Example shape: Your Company
+  brand_name: ""
+  # Closing line appended to reports and decks.
+  brand_signoff: ""
+  # Email address of the AI notetaker that joins sessions.
+  notetaker_email: ""
+
+# -----------------------------------------------------------------------------
+# paths: local filesystem locations ('~' and ${VAR} references are expanded)
+# -----------------------------------------------------------------------------
+paths:
+  # Root folder that holds one subfolder (workspace) per study.
+  research_root: "~/Documents/Research"
+  # Per-user plugin data (specs, journal, events).
+  state_dir: "${CLAUDE_PLUGIN_DATA}/state"
+
+# -----------------------------------------------------------------------------
+# workspace: local study folder conventions (issue 08)
+# -----------------------------------------------------------------------------
+workspace:
+  # Optional git remote to give study workspaces.
+  remote: ""
+  # Maximum characters of the ticket body used to derive the workspace slug.
+  slug_max_body: 50
+  # Paths inside a workspace that must be gitignored (participant data; these
+  # checks fail closed -- see Principle 4).
+  gitignored_paths: ["interviews/participant-key.md", "interviews/raw-transcripts/"]
+
+# -----------------------------------------------------------------------------
+# evidence: where supporting material is read from (issue 06)
+# -----------------------------------------------------------------------------
+evidence:
+  # MCP tools the evidence sweep may read.
+  sources: []
+  # Chat channels the evidence sweep may read.
+  chat_channels: []
+
+# -----------------------------------------------------------------------------
+# ssot: canonical team links (issue 06)
+# -----------------------------------------------------------------------------
+ssot:
+  # Jobs-to-be-done board or document URL.
+  jtbd_url: ""
+  # Personas document URL.
+  personas_url: ""
+  # Id of the canonical script template.
+  script_template_id: ""
+  # Drive folder id where finished artifacts are filed.
+  finished_artifacts_folder_id: ""
+  # Naming pattern for finished artifacts.
+  finished_title_pattern: "<Product Area> <What it was> <YYYY-MM>"
+
+# -----------------------------------------------------------------------------
+# comments: how plugin-posted tracker comments identify themselves
+# -----------------------------------------------------------------------------
+comments:
+  # Footer appended to comments the plugin posts; {display_name} is replaced
+  # with the acting researcher's name.
+  footer: "_Posted by Claude Code on behalf of {display_name}._"
+
+# -----------------------------------------------------------------------------
+# defaults: fallback values for ticket creation
+# -----------------------------------------------------------------------------
+defaults:
+  # Days back from today that "recent studies" windows cover.
+  start_window_days: 90
+  # Fast-path values for guided ticket creation.
+  fast_path:
+    pod: ""                    # default group; empty = ask
+    research_type: "Strategic"
+    method: "Not Sure"
+    investment: "M"
+    support: "UXR to Lead"
+    outcomes: ["Summary of findings", "Continued Research"]
+
+# -----------------------------------------------------------------------------
+# links: checklist links rendered into the ticket body (issue 04)
+# -----------------------------------------------------------------------------
+links:
+  # Research calculator URL (sessions needed / sample size).
+  calculator: ""
+  # Template gallery URL.
+  templates: ""
+  # This plugin's repository URL.
+  plugin_repo: ""
+
+# -----------------------------------------------------------------------------
+# recruit: participant recruitment rules (issue 10)
+# -----------------------------------------------------------------------------
+recruit:
+  # Allowed roster statuses per recruit list.
+  statuses:
+    interview: []              # statuses for interview studies
+    survey: []                 # statuses for survey studies
+    recruited: []              # statuses for already-recruited pools
+    early: []                  # statuses for early-access pools
+  # Color per status, for the recruitment table.
+  status_colors: {}
+  # Recruitment window length in days: default and maximum.
+  window_days:
+    default: 14
+    max: 60
+  # Session length in minutes by participant type.
+  session_minutes:
+    internal: 30
+    external: 60
+  # Days to wait before nudging a non-responder.
+  nudge_after_days: 2
+  # Spreadsheet ids and tab names: contact, do-not-contact, open-deal, and
+  # merge template. The do-not-contact and open-deal checks fail closed
+  # (Principle 4).
+  sheets: {}
+  # Column headers of the recruitment wave tab, in order.
+  wave_tab_headers: []
+  # Regex that matches a booking link in a reply.
+  booking_url_regex: ""
+
+# -----------------------------------------------------------------------------
+# calendar: calendar holds and moves (issue 10; drafts, never sends)
+# -----------------------------------------------------------------------------
+calendar:
+  # Working window scheduling may propose, as HH:MM-HH:MM.
+  working_hours: "09:00-17:00"
+  # Default session level code used for calendar holds.
+  default_level: "ii"
+  # Maximum number of times one recruit's sessions may be moved.
+  max_moves_per_recruit: 3
+  # Names of managers whose calendars are never proposed against.
+  manager_names: []
+  # Title keywords marking events that may be rescheduled.
+  movable_keywords: []
+  # Title keywords marking events that must never be rescheduled.
+  immovable_keywords: []
+
+# -----------------------------------------------------------------------------
+# script: interview script rules (issue 11)
+# -----------------------------------------------------------------------------
+script:
+  # Default script length in minutes.
+  default_minutes: 60
+  # Minutes kept unscripted at the end as buffer.
+  time_buffer: 8
+  # Maximum words per question line.
+  word_cap: 20
+  # Grade level that triggers a readability warning.
+  grade_warn: 10
+  # Grade level that blocks the script (readability check).
+  grade_block: 12
+
+# -----------------------------------------------------------------------------
+# report: report tiering and verdicts (issue 13)
+# -----------------------------------------------------------------------------
+report:
+  # Maps study shape (groups, type) to a report tier.
+  tier_matrix: {}
+  # Whether a multi-group study bumps the report tier.
+  multi_group_bump: true
+  # Minimum fraction of positive evidence for a positive verdict.
+  verdict_threshold: 0.60
+
+# -----------------------------------------------------------------------------
+# publish: where tiered reports are published (issue 13)
+# -----------------------------------------------------------------------------
+publish:
+  # Repository that receives published reports.
+  repo: ""
+  # Public URL of the published reports site.
+  pages_url: ""
+
+# -----------------------------------------------------------------------------
+# deck: slide deck generation (issue 14)
+# -----------------------------------------------------------------------------
+deck:
+  # Path (relative to a study workspace) of the personas reference file.
+  personas_file: "references/personas.json"
+  # Path of the deck generator script.
+  generator_path: ""
+  # Reviewer agent that critiques generated decks.
+  critic_agent: ""
+
+# -----------------------------------------------------------------------------
+# feedback: where users file plugin feedback (issue 14)
+# -----------------------------------------------------------------------------
+feedback:
+  # Repository that receives feedback issues.
+  repo: ""
+  # Label applied to feedback issues.
+  label: "feedback"
+
+# -----------------------------------------------------------------------------
+# analytics: optional usage telemetry (off by default)
+# -----------------------------------------------------------------------------
+analytics:
+  # Whether usage events are sent.
+  enabled: false
+  # Endpoint that usage events are sent to.
+  endpoint: ""
+  # API key for the endpoint. Keep the real value in config/org.yaml only.
+  api_key: ""
+
+# -----------------------------------------------------------------------------
+# sync: optional workspace git sync (off by default)
+# -----------------------------------------------------------------------------
+sync:
+  # Whether study workspaces sync to a git remote.
+  enabled: false
+  # Git remote name used for sync.
+  remote: "origin"

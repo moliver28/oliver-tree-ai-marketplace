@@ -1,0 +1,127 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/ux_research_context.py\" || python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/ux_research_context.py\" || exit 0",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/analytics_flush.py\" || python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/analytics_flush.py\" || exit 0",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/session_logger.py\" || python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session_logger.py\" || exit 0",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/review_gate.py\" || python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/review_gate.py\" || exit 0",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/analytics.py\" || python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/analytics.py\" || exit 0",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/review_gate.py\" || python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/review_gate.py\" || exit 0",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptExpansion": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/analytics.py\" || python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/analytics.py\" || exit 0",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/session_logger.py\" || python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session_logger.py\" || exit 0",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/review_gate.py\" || python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/review_gate.py\" || exit 0",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/provenance.py\" || python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/provenance.py\" || exit 0",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/analytics.py\" || python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/analytics.py\" || exit 0",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/analytics.py\" || python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/analytics.py\" || exit 0",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
