@@ -1,0 +1,41 @@
+{
+  "id": "show",
+  "version": 1,
+  "field_rows": [
+    ["pod", "Group"],
+    ["research-type", "Research Type"],
+    ["method", "Research Method"],
+    ["support", "UXR Support Level"],
+    ["investment", "Level of Investment"],
+    ["outcome", "Expected Outcomes"],
+    ["reviewed", "Reviewed Status"],
+    ["start", "Start Date"],
+    ["target", "Target End"],
+    ["uxr", "UX Researcher"],
+    ["pm", "Product Manager"],
+    ["pd", "Product Designer"],
+    ["em", "Eng Manager"],
+    ["script", "Script/Survey"],
+    ["output", "Output Artifact"],
+    ["prd", "PRD"],
+    ["eng", "Eng Issue"],
+    ["design", "Design Artifact"],
+    ["feature", "Feature"]
+  ],
+  "emoji": {
+    ":tada:": "\ud83c\udf89",
+    ":white_check_mark:": "\u2705",
+    ":eyes:": "\ud83d\udc40",
+    ":fire:": "\ud83d\udd25",
+    ":rocket:": "\ud83d\ude80",
+    ":bulb:": "\ud83d\udca1",
+    ":warning:": "\u26a0\ufe0f",
+    ":thinking_face:": "\ud83e\udd14",
+    ":pray:": "\ud83d\ude4f",
+    ":clap:": "\ud83d\udc4f",
+    ":question:": "\u2753",
+    ":heavy_exclamation_mark:": "\u2757"
+  },
+  "standard_fields": "summary, status, issuetype, priority, assignee, reporter, created, updated, labels, description, issuelinks, comment",
+  "max_comments": 5
+}

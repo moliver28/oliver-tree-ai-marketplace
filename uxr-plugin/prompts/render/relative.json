@@ -1,0 +1,15 @@
+{
+  "id": "relative",
+  "version": 1,
+  "ladder": [
+    {"unit": "s", "max": 60, "label": "just now"},
+    {"unit": "m", "max": 3600, "label": "{n}m ago"},
+    {"unit": "h", "max": 86400, "label": "{n}h ago"},
+    {"unit": "d", "max": 691200, "label": "{n}d ago"},
+    {"unit": "w", "max": 2592000, "label": "{n}w ago"},
+    {"unit": "mo", "max": 31536000, "label": "{n}mo ago"},
+    {"unit": "y", "max": null, "label": "{n}y ago"}
+  ],
+  "divisors": {"m": 60, "h": 3600, "d": 86400, "w": 604800, "mo": 2592000, "y": 31536000},
+  "note": "Day bucket runs under 8 days so a 7-day-old timestamp renders 7d ago (the baseline behavior); weeks run under 30 days, months under a year. Every value rounds down."
+}
