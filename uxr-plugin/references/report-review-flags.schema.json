@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://moliver28.github.io/uxr-plugin/references/report-review-flags.schema.json",
+  "title": "Report review findings (issue 13)",
+  "description": "Validates the findings JSON both report reviewers return: novice-report-reader (reads the HTML; orientation, first-action clarity, term safety, step followability, dead ends) and research-dataviz-designer (chart fit, computed contrast, disclosure structure, takeaway count). Render findings (chart-type, contrast, disclosure-structure) route to the renderer; content findings (takeaway-count, orientation, first-action, terminology, steps, dead-ends, narrative) route to the Markdown.",
+  "type": "object",
+  "required": ["findings"],
+  "additionalProperties": false,
+  "properties": {
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/finding" }
+    }
+  },
+  "definitions": {
+    "finding": {
+      "type": "object",
+      "required": [
+        "finding_id",
+        "agent",
+        "category",
+        "severity",
+        "quoted_evidence",
+        "rationale",
+        "suggested_fix"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "finding_id": { "type": "string", "minLength": 1 },
+        "agent": {
+          "type": "string",
+          "enum": ["novice-report-reader", "research-dataviz-designer"]
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "chart-type",
+            "contrast",
+            "disclosure-structure",
+            "takeaway-count",
+            "orientation",
+            "first-action",
+            "terminology",
+            "steps",
+            "dead-ends",
+            "narrative"
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["blocker", "major", "minor"]
+        },
+        "quoted_evidence": { "type": "string", "minLength": 1 },
+        "rationale": { "type": "string", "minLength": 1 },
+        "suggested_fix": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+state/
+__pycache__/
+*.pyc
+deck-collect-brief-*.md
+config/org.yaml
+.token-optimizer/

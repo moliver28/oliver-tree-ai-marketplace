@@ -1,0 +1,195 @@
+{
+  "skill": "interview-script",
+  "version": 1,
+  "description": "Behavior evals for the interview-script review loop. Each case names a fixture, the steps a runner replays, and the observable assertions checked from the session transcript and the files on disk. The deterministic parts of every case (checker exits, schema outcomes) are also covered by scripts/review_checks.py selftest, which passes offline; these cases cover the model-side behavior around those checks.",
+  "how_to_run": "Agent-driven: run the skill against the fixture inputs in a scratch workspace, then evaluate the assertions against the transcript (dispatch order, wording, gates) and the saved files. No case requires a live tracker, chat, calendar, or Drive service; tracker and Drive steps assert on draft intent and no-op behavior only.",
+  "cases": [
+    {
+      "id": "no-artifact-branch",
+      "name": "Ticket with no resources takes the no-artifact branch",
+      "covers": "step 9.2: no design or Drive link is a legitimate no-artifact branch; zero artifact-grounded flags",
+      "fixture": {
+        "ticket": {
+          "key": "PROJ-501",
+          "title": "Search relevancy complaints",
+          "research_questions": [
+            "How do people find the record they need today?"
+          ],
+          "jtbd": "When a customer asks about history, find the relevant record fast.",
+          "goal": "Understand where search loses the trail.",
+          "resources": []
+        },
+        "study_type": "discovery"
+      },
+      "steps": [
+        "Run the interview-script flow on the fixture ticket.",
+        "Let the loop reach the artifact ingest step with an empty resources list.",
+        "Continue through reader dispatch, writer, checker, and save."
+      ],
+      "assertions": [
+        "The loop records the no-artifact branch and writes no artifact manifest claims beyond 'no artifact fetched'.",
+        "Every emitted flag has artifact_grounded: false.",
+        "No flag of type unexecutable-step or artifact-mismatch is emitted, because those require an artifact fetched this run.",
+        "The script has no Design Walkthrough section (that section needs an artifact).",
+        "The novice dispatch text states that no artifact was fetched.",
+        "review_checks.py check on the saved draft exits 0 or 1, and the file saves."
+      ]
+    },
+    {
+      "id": "v2-rerun",
+      "name": "Existing script offers -v2 and the loop runs before any overwrite",
+      "covers": "step 2 and step 9: ask before overwrite, offer -v2, loop runs on the v2 draft before the overwrite prompt",
+      "fixture": {
+        "workspace": "A workspace whose scripts/ folder already contains interview-script-PROJ-502.md from an earlier pass.",
+        "ticket": {
+          "key": "PROJ-502",
+          "research_questions": ["What breaks when approvals move to self service?"],
+          "goal": "Decide whether self service replaces the approval queue."
+        }
+      },
+      "steps": [
+        "Run the flow for PROJ-502 in that workspace.",
+        "When the existing-file prompt appears, answer with the -v2 option."
+      ],
+      "assertions": [
+        "interview-script-PROJ-502.md is byte-identical before and after the run.",
+        "A new file interview-script-PROJ-502-v2.md is created.",
+        "The review loop ran on the v2 draft before the overwrite question was answered.",
+        "The v2 file has a Quality Check section with one entry per writer edit.",
+        "The overwrite prompt offered -v2 as an option and asked before any overwrite."
+      ]
+    },
+    {
+      "id": "dispatch-order",
+      "name": "Readers run in parallel before the single writer dispatch",
+      "covers": "step 9.3 and 9.4: expert, novice, and conditional hcd-researcher in parallel; script-writer exactly once, after both flag arrays",
+      "fixture": {
+        "ticket": {
+          "key": "PROJ-503",
+          "study_type": "concept testing",
+          "prototype_link": "design-tool://fixture/concept-503"
+        }
+      },
+      "steps": [
+        "Run the full flow on the fixture and record every agent dispatch with its start and end order from the transcript."
+      ],
+      "assertions": [
+        "expert-participant, novice-participant, and hcd-researcher are dispatched in the same parallel batch (none starts after another returns).",
+        "hcd-researcher ran because the study type is concept testing, and its dispatch prompt includes the rider from references/script-rigor.md.",
+        "hcd-researcher output was folded into the Critical-to-Success section.",
+        "script-writer is dispatched exactly once in the pass, and only after both reader flag arrays returned.",
+        "script-writer never overlaps a reader dispatch in the transcript.",
+        "Each reader flag array validated against references/review-flags.schema.json before the writer dispatch."
+      ]
+    },
+    {
+      "id": "artifact-mismatch",
+      "name": "Synthetic fixture: task names a control the manifest lacks",
+      "covers": "step 9: novice flags unexecutable-step with artifact_grounded true; writer fixes with sentence-rewrite; invariants hold",
+      "fixture": {
+        "script_snippet": "### 4. Design Walkthrough (10 min)\n\n**Read Aloud:**\n*Now let us look at the export flow together.*\n\n4. Click 'Export to PDF' and tell me what you expect to happen.\n   a. What did you expect to get?\n",
+        "manifest": {
+          "study": "PROJ-504",
+          "screens": ["Library", "Library > Export panel"],
+          "controls": ["'Export' button", "'Format' dropdown with CSV and XLSX", "'Include notes' checkbox"],
+          "note": "No 'Export to PDF' control exists anywhere in the fetched screens."
+        },
+        "method_expects_artifact": true
+      },
+      "steps": [
+        "Dispatch novice-participant with the script snippet and the manifest.",
+        "Dispatch script-writer with the resulting flags.",
+        "Apply the writer output and run review_checks.py check on the fixed draft."
+      ],
+      "assertions": [
+        "novice-participant emits exactly one flag of type unexecutable-step with artifact_grounded: true and synthetic: true.",
+        "The flag quotes the 'Export to PDF' sentence as quoted_evidence.",
+        "The writer's edit log has one entry resolving that flag with edit_kind sentence-rewrite.",
+        "The edit resolves_flag_ids is non-empty and names the novice flag id.",
+        "The fixed draft passes review_checks.py check with exit 0 or 1.",
+        "Diffing the draft before and after shows changes only inside the flagged sentence: no heading, number, minute value, or RQ map cell changed.",
+        "The writer names only controls the manifest confirms in the replacement text."
+      ]
+    },
+    {
+      "id": "checker-retry-then-stop",
+      "name": "Exit 3 retries the writer once, a second exit 3 stops without saving",
+      "covers": "step 9.6: one writer retry on exit 3; second exit 3 stops, shows failing checks, does not save",
+      "fixture": {
+        "draft": "A draft whose writer edits keep one main question at 21 words, so the first check exits 3 with word-cap, and the scripted retry fails to shorten it."
+      },
+      "steps": [
+        "Run the loop until the first review_checks.py check.",
+        "Observe the exit 3 handling, then the retry, then the second check.",
+        "Force the second check to exit 3 again."
+      ],
+      "assertions": [
+        "The first exit 3 leads to exactly one more script-writer dispatch carrying the checker findings verbatim.",
+        "script-writer is dispatched at most twice across the whole pass.",
+        "After the second exit 3, the loop stops and prints the failing check names and lines.",
+        "No script file is saved to the workspace scripts/ folder after the second exit 3.",
+        "The ticket status is unchanged: no tracker move happened at any point in this pass.",
+        "The chat output contains no pasted full script, only the failing checks and a short status."
+      ]
+    },
+    {
+      "id": "flat-answer-risk-hedged",
+      "name": "Expert flags flat-answer-risk hedged, never asserted",
+      "covers": "reader contract: every flat-answer-risk flag has confidence hedged; schema rejects asserted",
+      "fixture": {
+        "script_snippet": "3. Did the change help?\n"
+      },
+      "steps": [
+        "Dispatch expert-participant with the snippet inside a full draft.",
+        "Validate the returned flag array against references/review-flags.schema.json."
+      ],
+      "assertions": [
+        "Any flat-answer-risk flag has confidence hedged.",
+        "A flat-answer-risk flag with confidence asserted fails schema validation (review_checks.py selftest proves the deterministic half).",
+        "The expert flag types are limited to over-explanation, redundant-question, jargon-mismatch, and flat-answer-risk.",
+        "The expert reply opens with the reader context line before the flag array."
+      ]
+    },
+    {
+      "id": "published-doc-content",
+      "name": "Published doc drops internal sections",
+      "covers": "step 12: team-format buffer excludes RQ map, Quality Check, Critical-to-Success, Leadership Read",
+      "fixture": {
+        "saved_script": "A saved script with all sections: Research Question map, Quality Check entries, Critical-to-Success, Quant Measures, Leadership Read."
+      },
+      "steps": [
+        "Answer yes to the publish question.",
+        "Build the team-format buffer and render it with render_script_docx.py render.",
+        "Verify with render_script_docx.py verify."
+      ],
+      "assertions": [
+        "The buffer (and therefore the docx) contains no 'Quality Check' text anywhere.",
+        "The buffer contains no Research Question map table, no Critical-to-Success section, and no Leadership Read section.",
+        "The buffer keeps the title, ticket link, RQ bullets, moderator guide note, UXR name, goal list, and script sections.",
+        "render_script_docx.py verify exits 0 on the rendered docx.",
+        "No upload, share, or permission change happens without the user's explicit go, and no reviewer chat or mail is sent."
+      ]
+    },
+    {
+      "id": "ticket-status-after-loop",
+      "name": "Ticket status moves only after the loop succeeded",
+      "covers": "step 11: live state list, first script_status_candidates match, skip on no match",
+      "fixture": {
+        "workflow": {
+          "script_status_candidates": ["Writing Script / Survey", "Writing Script", "Script", "In Progress"]
+        },
+        "live_statuses": ["Unplanned", "Planned", "Writing Script / Survey", "Recruiting"],
+        "loop_result": "checker exit 0, file saved"
+      },
+      "steps": [
+        "Finish a passing loop, then let the flow proceed to the ticket status step against the fixture state list."
+      ],
+      "assertions": [
+        "The flow reads the live state list before moving and never hardcodes a status name.",
+        "The move targets Writing Script / Survey, the first candidate that matches the live list.",
+        "With an empty live state list or a tracker error, the flow skips the move and says so in one line.",
+        "With loop_result set to second-exit-3 instead, no status call is attempted."
+      ]
+    }
+  ]
+}

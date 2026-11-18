@@ -25,6 +25,13 @@
       "description": "Meta-cognitive decision analysis for one-way doors: expand options, contract to the elegant solution, embed enforcement. Use when the user says: 'decide whether to...', 'run a meta-decision on...', 'stress-test this decision'.",
       "version": "0.1.0",
       "category": "engineering"
+    },
+    {
+      "name": "uxr-plugin",
+      "source": "./uxr-plugin",
+      "description": "UX research operations for Claude Code: study tickets, specs, recruitment, interview scripts, reports, and decks. Use when the user says: 'recruit participants for my study', 'draft the interview script', 'write the research report'.",
+      "version": "0.1.0",
+      "category": "research"
     }
   ]
 }
