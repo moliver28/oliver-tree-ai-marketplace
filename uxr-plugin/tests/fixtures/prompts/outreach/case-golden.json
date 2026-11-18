@@ -1,0 +1,26 @@
+{
+  "fields": {
+    "first_name": "Participant",
+    "study_title": "New user navigation study: timeline discoverability",
+    "session_length": "30 minutes",
+    "why_this_recruit": "you own the first-run funnel metrics",
+    "focus_clause": " The session focuses on where new users look for planning features.",
+    "slots_block": "- Wed 11/18, 1:00-1:30 PM\n- Tue 11/24, 10:00-10:30 AM\n- Thu 11/26, 2:00-2:30 PM",
+    "sender_first_name": "Jordan",
+    "has_slack": true,
+    "holds": "none"
+  },
+  "variant": "prompt.md",
+  "fragments": [
+    "dm-block",
+    "email-block"
+  ],
+  "expect_lines": [
+    "Hey Participant, quick ask. I'm running a research session for New user navigation study: timeline discoverability.",
+    "(you own the first-run funnel metrics). The session focuses on where new users look for planning features. Any of these work?",
+    "If none fit, send a few that do. I'll send the calendar invite once we land on a time.",
+    "Email draft (always; subject line exactly `Quick research chat on New user navigation study: timeline discoverability?`):",
+    "Reply options: `sent`, `edit slack`, `edit email`, `skip`, `go ahead and move <id>`."
+  ],
+  "golden_ref": "baseline-artifacts uc-4 Phase D (Participant A draft block) + recruit-outreach.md"
+}

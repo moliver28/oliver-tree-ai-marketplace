@@ -1,0 +1,19 @@
+{
+  "fields": {
+    "topic": "New user navigation study: timeline discoverability",
+    "digest": "{\"sources\": {\"Tracker: your recent items (other projects)\": 0}, \"unavailable\": [\"searchJiraIssuesUsingJql\", \"Drive\", \"Feedback store\", \"Chat\", \"Wiki\", \"jtbd\", \"personas\", \"chat_discovery\"], \"feedback_gap\": true}",
+    "feedback_gap": true,
+    "tactical": false
+  },
+  "variant": "prompt.md",
+  "fragments": ["feedback-gap"],
+  "expect_lines": [
+    "Write ONLY the Top signals block, four lines",
+    "- Owning group:",
+    "- Hypotheses in flight:",
+    "- Pain strength: high|medium|low",
+    "- Stakeholders:",
+    "The feedback store is a gap this run"
+  ],
+  "golden_ref": "baseline-artifacts uc-2 Phase 2 (synthesis block shape)"
+}

@@ -1,0 +1,13 @@
+{
+  "fields": {
+    "topic": "Shipping the export button",
+    "digest": "{\"sources\": {\"Tracker: your recent items (other projects)\": 4}, \"unavailable\": [], \"feedback_gap\": false}",
+    "feedback_gap": false,
+    "tactical": true
+  },
+  "variant": "prompt.md",
+  "fragments": ["tactical-wiki"],
+  "expect_lines": [
+    "the wiki source is skipped by rule"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "fields": {
+    "tier": "lite",
+    "date": "2026-11-17",
+    "filename": "report-internal-2026-11-17-uxr-101.md",
+    "headline": "header-first confirmed in a stakeholder pass (Supported), discovery gates first-session planning, tour recall near zero",
+    "next_line": "confirm with first-week external users before the January review",
+    "prelim": "Single session; treat as preliminary.",
+    "footer": "_Posted by Claude Code on behalf of Jordan Reyes._"
+  },
+  "variant": "lite.md",
+  "fragments": [],
+  "expect_lines": [
+    "[uxr-report 2026-11-17] Lite report filed at deliverables/report-internal-2026-11-17-uxr-101.md (HTML rendered and validated). Headline: header-first confirmed in a stakeholder pass (Supported), discovery gates first-session planning, tour recall near zero. Single session; treat as preliminary. Next: confirm with first-week external users before the January review.",
+    "_Posted by Claude Code on behalf of Jordan Reyes._"
+  ],
+  "golden_ref": "baseline-artifacts uc-6 Phase 6 (lite tier comment draft)"
+}

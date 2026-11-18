@@ -1,0 +1,17 @@
+{
+  "fields": {
+    "artifact": "deliverables/report-internal-2026-11-17-uxr-101.md",
+    "artifact_kind": "report",
+    "factcheck": "{\"check-citations\": \"[{\"slug\": \"2026-11-18-participant-a\", \"found\": true}]\", \"word-count-sections\": \"no section OVER\", \"evidence-weight\": \"verdicts computed\"}"
+  },
+  "variant": "prompt.md",
+  "fragments": [
+    "residual-checklist",
+    "verdict-contract",
+    "report-lens"
+  ],
+  "expect_lines": [
+    "Report lens: also check the narrative against its computed skeleton",
+    "is a content finding routed to the Markdown"
+  ]
+}

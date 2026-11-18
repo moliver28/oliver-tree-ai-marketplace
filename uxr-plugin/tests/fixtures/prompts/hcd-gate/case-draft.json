@@ -1,0 +1,18 @@
+{
+  "fields": {
+    "artifact": "draft spec: decision, hypotheses H1-H2, RQ1-RQ2",
+    "artifact_kind": "draft",
+    "factcheck": "{\"citations\": \"ok\", \"stances\": \"ok\", \"counts\": \"ok\"}"
+  },
+  "variant": "prompt.md",
+  "fragments": ["residual-checklist", "verdict-contract"],
+  "expect_lines": [
+    "judge", 
+    "Summary",
+    "What to change",
+    "findings:",
+    "verdict: {\"result\": \"pass\", \"p0\": []}",
+    "Deterministic fact-check output (settled; trust it):"
+  ],
+  "golden_ref": "research-grounding.md output contract sections preserved verbatim"
+}

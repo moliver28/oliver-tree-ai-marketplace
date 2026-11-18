@@ -1,0 +1,26 @@
+{
+  "fields": {
+    "first_name": "Participant",
+    "study_title": "Card sort: information architecture v2",
+    "session_length": "30 minutes",
+    "why_this_recruit": "you run information architecture weekly",
+    "focus_clause": "",
+    "slots_block": "- Mon 11/23, 9:00-9:30 AM",
+    "sender_first_name": "Jordan",
+    "has_slack": false,
+    "holds": "requested",
+    "study_short": "Card Sort IA",
+    "initial": "P",
+    "last_name": "C",
+    "day_abbrev": "Mon",
+    "m_d": "11/23"
+  },
+  "variant": "prompt.md",
+  "fragments": [
+    "email-block",
+    "hold-titles"
+  ],
+  "expect_lines": [
+    "[HOLD] Card Sort IA chat: P. C (Mon 11/23)"
+  ]
+}

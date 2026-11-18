@@ -1,0 +1,15 @@
+{
+  "fields": {
+    "ask": "Pricing page first-run study",
+    "digest": "{\"sources\": {\"Feedback store\": 41, \"Chat\": 12}, \"unavailable\": [\"Wiki\"], \"feedback_gap\": false, \"evidence_total\": 53}",
+    "group": "Growth",
+    "owner": "Product Leadership",
+    "evidence_total": 53,
+    "feedback_gap": false
+  },
+  "variant": "prompt.md",
+  "fragments": ["craft-bars"],
+  "expect_lines": [
+    "\"hypotheses\": [{\"label\": \"H1\", \"text\": \"...\"}]"
+  ]
+}
