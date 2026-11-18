@@ -52,14 +52,7 @@ Special rules:
 
 ## Steps
 
-1. Read configuration once: run `python "${CLAUDE_PLUGIN_ROOT}/lib/config.py" --print`
-   (when `CLAUDE_PLUGIN_ROOT` is not set, run it with the path of the plugin
-   directory that holds `lib/`, `config/`, and `scripts/`). Note
-   `tracker.kind`, `tracker.project_key`, `tracker.ticket_regex`,
-   `tracker.bare_number_prefix`, `paths.state_dir`, `paths.research_root`,
-   the `comments.footer`, `recruit.statuses`, and every entry under `fields`
-   (shorthand name, `id`, `kind`, `values`). Every `<placeholder>` below is
-   filled from that output; hardcode nothing.
+1. Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - and follow it. Note `tracker.kind`, `tracker.project_key`, `tracker.ticket_regex`, `tracker.bare_number_prefix`, `paths.state_dir`, `paths.research_root`, the `comments.footer`, `recruit.statuses`, and every entry under `fields` (shorthand name, `id`, `kind`, `values`).
 
 2. Parse `$ARGUMENTS`. The first token is the ticket key. The rest are
    `key=value` shorthands split on whitespace (a value may be quoted to
@@ -67,13 +60,11 @@ Special rules:
    with the `normalize_key` rule (`references/tracker.md`) and refuse a key
    outside the study project the way `show` does; never search for it.
 
-3. No shorthand and no free text: call `get_item` once, render the ticket
-   the way `show` renders it, then ask
+3. No shorthand and no free text: call `get_item` once and render it the way `show` renders it now - through `scripts/render_view.py show` (the canonical item JSON, `commands/uxr-show.md` step 5). Then ask
    `What should change? For example: history=<text>, method+=Survey, roster+=Name|email|slack|reason|status|channel, priority=High`
    and stop. Continue at step 6 or 10 with whatever the user answers.
 
-4. Free text (step 2 input shape 3): decide what it is and say which you
-   picked.
+4. Free text (step 2 input shape 3): this is the command's exception lane (the one metered model call). Decide what it is and say which you picked.
    - It reads like a note for the team ("add a note ...", an aside, a
      status remark): treat it as a comment request.
    - It answers "what happened before this" or "what did we learn": propose

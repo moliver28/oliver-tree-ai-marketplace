@@ -32,6 +32,10 @@ def _spec(name: str) -> dict:
     return json.loads((DATA_DIR / f"{name}.json").read_text(encoding="utf-8"))
 
 
+class ClassifyError(Exception):
+    """No rule matched; the caller decides the fallback."""
+
+
 def _hits(text: str, needles: list[str]) -> list[str]:
     """Case-insensitive keyword hits; single words match on word boundaries,
     multi-word phrases as substrings."""
@@ -71,7 +75,7 @@ def classify_intent(text: str, prefix: str = "") -> dict:
     key = _extract_key(text, prefix)
     if key:  # a bare key, or a key with read intent, routes to show
         return {"command": "show", "args": key, "signal": "ticket key"}
-    raise SystemExit(_usage(f"no intent rule matches {text!r}"))
+    raise ClassifyError(f"no intent rule matches {text!r}")
 
 
 def _extract_key(text: str, prefix: str) -> str:
@@ -108,7 +112,7 @@ def classify_method(rqs: list[str]) -> dict:
         if found:
             scored.append((len(found), rule, found))
     if not scored:
-        raise SystemExit(_usage("no method row matches these RQs"))
+        raise ClassifyError("no method row matches these RQs")
     scored.sort(key=lambda entry: -entry[0])
     best_count, best, found = scored[0]
     runner_up = scored[1][1]["method"] if len(scored) > 1 and scored[1][0] == best_count else ""
@@ -169,18 +173,31 @@ def main(argv: list[str] | None = None) -> int:
         return rest[rest.index(name) + 1] if name in rest and rest.index(name) + 1 < len(rest) else ""
 
     if sub == "intent" and rest:
-        result = classify_intent(" ".join(t for t in rest if not t.startswith("--")),
-                                 value_of("--prefix"))
+        text = " ".join(t for t in rest if not t.startswith("--"))
     elif sub == "reply" and rest:
-        result = classify_reply(" ".join(rest))
+        text = " ".join(rest)
     elif sub == "method" and "--rqs" in rest:
-        result = classify_method([rq for rq in re.split(r"[;\n]", value_of("--rqs")) if rq.strip()])
+        text = None
     elif sub == "decision" and rest:
-        result = classify_decision(" ".join(t for t in rest if not t.startswith("--")))
+        text = " ".join(t for t in rest if not t.startswith("--"))
     elif sub == "route-finding" and "--category" in rest:
-        result = route_finding(value_of("--category"))
+        text = None
     else:
         print(_usage(f"unknown subcommand or missing input: {sub}"), file=sys.stderr)
+        return 2
+    try:
+        if sub == "intent":
+            result = classify_intent(text, value_of("--prefix"))
+        elif sub == "reply":
+            result = classify_reply(text)
+        elif sub == "method":
+            result = classify_method([rq for rq in re.split(r"[;\n]", value_of("--rqs")) if rq.strip()])
+        elif sub == "decision":
+            result = classify_decision(text)
+        else:
+            result = route_finding(value_of("--category"))
+    except ClassifyError as exc:
+        print(_usage(str(exc)), file=sys.stderr)
         return 2
     print(json.dumps(result, ensure_ascii=False))
     return 0
@@ -205,7 +222,7 @@ def _selftest() -> int:
                 got = classify_decision(case["input"])
             else:
                 got = route_finding(case["input"])
-        except SystemExit as exc:
+        except ClassifyError as exc:
             got = {"error": str(exc)}
         if got == case["expect"]:
             print(f"  [ok] {case_path.stem}")

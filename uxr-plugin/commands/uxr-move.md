@@ -26,12 +26,7 @@ spec file.
 
 ## Steps
 
-1. Read configuration once: run `python "${CLAUDE_PLUGIN_ROOT}/lib/config.py" --print`
-   (when `CLAUDE_PLUGIN_ROOT` is not set, run it with the path of the plugin
-   directory that holds `lib/`, `config/`, and `scripts/`). Note
-   `tracker.kind`, `tracker.project_key`, `tracker.ticket_regex`,
-   `tracker.bare_number_prefix`, `paths.state_dir`, and the `ssot.*` keys.
-   Every `<placeholder>` below is filled from that output; hardcode nothing.
+1. Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - and follow it. Note `tracker.kind`, `tracker.project_key`, `tracker.ticket_regex`, `tracker.bare_number_prefix`, `paths.state_dir`, and the `ssot.*` keys.
 
 2. Parse `$ARGUMENTS`: the ticket key and an optional target (a status
    phrase or a number). Normalize the key with the `normalize_key` rule

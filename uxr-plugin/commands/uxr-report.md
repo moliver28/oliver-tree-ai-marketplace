@@ -47,13 +47,7 @@ Every gate in this command uses the same words: `go`, `edit`,
 
 ## Setup (every run)
 
-Load configuration once (`python "${CLAUDE_PLUGIN_ROOT}/lib/config.py"
---print`). Note `paths.research_root`, `paths.state_dir`,
-`routing.group_to_channels`, `routing.group_to_area`,
-`report.verdict_threshold`, `report.multi_group_bump`,
-`report.tier_matrix`, `publish.repo`, `publish.pages_url`,
-`ssot.finished_title_pattern`, `comments.footer`, and
-`tracker.ticket_regex`. Hardcode nothing.
+Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - and follow it. Note `paths.research_root`, `paths.state_dir`, `routing.group_to_channels`, `routing.group_to_area`, `report.verdict_threshold`, `report.multi_group_bump`, `report.tier_matrix`, `publish.repo`, `publish.pages_url`, `ssot.finished_title_pattern`, `comments.footer`, and `tracker.ticket_regex`.
 
 ## Phases
 
@@ -61,11 +55,11 @@ Load configuration once (`python "${CLAUDE_PLUGIN_ROOT}/lib/config.py"
 |---|---|
 | 0. Resolve | Find the workspace: `python "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold_workspace.py" lookup-workspace --ticket <KEY> --readme <research_root>/README.md`. Require at least one `interviews/*-summary.md` and a non-empty `analysis/codes.md` or `analysis/themes.md`. Else stop and point to `debrief` - there is nothing to report yet. |
 | 1. Scope | Read the ticket (summary, body, fields via `get_item` in `references/tracker.md`) and the workspace `00-overview.md` in parallel. Run `python "${CLAUDE_PLUGIN_ROOT}/references/report_helpers.py" scope-tier --type "<research type>" --investment "<investment>" --pod-names "<raw group string>"`. Show the scope card: type, investment, groups, computed tier (an explicit `--tier` flag overrides, and says so). Gate. |
-| 2. Gather | In one parallel batch: (A) the workspace analysis files (`analysis/codes.md`, `analysis/themes.md`, all summaries); (B) prior finished studies: tracker search (limit 8), Drive (past 18 months, limit 12), wiki (past 180 days, limit 8); (C) the feedback store, chat search in the study's channels, and the next 21 days of calendar. A failed source logs one line `<Tool>: unavailable (skipped)` and never blocks. Compress B and C into `<workspace>/.sessions/gather-brief-<KEY>-<date>.md`. Gate. |
+| 2. Gather | In one parallel batch: (A) the workspace analysis files (`analysis/codes.md`, `analysis/themes.md`, all summaries); (B) prior finished studies: tracker search (limit 8), Drive (past 18 months, limit 12), wiki (past 180 days, limit 8); (C) the feedback store, chat search in the study's channels, and the next 21 days of calendar. A failed source logs one line `<Tool>: unavailable (skipped)` and never blocks. Compress B and C into `<workspace>/.sessions/gather-brief-<KEY>-<date>.md` - the brief carries names, counts, and verdicts, not raw search JSON. Gate. |
 | 3. Synthesize | Run `python "${CLAUDE_PLUGIN_ROOT}/references/report_helpers.py" evidence-weight --workspace <workspace>`, then `verdict` on the tallies (or read them from the evidence-weight output). It warns when fewer than half of the sessions have an alignment block - show that warning and keep going. Copy verdict labels verbatim into the draft. Map each finding to its source as `[S:slug]`; a claim with no source is marked `UNCITED: <claim>` on its own line. Run the bias check: `codebook-codes --file <workspace>/analysis/codes.md` then `classify-themes --codes-file ... --themes-file ...`. Show the synthesis table (finding, verdict, sources) and the bias-check table. Gate. |
-| 4. Draft | Write the narrative by the tier spec below. Run `python "${CLAUDE_PLUGIN_ROOT}/references/report_helpers.py" word-count-sections --file <draft>`; mark a section `OVER` at more than 20% above its limit; loop (rewrite the over sections) until none is over. Dispatch `hcd-researcher` (mandatory) with the draft and the overview; fold in or record a one-line decline. Optional: dispatch `stakeholder-reviewer` once per requested `--stakeholder-role`. |
+| 4. Draft | This is the run's FIRST model call: write the narrative by the tier spec below, into `deliverables/<filename draft>` shape (front matter below). Run `python "${CLAUDE_PLUGIN_ROOT}/references/report_helpers.py" word-count-sections --file <draft>`; mark a section `OVER` at more than 20% above its limit; loop (rewrite the over sections) until none is over. Then the mandatory HCD gate (below): one checklist-scoped call that judges only the qualitative residual after the deterministic fact-check; fold in, or record a one-line decline; re-invoke only on a `p0` verdict. Optional: dispatch `stakeholder-reviewer` once per requested `--stakeholder-role`. |
 | 5. Create | Run `report-filename --key <KEY> --audience <audience> --date <today>`. Run `check-citations --draft-file <draft> --sources-dir <workspace>/sources`; any missing slug returns to phase 4 (fix the citation or mark the claim `UNCITED`). Run the gitignore gate; then write `deliverables/<filename>` with the front matter below. Appendix A (strategic tier): the revenue lookup message is drafted and waits for `go`; write `arr-parse --reply-file <reply>` output to `<state_dir>/arr-<KEY>.json`; build the appendix with `python "${CLAUDE_PLUGIN_ROOT}/references/debrief_helpers.py" render-appendix --key <workspace>/interviews/participant-key.md --arr-file <state_dir>/arr-<KEY>.json`. With `--format=html`: render, check, and run the review loop below. `--render-only` stops here. Optional, after an explicit `go`: publish (below), Drive upload under the finish rules, and the output link field update. |
-| 6. Distribute | Drafts only, by tier: ticket comment (all tiers); chat channel drafts and DM drafts (standard and strategic, channels from `channels --pod <group> --tier <tier>`); mail drafts and a meeting agenda line appended to the next study meeting after `go` (strategic); a video script (strategic with `--video`). Show every draft and wait. |
+| 6. Distribute | Drafts only, assembled mechanically: write the ONE headline sentence (this is the phase's single model call - computed numbers and verdict labels stay verbatim), then render the drafts - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render distribution --set "tier=<tier>" --set "date=<today>" --set "filename=<filename>" --set "headline=<sentence>" --set "next_line=<one deterministic next step from the draft>" --set "prelim=<`single source; treat as preliminary.` when a finding has fewer than 2 sources, else empty>" --set "footer=<comments.footer with {display_name} replaced>" --set "channels=<channels --pod <group> --tier <tier>>" --set "video=<requested or none>"` - and print its output as the drafts (tier variants and the chat/mail/agenda/video fragments fire per tier). Nothing sends without the user. Show every draft and wait. |
 
 ## Deliverable front matter (the renderer and validator parse it)
 
@@ -99,6 +93,10 @@ never generate images. `--altitude=brief` writes the lite shape,
 `standard` the standard shape, `deep` the strategic shape (map it with
 `altitude --level`).
 
+## The HCD gate (phase 4; one call per run)
+
+Render the dispatch - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render hcd-gate --set "artifact=<the draft>" --set "artifact_kind=report" --set "factcheck=<the settled gates JSON: check-citations, word-count-sections, evidence-weight verdicts>"` - and dispatch it to `hcd-researcher` (Task tool, `subagent_type: hcd-researcher`). The deterministic fact-check already settled numbers, citations, and stance vocabulary; the agent judges only the qualitative residual (claim-evidence trace, method/RQ alignment, stance justification) and ends with a checklist-scoped `verdict: {"result": "pass"|"p0", "p0": [...]}` line. Fold every finding in, or record a one-line decline. Print the agent's Summary, Risks, and What to change verbatim. Re-invoke only on a `p0` verdict, after the fix.
+
 ## Verdicts (from `report.verdict_threshold`, default 0.60)
 
 The denominator is the count for that one hypothesis or assumption
@@ -112,8 +110,7 @@ without a dominant side is `Partially supported`; no evidence is
 
 1. Render: `python "${CLAUDE_PLUGIN_ROOT}/scripts/report_html.py" render <deliverable.md> <deliverable-dir>/<slug>.html`. Self-contained, byte-identical on two runs, `<` escaped before conversion (participant quotes cannot inject script).
 2. Check: `python "${CLAUDE_PLUGIN_ROOT}/scripts/validate_report_html.py" check <html> --deliverable=<deliverable.md>`. Any `WARN` line exits 1 - fix the Markdown or the render and repeat before review.
-3. Review loop: dispatch `novice-report-reader` (reads only the HTML) and `research-dataviz-designer` in parallel. PASS = zero blocker and zero major findings. Route render findings (chart type, contrast, disclosure structure) to the renderer and content findings (orientation, first action, terms, steps, dead ends, narrative, takeaway count) to the Markdown; retry one time. Write `deliverables/report-review-<date>-<KEY>.md` with each finding marked Resolved or Deferred and a final `PASS` or `FAIL` line. A FAIL is a valid result - report it, do not force a pass.
-4. Both reviewers return `{"findings": [...]}` per `references/report-review-flags.schema.json`.
+3. Gate and closure (the review loop is one HCD gate now, not parallel dispatches): the phase 4 gate's findings arrive checklist-scoped with a category. Route each mechanically - `python "${CLAUDE_PLUGIN_ROOT}/scripts/classify.py" route-finding --category "<category>"` - to the renderer (re-render from the fixed Markdown) or the Markdown (fix the text); re-check with `validate_report_html.py`, re-run the word-count and citation gates, and re-invoke the gate only on a `p0` verdict. Write `deliverables/report-review-<date>-<KEY>.md` with each finding marked Resolved or Deferred and a final `PASS` or `FAIL` line (the deterministic closure re-check). A FAIL is a valid result - report it, do not force a pass.
 
 ## Publish (optional, only on the user's explicit `go`)
 

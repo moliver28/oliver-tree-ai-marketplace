@@ -36,11 +36,7 @@ contract with the report parser.
 
 ## Setup (every run)
 
-1. Load configuration once (`python "${CLAUDE_PLUGIN_ROOT}/lib/config.py"
-   --print`). Note `paths.research_root`, `paths.state_dir`,
-   `org.internal_domains`, `org.notetaker_email`, `comments.footer`,
-   `tracker.ticket_regex`, and the roster statuses under
-   `recruit.statuses.interview`. Hardcode nothing.
+1. Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - and follow it. Note `paths.research_root`, `paths.state_dir`, `org.internal_domains`, `org.notetaker_email`, `comments.footer`, `tracker.ticket_regex`, and the roster statuses under `recruit.statuses.interview`.
 2. Read the ticket: summary, body, and dates, via `get_item` in
    `references/tracker.md`.
 3. Load the roster from the spec at `<state_dir>/specs/<KEY>.spec.json`
@@ -57,53 +53,28 @@ contract with the report parser.
 | 3. Find transcript | In order: (1) the call-recording store, when the notetaker (`org.notetaker_email`) attended; (2) a local recorder folder holding a file for the event date; (3) mail search near the event date restricted to the allowlist of senders: Zoom, Otter, Fireflies, Read.ai, Grain, Google Meet or Gemini, and your call recorder - rank candidates on sender, then subject, then date before fetching anything. Follow a Drive link. Never fetch a portal that needs a login. |
 | 3b. Dedupe | Rank candidate transcripts: speaker-labeled with a summary, then speaker-labeled, then raw text. Copy exactly one; name the others in the recap. Keep at most 3 source links: the platform recap URL, the mail permalink, the calendar event link. Make the choice with `python "${CLAUDE_PLUGIN_ROOT}/references/debrief_helpers.py" pick-transcript --candidates '<json>'` (each candidate `{"source", "kind", "url"?, "path"?}`, kind one of `speaker-labeled with a summary`, `speaker-labeled`, `raw text`). |
 | 4. File | Find the workspace: `python "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold_workspace.py" lookup-workspace --ticket <KEY> --readme <research_root>/README.md` (prints the path; `WORKSPACE_NOT_FOUND` means ask for a path or offer `init`, then stop). Slug = the workspace folder name; date = the session date `YYYY-MM-DD`. Run `python "${CLAUDE_PLUGIN_ROOT}/scripts/gitignore_gate.py" assert-ignored --repo <workspace> interviews/raw-transcripts/<slug>-<date>-transcript.txt` plus one path per `workspace.gitignored_paths` entry from the configuration loaded in step 1 (config adds to the hardcoded path); exit 3 stops before any write. Then write the raw transcript to that path with a header listing the source links; write `interviews/<slug>-<date>-summary.md` (committed); add or update the participant's row in `interviews/participant-key.md` (gitignored; columns Name, Role, Account, ARR, Email, Session date as they apply). |
-| 5. Enrich | Parse the research questions, hypotheses, and assumptions from the spec (hypotheses and assumptions carry `label` and `text`; research questions are strings). Write the alignment block (below) into the summary, then gate it: `python "${CLAUDE_PLUGIN_ROOT}/references/debrief_helpers.py" check-summary --file <summary path>`. Any `WARN` or exit 1 means the block is rewritten before phase 6 - the stance words are a frozen contract (`Supports` / `Challenges` / `Mixed` for hypotheses, `Holds` / `Breaks` / `Untested` for assumptions), and an off-contract stance silently becomes a missing verdict in the report. Never invent support. A section that does not parse is flagged in the summary as missing, with the reason, not guessed. |
-| 6. Recap | Draft the ticket comment (structure below), verify it with `python "${CLAUDE_PLUGIN_ROOT}/references/debrief_helpers.py" check-recap --file <draft> --date <date> --footer <comments.footer with {display_name} replaced>`, show it, and wait. Post only on `go`, `post`, or `yes`, via `add_comment` in `references/tracker.md`. |
+| 5. Enrich | Run this run's ONE model call: read the transcript and the spec (hypotheses and assumptions carry `label` and `text`; research questions are strings), and produce ONE JSON payload - the session paragraph, speaker-labeled quotes, and per-entry alignment lines (RQ findings, hypothesis stances with a one-line why, assumption stances with a one-line why). Stances are the frozen contract (`Supports` / `Challenges` / `Mixed`; `Holds` / `Breaks` / `Untested`); an unanswered RQ carries an empty finding and the assembly keeps the exact `No direct evidence this session.` wording; never invent support. Assemble the file: `python "${CLAUDE_PLUGIN_ROOT}/references/debrief_helpers.py" assemble-summary --file <summary path> --payload <payload.json>`, then gate it: `python "${CLAUDE_PLUGIN_ROOT}/references/debrief_helpers.py" check-summary --file <summary path>`. Any `WARN` or exit 1 means the payload is corrected and re-assembled before phase 6 - an off-contract stance would silently become a missing verdict in the report. A section that does not parse is flagged in the summary as missing, with the reason, not guessed. |
+| 6. Recap | The recap is assembled from the same payload, not re-written: add `recap` to the phase 5 JSON (the one-paragraph session intro, the transcript link and summary path, 2 to 4 plain `What landed:` sentences with no bare codes, the `Not covered:` topics), then run `python "${CLAUDE_PLUGIN_ROOT}/references/debrief_helpers.py" render-recap --file <draft> --payload <payload.json> --date <date> --footer "<comments.footer with {display_name} replaced>"` and gate it with `check-recap`. A failed check means the payload is corrected and re-assembled before anything is shown. Show it, and wait. Post only on `go`, `post`, or `yes`, via `add_comment` in `references/tracker.md`. |
 | 7. Index | Optional: when a local search index server is configured, start a sync for the workspace. Never block on it; a failed sync is one warning line. |
 
-## Summary and alignment block
+## Summary and recap shapes (script-assembled)
 
-`interviews/<slug>-<date>-summary.md` holds: a one-paragraph session
-summary (length, participant role and context, what the session was
-actually about, which transcript source was chosen), the notable quotes
-(speaker-labeled, wording kept), and then this block, exactly:
-
-```
-## Insights → Research Alignment
-**Research Questions**
-- RQ1 (<short question>): <what the participant surfaced>
-- RQ2 (<short question>): No direct evidence this session.
-**Hypotheses**
-- H1 (<label>): Supports / Challenges / Mixed - <one-line why>.
-**Assumptions**
-- A1 (<label>): Holds / Breaks / Untested this session - <one-line why>.
-```
-
-The report parser reads this exact shape. Change both together, or not
-at all. Every RQ, hypothesis, and assumption in the spec gets a line;
-unanswered ones keep the exact `No direct evidence this session.` or
-`Untested this session - <why>.` wording. Numbers in the block follow the
-spec's own order (RQ1 is the first research question, H1 the first
-hypothesis, A1 the first assumption).
-
-## Recap comment
-
-Under 200 words:
-
-- First line exactly `[uxr-debrief <date>]`.
-- One paragraph: the session length and topic, the participant's name and
-  role, and the chosen transcript source.
-- The transcript link and the summary's relative file path
-  (`interviews/<slug>-<date>-summary.md`).
-- `What landed:` 2 to 4 plain sentences with no bare codes: never write
-  `RQ2` or `H1`; say "the question about onboarding" instead.
-- `Not covered:` the topics the session did not reach.
-- One blank line, then the `comments.footer` with `{display_name}`
-  replaced (`current_user()`, cached for the session).
-
-A failed `check-recap` means the draft is rewritten before it is shown,
-never shown broken. Under `--dry-run` the recap is shown under a
-`DRY RUN - nothing posted` heading and the command stops.
+`assemble-summary` writes `interviews/<slug>-<date>-summary.md`: the
+one-paragraph session summary (length, participant role and context, what
+the session was about, the chosen transcript source), the notable quotes
+(speaker-labeled, wording kept), then the frozen
+`## Insights → Research Alignment` block - one line per spec entry in the
+spec's own order, the exact `No direct evidence this session.` and
+`Untested this session - <why>.` wording for unanswered entries. The
+report parser reads that exact shape; `check-summary` gates it at write
+time. `render-recap` writes the recap under 200 words: the
+`[uxr-debrief <date>]` first line, the one-paragraph intro, the transcript
+link and the summary's relative path, `What landed:` (2 to 4 plain
+sentences, no bare `RQ2`/`H1` codes), `Not covered:`, one blank line, then
+the `comments.footer`; `check-recap` gates it. A failed gate means the
+payload is corrected and re-assembled - never shown broken. Under
+`--dry-run` the recap is shown under a `DRY RUN - nothing posted` heading
+and the command stops.
 
 ## Failure table (stop cleanly, never advance on bad state)
 
