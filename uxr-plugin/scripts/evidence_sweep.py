@@ -2,27 +2,17 @@
 """Evidence sweep planner and digester (W2 efficiency pass).
 
 The sweep runs every enabled source in ONE parallel batch of tracker tool
-calls (the commands own tracker I/O; this script never touches the
-network). This script owns the two deterministic halves around that batch:
+calls (commands own tracker I/O; this script never touches the network).
+This script owns the deterministic halves around that batch: ``plan``
+emits the per-source query spec (tool, window, limit, query text) from the
+loaded configuration so the documented queries are fired, not composed;
+``digest`` compresses the batch's raw results into the evidence digest and
+renders the synthesis table exactly, so the signals synthesis call
+consumes the digest ONLY - never raw search JSON.
 
-- ``plan``: emit the per-source query plan (tool, window, limit, query
-  text) from the loaded configuration, so the model fires the documented
-  queries instead of composing them.
-- ``digest``: compress the batch's raw results into the evidence digest
-  (per-source hit counts, a few compressed titles, owners, unavailable
-  lines) and render the synthesis table exactly. The signals synthesis
-  call consumes the digest ONLY - never raw search JSON.
-
-Usage::
-
-    python scripts/evidence_sweep.py plan --topic "<phrase>" [--tactical]
-        [--current-user <account id>]
-    python scripts/evidence_sweep.py digest --results <results.json>
-        --topic "<phrase>" [--tactical] [--now <YYYY-MM-DD>]
-
-``digest`` input: ``{"<source key>": {"hits": <n>, "titles": ["..."],
-"owners": ["..."]}}`` per source, or ``{"<source key>": "unavailable"}``.
-Exit codes: 0 ok, 2 usage or config error, 3 selftest failed.
+``digest`` input: ``{"<source key>": {"hits": n, "titles": [...],
+"owners": [...]}}`` per source, or ``"unavailable"``. Exit codes: 0 ok,
+2 usage or config error, 3 selftest failed.
 """
 
 from __future__ import annotations

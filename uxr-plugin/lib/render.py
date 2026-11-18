@@ -1,25 +1,21 @@
 #!/usr/bin/env python3
 """Data-driven render helpers for the tracker views (W2 efficiency pass).
 
-The table shapes, the relative-time ladder, the show-card field order, and
-the emoji map live as JSON data under ``prompts/render/``; the loops here
-render from that data so the output cannot drift from the spec. Byte-exact
-targets: the ``mine`` table and footer, the ``show`` card, and the relative
-ladder ("just now", then ``<N>m|h|d|w|mo|y ago``, rounded down).
-
-Canonical input JSON (commands assemble it mechanically from the tracker
-read; this library renders it):
+Table shapes, column order, the relative-time ladder, the show-card field
+order, and the emoji map are JSON data under ``prompts/render/``; these
+loops render from that data so output cannot drift from the spec. Canonical
+input JSON (commands assemble it mechanically from the tracker read):
 
 - mine item: ``{key, url, status, type, priority|null, summary, updated}``
 - show item: ``{key, url, summary, status, type, priority, assignee,
   reporter, created, updated, labels, description, issuelinks: [{type, key,
   url, summary, status}], comments: [{author, created, body}],
-  fields: {<shorthand>: {kind, value|start, end|name}}}``
+  fields: {<shorthand>: {kind, value|values|name|start, end}}}``
 
-Field value rendering by kind: ``single_select``/``single_name`` the value;
-``multi_select`` a comma-separated list; ``user`` the display name;
-``interval`` ``start .. end`` (or the single date when equal); ``date``
-``YYYY-MM-DD``; ``url`` ``[url](url)``; ``text``/``labels`` as-is.
+Field values render by kind: single_select/single_name the value;
+multi_select a comma list; user the display name; interval
+``start .. end`` (or the single date when equal); date as-is; url as
+``[url](url)``; text/labels as-is. Run ``scripts/render_view.py`` for the CLI.
 """
 
 from __future__ import annotations
@@ -40,59 +36,33 @@ def _spec(name: str) -> dict:
     return json.loads((RENDER_DIR / f"{name}.json").read_text(encoding="utf-8"))
 
 
-def convert_emoji(text: str) -> str:
-    """Replace every mapped ``:name:`` shortcode with its unicode emoji;
-    a shortcode the map does not know stays as written."""
-    for shortcode, emoji in _spec("show")["emoji"].items():
-        text = text.replace(shortcode, emoji)
-    return text
-
-
-def relative_time(iso_ts: str, now: str | datetime) -> str:
-    """Relative time from ``now`` minus ``iso_ts``, rounded down, per the
-    ``prompts/render/relative.json`` ladder."""
-    ladder = _spec("relative")
-    moment = iso_ts if isinstance(iso_ts, datetime) else _parse_iso(iso_ts)
-    reference = now if isinstance(now, datetime) else _parse_iso(now)
-    seconds = max(0, int((reference - moment).total_seconds()))
-    for step in ladder["ladder"]:
-        if step["max"] is None or seconds < step["max"]:
-            if step["unit"] == "s":
-                return step["label"]
-            n = seconds // ladder["divisors"][step["unit"]]
-            return step["label"].format(n=n)
-    raise RenderError("relative ladder has no terminal bucket")
-
-
 def _parse_iso(value: str) -> datetime:
     text = value.strip()
     if text.endswith("Z"):
         text = text[:-1] + "+00:00"
     moment = datetime.fromisoformat(text)
-    if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=timezone.utc)
-    return moment
+    return moment.replace(tzinfo=timezone.utc) if moment.tzinfo is None else moment
 
 
-def render_mine(items: list[dict], mode: str = "default", now: str | datetime = "now",
-                project_key: str = "") -> str:
-    """The one table and one footer line, or the exact one-line empty case."""
-    spec = _spec("mine")
-    if not items:
-        return spec["empty"][mode].format(project_key=project_key)
-    if mode not in spec["footer"]:
-        raise RenderError(f"mine mode {mode!r} has no footer spec")
-    lines = ["| " + " | ".join(spec["columns"]) + " |",
-             "|" + "---|" * len(spec["columns"])]
-    for item in items:
-        priority = item.get("priority")
-        lines.append("| [{key}]({url}) | {status} | {type} | {pri} | {summary} | {updated} |".format(
-            key=item["key"], url=item["url"], status=item.get("status", ""),
-            type=item.get("type", ""), pri=priority if priority not in (None, "") else "-",
-            summary=item.get("summary", ""),
-            updated=relative_time(item["updated"], now)))
-    lines.append(spec["footer"][mode].format(n=len(items)))
-    return "\n".join(lines)
+def convert_emoji(text: str) -> str:
+    """Replace every mapped ``:name:`` shortcode; an unknown one stays as written."""
+    for shortcode, emoji in _spec("show")["emoji"].items():
+        text = text.replace(shortcode, emoji)
+    return text
+
+
+def relative_time(iso_ts: str | datetime, now: str | datetime) -> str:
+    """``now`` minus ``iso_ts``, rounded down, per prompts/render/relative.json."""
+    spec = _spec("relative")
+    moment = iso_ts if isinstance(iso_ts, datetime) else _parse_iso(iso_ts)
+    reference = now if isinstance(now, datetime) else _parse_iso(now)
+    seconds = max(0, int((reference - moment).total_seconds()))
+    for step in spec["ladder"]:
+        if step["max"] is None or seconds < step["max"]:
+            if step["unit"] == "s":
+                return step["label"]
+            return step["label"].format(n=seconds // spec["divisors"][step["unit"]])
+    raise RenderError("relative ladder has no terminal bucket")
 
 
 def _field_value(field: dict) -> str:
@@ -104,7 +74,7 @@ def _field_value(field: dict) -> str:
     if kind == "user":
         return str(field.get("name", ""))
     if kind == "interval":
-        start, end = field.get("start", ""), field.get("end", "")
+        start, end = str(field.get("start", "")), str(field.get("end", ""))
         return start if start == end else f"{start} .. {end}"
     if kind == "url":
         url = str(field.get("value", ""))
@@ -112,40 +82,54 @@ def _field_value(field: dict) -> str:
     return str(field.get("value", ""))
 
 
+def render_mine(items: list[dict], mode: str = "default", now: str | datetime = "now",
+                project_key: str = "") -> str:
+    """The one table and one footer line, or the exact one-line empty case."""
+    spec = _spec("mine")
+    if not items:
+        return spec["empty"][mode].format(project_key=project_key)
+    lines = ["| " + " | ".join(spec["columns"]) + " |",
+             "|" + "---|" * len(spec["columns"])]
+    for item in items:
+        priority = item.get("priority")
+        lines.append("| [{key}]({url}) | {status} | {type} | {pri} | {summary} | {updated} |".format(
+            key=item["key"], url=item["url"], status=item.get("status", ""),
+            type=item.get("type", ""), pri=priority if priority not in (None, "") else "-",
+            summary=item.get("summary", ""), updated=relative_time(item["updated"], now)))
+    lines.append(spec["footer"][mode].format(n=len(items)))
+    return "\n".join(lines)
+
+
 def render_show(item: dict, now: str | datetime = "now") -> str:
-    """The read-only ticket card. Empty blocks are left out; ``·`` separates
-    one line's pieces; sections are blank-line separated; no other prose."""
+    """The read-only ticket card: blank-line separated sections, empty blocks
+    left out, ``·`` between one line's pieces, at most 5 newest comments,
+    no other prose."""
     spec = _spec("show")
     sections: list[str] = [f"## [{item['key']}]({item['url']}) · {item['summary']}"]
-    meta: list[str] = []
-    status_line = " · ".join(
-        f"**{label}** {value}" for label, value in (
-            ("Status", item.get("status")), ("Type", item.get("type")),
-            ("Priority", item.get("priority"))) if value)
-    if status_line:
-        meta.append(status_line)
-    people = " · ".join(f"**{label}** {value}" for label, value in (
+    meta = []
+    trio = " · ".join(f"**{label}** {value}" for label, value in (
+        ("Status", item.get("status")), ("Type", item.get("type")),
+        ("Priority", item.get("priority"))) if value)
+    if trio:
+        meta.append(trio)
+    pair = " · ".join(f"**{label}** {value}" for label, value in (
         ("Assignee", item.get("assignee")), ("Reporter", item.get("reporter"))) if value)
-    if people:
-        meta.append(people)
+    if pair:
+        meta.append(pair)
     times = " · ".join(f"**{label}** {relative_time(item[key], now)}"
                        for label, key in (("Updated", "updated"), ("Created", "created"))
                        if item.get(key))
     if times:
         meta.append(times)
-    labels = item.get("labels") or []
-    if labels:
-        meta.append("**Labels** " + ", ".join(str(v) for v in labels))
+    if item.get("labels"):
+        meta.append("**Labels** " + ", ".join(str(v) for v in item["labels"]))
     if meta:
         sections.append("\n".join(meta))
     rows = []
     for shorthand, row_label in spec["field_rows"]:
         field = (item.get("fields") or {}).get(shorthand)
-        if field is None:
-            continue
-        rendered = _field_value(field)
-        if rendered.strip():
-            rows.append(f"| {row_label} | {rendered} |")
+        if field is not None and _field_value(field).strip():
+            rows.append(f"| {row_label} | {_field_value(field)} |")
     if rows:
         sections.append("### UXR fields\n\n| Field | Value |\n|---|---|\n" + "\n".join(rows))
     description = (item.get("description") or "").strip("\n")
@@ -160,35 +144,45 @@ def render_show(item: dict, now: str | datetime = "now") -> str:
     comments = item.get("comments") or []
     if comments:
         blocks = [f"**{comment['author']} · {relative_time(comment['created'], now)}**\n"
-                  .rstrip("\n") + "\n" + str(comment["body"]).rstrip()
+                  f"{str(comment['body']).rstrip()}"
                   for comment in comments[: spec["max_comments"]]]
         sections.append(f"### Comments ({len(comments)})\n\n" + "\n\n".join(blocks))
     return convert_emoji("\n\n".join(sections))
 
 
 def _selftest() -> int:
+    """Byte-compare every tests/fixtures/render case against its expected.txt."""
+    import sys
+    cases = sorted((PLUGIN_ROOT / "tests" / "fixtures" / "render").glob("*.json"))
     print("lib/render.py selftest")
     failures: list[str] = []
-
-    def check(name: str, ok: bool, detail: str = "") -> None:
-        if not ok:
-            failures.append(f"{name}: {detail}")
-
-    check("ladder just now", relative_time("2026-11-17T21:54:00Z", "2026-11-17T21:54:24Z") == "just now")
-    check("ladder 12h", relative_time("2026-11-17T09:54:00Z", "2026-11-17T21:54:24Z") == "12h ago")
-    check("ladder 2d", relative_time("2026-11-15T20:00:00Z", "2026-11-17T21:54:24Z") == "2d ago")
-    check("ladder 7d", relative_time("2026-11-10T21:30:00Z", "2026-11-17T21:54:24Z") == "7d ago")
-    check("ladder 1w", relative_time("2026-11-08T21:54:00Z", "2026-11-17T21:54:24Z") == "1w ago")
-    check("ladder 1mo", relative_time("2026-10-17T21:00:00Z", "2026-11-17T21:54:24Z") == "1mo ago")
-    check("ladder 1y", relative_time("2025-11-17T21:00:00Z", "2026-11-17T21:54:24Z") == "1y ago")
-    check("emoji known", convert_emoji("look :eyes: now") == "look \U0001f440 now")
-    check("emoji unknown stays", convert_emoji(":nope:") == ":nope:")
-    check("priority dash", "- " in render_mine(
-        [{"key": "A-1", "url": "u", "status": "x", "type": "y", "priority": None,
-          "summary": "s", "updated": "2026-11-17T21:54:00Z"}], now="2026-11-17T21:54:24Z"))
-    check("multi_select", _field_value({"kind": "multi_select", "values": ["a", "b"]}) == "a, b")
-    check("interval same day", _field_value({"kind": "interval", "start": "2026-11-17", "end": "2026-11-17"}) == "2026-11-17")
-    check("url link", _field_value({"kind": "url", "value": "https://x.example"}) == "[https://x.example](https://x.example)")
+    if not cases:
+        failures.append("no fixtures under tests/fixtures/render")
+    for case_path in cases:
+        expected = case_path.with_suffix(".expected.txt")
+        if not expected.is_file():
+            failures.append(f"{case_path.name}: no expected.txt")
+            continue
+        data = json.loads(case_path.read_text(encoding="utf-8"))
+        if case_path.name.startswith("mine"):
+            got = render_mine(data.get("items") or [], data.get("mode") or "default",
+                              data.get("now") or "now", data.get("project_key") or "")
+        else:
+            got = render_show(data["item"], data.get("now") or "now")
+        if got + "\n" != expected.read_text(encoding="utf-8"):
+            failures.append(f"{case_path.stem}: differs from expected.txt")
+        else:
+            print(f"  [ok] {case_path.stem}")
+    now = "2026-11-17T21:54:24Z"
+    for label, ts, want in (("just now", "2026-11-17T21:54:00Z", "just now"),
+                            ("12h", "2026-11-17T09:54:00Z", "12h ago"),
+                            ("7d", "2026-11-10T21:30:00Z", "7d ago"),
+                            ("1w", "2026-11-08T21:54:00Z", "1w ago"),
+                            ("1mo", "2026-10-17T21:00:00Z", "1mo ago")):
+        if relative_time(ts, now) != want:
+            failures.append(f"ladder {label}: {relative_time(ts, now)} != {want}")
+    if convert_emoji("look :eyes:") != "look \U0001f440" or convert_emoji(":nope:") != ":nope:":
+        failures.append("emoji conversion")
     if failures:
         print(f"selftest FAILED ({len(failures)} check(s))")
         for item in failures:

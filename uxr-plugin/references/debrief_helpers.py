@@ -580,6 +580,108 @@ def cmd_check_summary(args: dict[str, str]) -> int:
 
 
 # ---------------------------------------------------------------------------
+# assemble-summary / render-recap (W2: the debrief call is ONE structured
+# JSON; the frozen block and the recap shape are assembled mechanically)
+# ---------------------------------------------------------------------------
+
+_ALIGN_HEADING = "## Insights → Research Alignment"
+
+
+def assemble_summary_text(payload: dict) -> str:
+    """The committed summary markdown from the debrief call's JSON: a
+    one-paragraph session summary, speaker-labeled quotes, then the frozen
+    alignment block (every spec entry gets a line; unanswered items keep
+    the exact contract wording)."""
+    session = payload.get("session") or {}
+    parts: list[str] = [str(session.get("paragraph") or "").strip(), ""]
+    parts.append("Notable quotes")
+    for quote in payload.get("quotes") or []:
+        parts.append(f"- **{quote.get('speaker', '')}**: {quote.get('text', '')}")
+    parts.append("")
+    parts.append(_ALIGN_HEADING)
+    parts.append("**Research Questions**")
+    for entry in (payload.get("alignment") or {}).get("rq") or []:
+        short = entry.get("short") or entry.get("id", "")
+        finding = str(entry.get("finding") or "").strip()
+        parts.append(f"- {entry.get('id', '')} ({short}): "
+                     + (finding or "No direct evidence this session."))
+    parts.append("**Hypotheses**")
+    for entry in (payload.get("alignment") or {}).get("hypotheses") or []:
+        parts.append(f"- {entry.get('id', '')} ({entry.get('label', '')}): "
+                     f"{entry.get('stance', '')} - {entry.get('why', '')}")
+    parts.append("**Assumptions**")
+    for entry in (payload.get("alignment") or {}).get("assumptions") or []:
+        parts.append(f"- {entry.get('id', '')} ({entry.get('label', '')}): "
+                     f"{entry.get('stance', '')} this session - {entry.get('why', '')}")
+    return "\n".join(parts).rstrip() + "\n"
+
+
+def cmd_assemble_summary(args: dict[str, str]) -> int:
+    file_value = args.get("--file") or ""
+    payload_value = args.get("--payload") or ""
+    if not file_value or not payload_value:
+        print("debrief_helpers: assemble-summary needs --file <summary.md> --payload <json>",
+              file=sys.stderr)
+        return EXIT_USAGE
+    try:
+        payload = json.loads(Path(payload_value).expanduser().read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        print(f"debrief_helpers: unreadable payload: {exc}", file=sys.stderr)
+        return EXIT_FAIL
+    path = Path(file_value).expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(assemble_summary_text(payload if isinstance(payload, dict) else {}),
+                    encoding="utf-8")
+    print(path)
+    return EXIT_OK
+
+
+def render_recap_text(payload: dict, expected_date: str, footer: str) -> str:
+    """The recap comment from the debrief call's JSON: the fixed heading,
+    the one-paragraph session intro, the transcript link and the summary's
+    relative path, ``What landed:``, ``Not covered:``, blank line, footer."""
+    lines = [f"[uxr-debrief {expected_date}]", "",
+             str(payload.get("paragraph") or "").strip()]
+    if payload.get("link"):
+        lines.append(str(payload["link"]))
+    if payload.get("summary_path"):
+        lines.append(str(payload["summary_path"]))
+    lines.append("")
+    lines.append("What landed:")
+    for sentence in payload.get("landing") or []:
+        lines.append(f"- {sentence}")
+    lines.append("")
+    lines.append("Not covered:")
+    for topic in payload.get("not_covered") or []:
+        lines.append(f"- {topic}")
+    if footer.strip():
+        lines.extend(["", footer.strip()])
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def cmd_render_recap(args: dict[str, str]) -> int:
+    file_value = args.get("--file") or ""
+    payload_value = args.get("--payload") or ""
+    expected_date = args.get("--date") or ""
+    footer = args.get("--footer") or ""
+    if not file_value or not payload_value or not expected_date:
+        print("debrief_helpers: render-recap needs --file <draft.md> --payload <json> "
+              "--date <YYYY-MM-DD> [--footer <md>]", file=sys.stderr)
+        return EXIT_USAGE
+    try:
+        payload = json.loads(Path(payload_value).expanduser().read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        print(f"debrief_helpers: unreadable payload: {exc}", file=sys.stderr)
+        return EXIT_FAIL
+    path = Path(file_value).expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_recap_text(payload if isinstance(payload, dict) else {},
+                                      expected_date, footer), encoding="utf-8")
+    print(path)
+    return EXIT_OK
+
+
+# ---------------------------------------------------------------------------
 # upload-plan
 # ---------------------------------------------------------------------------
 
@@ -964,6 +1066,47 @@ def _selftest() -> int:
         "missing --workspace is a usage error",
         main(["upload-plan"]) == EXIT_USAGE,
     )
+    check(
+        "missing --payload is a usage error for assemble-summary",
+        main(["assemble-summary", "--file", "x.md"]) == EXIT_USAGE,
+    )
+    check(
+        "missing --date is a usage error for render-recap",
+        main(["render-recap", "--file", "x.md", "--payload", "y.json"]) == EXIT_USAGE,
+    )
+    with tempfile.TemporaryDirectory() as td:
+        payload_path = Path(td) / "payload.json"
+        payload_path.write_text(json.dumps({
+            "session": {"paragraph": "A 45-minute session with Participant A about finding the timeline."},
+            "quotes": [{"speaker": "Participant A", "text": "I looked in the header first."}],
+            "alignment": {
+                "rq": [{"id": "RQ1", "short": "where users look", "finding": "Header first."},
+                       {"id": "RQ2", "short": "first planning attempt", "finding": ""}],
+                "hypotheses": [{"id": "H1", "label": "Header first", "stance": "Supports", "why": "cited funnel counts"}],
+                "assumptions": [{"id": "A1", "label": "first-session want", "stance": "Holds", "why": "clearly described"}],
+            },
+        }, ensure_ascii=False), encoding="utf-8")
+        summary_path = Path(td) / "summary.md"
+        code = main(["assemble-summary", "--file", str(summary_path), "--payload", str(payload_path)])
+        text = summary_path.read_text(encoding="utf-8")
+        check("assemble-summary writes the frozen block",
+              code == EXIT_OK
+              and "## Insights → Research Alignment" in text
+              and "- RQ2 (first planning attempt): No direct evidence this session." in text
+              and "Holds this session - clearly described" in text, repr(text[:200]))
+        check("assemble-summary output passes check-summary",
+              main(["check-summary", "--file", str(summary_path)]) == EXIT_OK)
+        recap_path = Path(td) / "recap.md"
+        code = main(["render-recap", "--file", str(recap_path), "--payload", str(payload_path),
+                     "--date", "2026-11-18", "--footer", "Posted by the runner."])
+        recap = recap_path.read_text(encoding="utf-8")
+        check("render-recap writes the fixed shape",
+              code == EXIT_OK and recap.startswith("[uxr-debrief 2026-11-18]")
+              and "What landed:" in recap and "Not covered:" in recap
+              and recap.rstrip().endswith("Posted by the runner."), repr(recap[:120]))
+        check("render-recap output passes check-recap",
+              main(["check-recap", "--file", str(recap_path), "--date", "2026-11-18",
+                    "--footer", "Posted by the runner."]) == EXIT_OK)
 
     if failures:
         print(f"selftest FAILED ({len(failures)} check(s))")
@@ -986,6 +1129,8 @@ def main(argv: list[str] | None = None) -> int:
         "pick-transcript",
         "check-recap",
         "check-summary",
+        "assemble-summary",
+        "render-recap",
         "upload-plan",
     ):
         print(f"debrief_helpers: unknown subcommand {command!r}", file=sys.stderr)
@@ -1013,6 +1158,8 @@ def main(argv: list[str] | None = None) -> int:
         "pick-transcript": cmd_pick_transcript,
         "check-recap": cmd_check_recap,
         "check-summary": cmd_check_summary,
+        "assemble-summary": cmd_assemble_summary,
+        "render-recap": cmd_render_recap,
         "upload-plan": cmd_upload_plan,
     }
     return handlers[command](parsed)

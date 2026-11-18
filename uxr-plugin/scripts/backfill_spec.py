@@ -43,6 +43,48 @@ def run(body_text: str) -> tuple[int, str, str]:
     return 0, stdout, ""
 
 
+def save_spec(key: str, draft_path: Path, command: str = "new") -> int:
+    """Save a draft spec with the six ``_meta`` keys to
+    ``<state_dir>/specs/<KEY>.spec.json`` (the ``new`` build block, scripted)."""
+    try:
+        spec = json.loads(draft_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        print(f"backfill_spec: unreadable draft: {exc}", file=sys.stderr)
+        return 2
+    if not isinstance(spec, dict):
+        print("backfill_spec: the draft is not a JSON object", file=sys.stderr)
+        return 2
+    spec["_meta"] = spec_blocks.make_meta(command)
+    try:
+        from lib.config import load_config
+        path = spec_blocks.spec_path(key, load_config())
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(spec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    except Exception as exc:  # config or write failure: report, save nothing
+        print(f"backfill_spec: spec not saved ({exc}); the ticket may exist but the spec is missing", file=sys.stderr)
+        return 3
+    print(path)
+    return 0
+
+
+def check_readback(body_path: Path) -> int:
+    """Verify node counts on the read-back body (markdown/html text or an
+    ADF JSON document) and print the counts plus ``counts OK`` or the
+    problems (the ``new`` read-back step, scripted)."""
+    from lib import spec_blocks
+    text = body_path.read_text(encoding="utf-8")
+    body: object = text
+    if text.lstrip().startswith("{"):
+        try:
+            body = json.loads(text)
+        except ValueError:
+            pass
+    ok, problems = spec_blocks.assert_full_document(body)
+    print(json.dumps(spec_blocks.document_counts(body)))
+    print("counts OK" if ok else "\n".join(problems))
+    return 0 if ok else 4
+
+
 def _force_utf8_stdio() -> None:
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -59,6 +101,19 @@ def main(argv: list[str] | None = None) -> int:
     if args and args[0] in ("-h", "--help"):
         print(__doc__.strip())
         return 0
+    if args and args[0] == "save-spec":
+        if "--key" in args and "--file" in args:
+            key = args[args.index("--key") + 1] if args.index("--key") + 1 < len(args) else ""
+            draft = Path(args[args.index("--file") + 1]).expanduser() if args.index("--file") + 1 < len(args) else None
+            if key and draft:
+                return save_spec(key, draft)
+        print("usage: backfill_spec.py save-spec --key <KEY> --file <draft.json> [--command new]", file=sys.stderr)
+        return 2
+    if args and args[0] == "check-readback":
+        if "--file" in args and args.index("--file") + 1 < len(args):
+            return check_readback(Path(args[args.index("--file") + 1]).expanduser())
+        print("usage: backfill_spec.py check-readback --file <body.md>", file=sys.stderr)
+        return 2
     code, stdout, stderr = run(sys.stdin.read())
     sys.stdout.write(stdout)
     sys.stderr.write(stderr)
@@ -147,6 +202,29 @@ def _selftest() -> int:
         code, stdout, _ = run(junk)
         ok = code == 0 and isinstance(json.loads(stdout), dict)
         check(f"junk input ({junk[:14]!r}) exits 0 with a JSON object", ok, f"code={code}")
+
+    # W2 build-block helpers: save-spec writes _meta; check-readback counts.
+    import os
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        draft = Path(td) / "draft.json"
+        draft.write_text(json.dumps({"study_title": "T", "hypotheses": [
+            {"label": "H1", "text": "Falsifiable."}], "research_questions": ["Why?"]}),
+            encoding="utf-8")
+        os.environ["UXR_CONFIG__PATHS__STATE_DIR"] = str(Path(td) / "state")
+        try:
+            code = save_spec("T-1", draft)
+            saved = Path(td) / "state" / "specs" / "T-1.spec.json"
+            meta = json.loads(saved.read_text(encoding="utf-8")).get("_meta", {}) if saved.is_file() else {}
+            check("save-spec writes the spec with six _meta keys",
+                  code == 0 and len(meta) == 6, f"code={code} meta={sorted(meta)}")
+            readback = Path(td) / "readback.md"
+            readback.write_text(spec_blocks.build_document(
+                json.loads(draft.read_text(encoding="utf-8")),
+                config=spec_blocks.selftest_config("markdown")), encoding="utf-8")
+            check("check-readback passes a full document", check_readback(readback) == 0)
+        finally:
+            os.environ.pop("UXR_CONFIG__PATHS__STATE_DIR", None)
 
     if failures:
         print(f"selftest FAILED ({len(failures)} check(s))")

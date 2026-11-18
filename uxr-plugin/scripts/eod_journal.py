@@ -3,23 +3,19 @@
 
 The journal filter, the draft word-cap check, the ``--auto`` facts-only
 template, and the ``processed`` rewrite used to live as inline heredocs in
-the command prompt; they are one script now. The command owns every tracker
-call and the gate; this script only computes.
+the command prompt; they are one script now. The command owns every
+tracker call and the gate; this script only computes. Exit codes: 0 ok,
+2 usage, 3 selftest failed. ``filter`` prints the group JSON verbatim;
+``check`` prints ``<words> <True|False>``; ``draft-auto`` prints the draft;
+``rewrite`` is silent on success.
 
 Subcommands::
 
     filter  --state <dir> --days <D1,D2 | A..B> [--ticket <KEY>]
     check   --file <draft> --footer <footer text>
-    draft-auto --state <dir> --days <...> --ticket <KEY> --date <YYYY-MM-DD>
-               [--footer <footer text>]
-    rewrite --state <dir> --days <...> --posted <KEY1,KEY2>
-            --readonly <sid1,sid2>
+    draft-auto --state <dir> --days <...> --ticket <KEY> --date <YYYY-MM-DD> [--footer <text>]
+    rewrite --state <dir> --days <...> --posted <KEY1,KEY2> --readonly <sid1,sid2>
     selftest
-
-Exit codes: 0 ok, 2 usage, 3 selftest failed. ``filter`` prints the group
-JSON verbatim; ``check`` prints ``<word count> <True|False>``; ``draft-auto``
-prints the draft text; ``rewrite`` prints nothing (a silent success is the
-contract; a journal error exits 2).
 """
 
 from __future__ import annotations
