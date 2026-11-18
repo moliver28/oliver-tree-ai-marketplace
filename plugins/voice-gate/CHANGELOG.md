@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0] - 2026-11-17
+### Added
+- Learn/apply decoupling, marketplace half (issue #5): rules load at scan time from the runtime state file `<HERMES_HOME>/state/voice-rules.json` (path override `VOICE_RULES_STATE`), keyed per-source provenance (register, learn pass, owner manual entries). Valid state entries merge/override the embedded PATTERNS/EXEMPLARS (identical regex replaces the earlier label in place, later source wins; exemplars dedupe on exact text) and per-class thresholds override the embedded calibration. The runtime gate and the published plugin share this one loading contract.
+- Fail-open posture unchanged: absent state file -> embedded defaults silently (pre-loader behavior identical); corrupt/invalid file -> embedded defaults + one `state_skip` log line per state change; entry-level problems skip just that entry and log while valid entries still apply. New log events: `state_load`, `state_skip`, `state_uncalibrated` (learned exemplar not yet vectorized; rebuild to enforce it in the vector layer).
+- verify.py drift check (issue #5): the runtime gate's embedded rule data must hash-match the published mirror, and a state file present on the machine must parse under the shared loader; a machine with neither gets an explicit SKIP line (CI path). The check is deterministic and can never fail CI.
+- voice-vector-build.py rebuilds from the effective exemplar set (embedded + state-file; state exemplars beyond the embedded list get auto-labels tell-<i>).
+- `VOICE_GATE_LOG` env override for the log sink (resolves per call; tests and side-by-side installs).
+
+### Changed
+- Exemplar-cache verifier check generalized from a hardcoded count (18) to "covers every embedded exemplar", since state exemplars can legitimately grow the cache after a rebuild.
+
 ## [0.2.0] - 2026-11-17
 ### Added
 - Lazy in-process ONNX embedder fallback (bge-small-en-v1.5 int8, cached on first use) when the Ollama daemon is absent; Ollama stays the fast path, fail-open posture unchanged (issue #2).
