@@ -1,6 +1,6 @@
 # uxr-plugin
 
-UX research operations plugin for Claude Code, currently v0.1.0.
+UX research operations plugin for Claude Code, currently v0.2.0.
 
 One plugin for the research lifecycle: study tickets, specs, recruitment, interview scripts, reports, and decks. Code owns the rules (deterministic scripts, each with a `selftest`); the model owns judgment. Drafts, never sends. Hooks fail open; exclusions fail closed. See docs/ARCHITECTURE.md for the vocabulary and principles.
 
@@ -38,7 +38,7 @@ The config contract ships placeholders for every key. Copy it once and fill in y
 cp config/org.example.yaml config/org.yaml
 ```
 
-Every command, script, and hook reads configuration through one loader, `lib/config.py:load_config()`. Environment overrides use `UXR_CONFIG__SECTION__KEY=value`.
+Fill the values by hand from the contract comments (there is no wizard); verify the result with `python3 lib/config.py --print`, which dumps the resolved configuration and fails loudly on a missing key. Every command, script, and hook reads configuration through that one loader, `lib/config.py:load_config()`; environment overrides use `UXR_CONFIG__SECTION__KEY=value`.
 
 ## Quick start
 
@@ -59,7 +59,7 @@ Every command, script, and hook reads configuration through one loader, `lib/con
 | `/uxr-recruit KEY` | Roster statuses, outreach drafts, calendar holds, fail-closed preflight |
 | `/uxr-debrief KEY` | File the transcript, insight recap, upload plan (dry-run first) |
 | `/uxr-notebook KEY` | NotebookLM stage prompts (browser skill; sign-in stop, never credentials) |
-| `/uxr-report KEY` | Tiered report, HTML render with citation checks, review loop, publish |
+| `/uxr-report KEY` | Tiered report, HTML render with citation checks, one HCD gate, publish |
 | `/uxr-deck KEY` | Persona-capped deck outline and pptx scaffold (`--dry-run` first) |
 | `/uxr-cheatsheet` | Cheat sheet rebuilt from sources; drift check with explicit `go` |
 | `/uxr-eod` | End-of-day draft from today's journal (dry-run; nothing posts automatically) |
