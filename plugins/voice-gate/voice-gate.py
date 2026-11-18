@@ -36,8 +36,9 @@ _spec.loader.exec_module(_tells)
 
 def _find_banned(text, use_vector=True):
     """Shared detection core (voice-tells.py): regex layer always; vector layer
-    (cosine vs tell exemplars via local Ollama) when prose is long enough and
-    the service is up. Fail-open on any vector-infrastructure miss."""
+    (cosine vs backend-keyed tell exemplars: Ollama fast path, lazy ONNX
+    fallback) when prose is long enough and any embedder is available.
+    Fail-open on any vector-infrastructure miss."""
     return _tells.scan(text, use_vector=use_vector)
 
 STATUS_MARKERS = ("[SILENT]", "[CRON_FAILURE]", "NO-POST", "POSTED", "DELIVERY-FAILED",

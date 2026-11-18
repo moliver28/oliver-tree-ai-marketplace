@@ -4,11 +4,16 @@
 Two layers, both importable by voice-gate.py (hook) and voice-check.py:
 1. REGEX layer: inflection- and variant-aware patterns (case-insensitive,
    word-boundary anchored, hyphen/spacing tolerant). Pure CPU, sub-millisecond.
-2. VECTOR layer: cosine similarity against embedded tell exemplars via local
-   Ollama (nomic-embed-text, warm ~100ms). Exemplar vectors are precomputed by
-   voice-vector-build.py into ~/.hermes/state/voice-tells-vectors.json and are
-   version-tagged with the pattern set. If the service is down, the vector
-   layer is skipped (logged), the regex layer still stands.
+2. VECTOR layer: cosine similarity against embedded tell exemplars. Exemplar
+   vectors are precomputed by voice-vector-build.py into
+   voice-tells-vectors.json beside this file, keyed by backend ("ollama" |
+   "onnx"): embedding spaces are backend-specific and never mixed. Per-class
+   thresholds live in voice-tells-calibration.json (background p99 + 0.03
+   measured on clean repo prose by the same build). Embedder: local Ollama
+   nomic-embed-text as the fast path (warm ~13-64 ms); lazy in-process ONNX
+   fallback (bge-small-en-v1.5 int8, ~35 MB, downloaded + cached on first
+   use) when the daemon is absent. If both backends are unavailable the
+   vector layer is skipped (logged vec_skip) and the regex layer still stands.
 
 Public API:
     find_regex_hits(text) -> list[str]
@@ -18,18 +23,25 @@ import json
 import math
 import os
 import re
+import unicodedata
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
 HOME = Path(os.environ.get("HERMES_HOME", "~/.hermes")).expanduser()
-VEC_PATH = HOME / "state" / "voice-tells-vectors.json"
+HERE = Path(__file__).resolve().parent
+CACHE_PATH = HERE / "voice-tells-vectors.json"    # exemplar vectors, backend-keyed
+CAL_PATH = HERE / "voice-tells-calibration.json"  # per-class thresholds, backend-keyed
+LEGACY_VEC_PATH = HOME / "state" / "voice-tells-vectors.json"
 LOG = HOME / "logs" / "voice-gate.log"
-OLLAMA_URL = "http://localhost:11434/api/embeddings"
-MODEL = "nomic-embed-text"
-COSINE_THRESHOLD = 0.66          # tuned: paraphrases hit 0.75-0.83, clean prose <=0.62
+OLLAMA_URL = os.environ.get("VOICE_GATE_OLLAMA_URL", "http://localhost:11434/api/embeddings")
+MODEL = "nomic-embed-text"        # Ollama tag: fast path
+ONNX_MODEL = "bge-small-en-v1.5"  # availability path: int8 quantized, CLS pooling
+ONNX_BASE = f"https://huggingface.co/Xenova/{ONNX_MODEL}/resolve/main"
+ONNX_DIR = HOME / "state" / "models" / ONNX_MODEL
+CAL_MARGIN = 0.03                 # per-class threshold = background p99 + margin
 EMBED_TIMEOUT_S = 2.0
-MAX_EMBED_CHARS = 4000           # truncate embedded prose; long docs scan per chunk below
+MAX_EMBED_CHARS = 4000            # truncate embedded prose; long docs scan per chunk below
 
 # ---------------- REGEX LAYER ----------------
 # (pattern, label). All case-insensitive except nothing here requires case.
@@ -137,17 +149,39 @@ EXEMPLARS = [
     "To be precise here, that is a cost worth stating, and let me be honest about the arithmetic.",
 ]
 
-_cache = None  # loaded vectors
+_cache = None       # loaded exemplar vectors (backend-keyed)
+_cal = None         # loaded calibration table (backend-keyed)
+_ollama_down = False  # sticky per process: one daemon miss switches to ONNX for good
+_onnx = None        # lazy (session, tokenizer vocab) bundle
 
 
 def _load_vectors():
+    """Backend-keyed exemplar cache: beside this file first, then the legacy
+    HERMES_HOME state path (flat pre-0.2.0 caches count as ollama-built)."""
     global _cache
     if _cache is None:
-        try:
-            _cache = json.loads(VEC_PATH.read_text())
-        except Exception:
-            _cache = {"model": MODEL, "built": None, "vectors": []}
+        cache = {}
+        for p in (CACHE_PATH, LEGACY_VEC_PATH):
+            try:
+                cache = json.loads(p.read_text())
+                break
+            except Exception:
+                continue
+        if cache and "backends" not in cache:
+            cache = {"format": 2, "backends": {"ollama": {
+                "model": cache.get("model", MODEL), "vectors": cache.get("vectors", [])}}}
+        _cache = cache if cache else {"format": 2, "backends": {}}
     return _cache
+
+
+def _load_calibration():
+    global _cal
+    if _cal is None:
+        try:
+            _cal = json.loads(CAL_PATH.read_text())
+        except Exception:
+            _cal = {}
+    return _cal
 
 
 def _log_vec(event, detail):
@@ -159,7 +193,7 @@ def _log_vec(event, detail):
         pass
 
 
-def _embed(text, timeout=EMBED_TIMEOUT_S):
+def _embed_ollama(text, timeout=EMBED_TIMEOUT_S):
     req = urllib.request.Request(
         OLLAMA_URL,
         data=json.dumps({"model": MODEL, "prompt": text[:MAX_EMBED_CHARS]}).encode(),
@@ -168,13 +202,102 @@ def _embed(text, timeout=EMBED_TIMEOUT_S):
         return json.loads(r.read())["embedding"]
 
 
+def _download(url, dest):
+    tmp = dest.with_suffix(dest.suffix + ".part")
+    req = urllib.request.Request(url, headers={"User-Agent": "voice-gate"})
+    with urllib.request.urlopen(req, timeout=120) as r, open(tmp, "wb") as f:
+        while True:
+            b = r.read(1 << 20)
+            if not b:
+                break
+            f.write(b)
+    tmp.replace(dest)
+
+
+def _onnx_session():
+    global _onnx
+    if _onnx is None:
+        import onnxruntime  # optional runtime dep: fallback path only, never module scope
+        model, tokf = ONNX_DIR / "model_quantized.onnx", ONNX_DIR / "tokenizer.json"
+        if not (model.is_file() and tokf.is_file()):
+            ONNX_DIR.mkdir(parents=True, exist_ok=True)
+            _download(f"{ONNX_BASE}/onnx/model_quantized.onnx", model)
+            _download(f"{ONNX_BASE}/tokenizer.json", tokf)
+        vocab = json.loads(tokf.read_text())["model"]["vocab"]
+        sess = onnxruntime.InferenceSession(str(model), providers=["CPUExecutionProvider"])
+        _onnx = (sess, vocab)
+    return _onnx
+
+
+def _wordpiece(text, vocab):
+    """BERT-style basic tokenize + greedy WordPiece, vocab from tokenizer.json."""
+    text = "".join(c for c in unicodedata.normalize("NFD", text)
+                   if not unicodedata.combining(c)).lower()[:MAX_EMBED_CHARS]
+    ids, unk, prefix = [], vocab["[UNK]"], "##"
+    for word in re.findall(r"\w+|[^\w\s]", text):
+        if len(word) > 100:
+            word = word[:100]
+        i, toks = 0, []
+        while i < len(word):
+            for j in range(len(word), i, -1):
+                cand = word[i:j] if i == 0 else prefix + word[i:j]
+                if cand in vocab:
+                    toks.append(vocab[cand])
+                    break
+            else:
+                toks = [unk]
+                break
+            i = j
+        ids.extend(toks)
+    return ids
+
+
+def _embed_onnx(text):
+    sess, vocab = _onnx_session()
+    ids = [vocab["[CLS]"]] + _wordpiece(text, vocab)[:510] + [vocab["[SEP]"]]
+    feed = {}
+    for inp in sess.get_inputs():
+        if inp.name == "input_ids":
+            feed[inp.name] = [ids]
+        elif inp.name == "attention_mask":
+            feed[inp.name] = [[1] * len(ids)]
+        elif inp.name == "token_type_ids":
+            feed[inp.name] = [[0] * len(ids)]
+    out = sess.run(None, feed)[0]  # last_hidden_state [1, T, H]
+    v = [float(x) for x in out[0][0]]  # CLS pooling (bge v1.5)
+    n = math.sqrt(sum(x * x for x in v))
+    return [x / n for x in v] if n else v
+
+
+def _embed(text, timeout=EMBED_TIMEOUT_S, backend=None):
+    """Return (embedding, backend). backend=None tries the Ollama fast path
+    then the ONNX fallback; an explicit backend never silently switches."""
+    global _ollama_down
+    order = [backend] if backend else ([] if _ollama_down else ["ollama"]) + ["onnx"]
+    errs = {}
+    for b in order:
+        if b == "ollama":
+            try:
+                return _embed_ollama(text, timeout), "ollama"
+            except Exception as e:
+                _ollama_down = True  # sticky: no daemon re-probed this process
+                errs[b] = repr(e)
+                _log_vec("vec_fallback", {"to": "onnx", "err": errs[b]})
+        elif b == "onnx":
+            try:
+                return _embed_onnx(text), "onnx"
+            except Exception as e:
+                errs[b] = repr(e)
+    raise RuntimeError(f"no embedder available: {errs}")
+
+
 def _cosine(a, b):
     num = sum(x * y for x, y in zip(a, b))
     da = math.sqrt(sum(x * x for x in a)); db = math.sqrt(sum(y * y for y in b))
     return num / (da * db) if da and db else 0.0
 
 
-def _chunks(text, size=1200):
+def _chunks(text, size=1200, cap=12):
     """Split long prose on paragraph boundaries so long docs don't blur the vector."""
     text = text.strip()
     if len(text) <= size:
@@ -188,7 +311,7 @@ def _chunks(text, size=1200):
         cur += ("\n\n" if cur else "") + p
     if cur:
         out.append(cur)
-    return out[:12]  # bounded: 12 chunk embeds worst case
+    return out[:cap]
 
 
 def find_regex_hits(text):
@@ -202,22 +325,38 @@ def find_regex_hits(text):
 
 
 def find_vector_hits(text):
-    """Return hits from the embedding layer; empty on any infrastructure miss."""
-    cache = _load_vectors()
-    if not cache.get("vectors"):
+    """Return hits from the embedding layer; empty on any infrastructure miss.
+    Similarity is compared per class against the calibrated threshold for the
+    backend that produced the chunk embedding."""
+    if os.environ.get("VOICE_GATE_VECTOR", "").lower() == "off":
+        return []
+    cache, cal = _load_vectors(), _load_calibration()
+    if not cache.get("backends"):
         return []
     hits = []
     for chunk in _chunks(text):
         try:
-            v = _embed(chunk)
+            v, backend = _embed(chunk)
         except Exception as e:
             _log_vec("vec_skip", {"err": repr(e)})
-            return hits  # fail open: service down never blocks on its own
-        for ex in cache["vectors"]:
-            sim = _cosine(v, ex["vec"])
-            if sim >= COSINE_THRESHOLD:
-                hits.append(f"vector tell '{ex['label']}' sim={sim:.2f} (near exemplar: "
-                            f"{ex['text'][:70]}...)")
+            return hits  # fail open: no embedder never blocks on its own
+        entry = cache["backends"].get(backend) or {}
+        th = (cal.get("backends") or {}).get(backend, {}).get("thresholds", {})
+        if not entry.get("vectors") or not th:
+            _log_vec("vec_skip", {"err": f"backend '{backend}' uncalibrated"})
+            return hits
+        chunk_hits = []
+        for ex in entry["vectors"]:
+            t, sim = th.get(ex["label"]), _cosine(v, ex["vec"])
+            if t is not None and sim >= t:
+                chunk_hits.append(f"vector tell '{ex['label']}' sim={sim:.2f} (near exemplar: "
+                                  f"{ex['text'][:70]}...)")
+                _log_vec("vec_hit", {"backend": backend, "class": ex["label"], "sim": round(sim, 3),
+                                     "threshold": t})
+        if len(chunk_hits) > 1:  # class collision: warn-mode, block decision unchanged
+            _log_vec("vec_collision", {"backend": backend, "classes": len(chunk_hits),
+                                       "chunk": chunk[:80]})
+        hits.extend(chunk_hits)
     # dedupe labels
     seen, uniq = set(), []
     for h in hits:
