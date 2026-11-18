@@ -766,8 +766,13 @@ def _selftest() -> int:
     )
 
     # --- the shipped example file resolves through the real loader ----------
+    # The fixture is the shipped example only (F1): a plain load_config()
+    # merges the live config/org.yaml, so after the organization configures
+    # the plugin the example's free-token pod check below would reject and
+    # flip the smoke gate red -- the README order Install -> Verify ->
+    # Configure must keep verify green after Configure.
     try:
-        example = _config.load_config(environ={})
+        example = _config.load_example_config()
         payload = resolve_shorthand("research-type=Strategic", example)
         shape_ok = isinstance(payload, dict) and list(payload.values()) == [
             {"value": "Strategic"}

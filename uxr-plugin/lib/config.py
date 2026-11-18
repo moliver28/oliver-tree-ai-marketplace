@@ -294,6 +294,28 @@ def load_config(
     return _expand_paths(config)
 
 
+def load_example_config(
+    environ: Mapping[str, str] | None = None,
+    example_file: str | os.PathLike[str] | None = None,
+    user_file: str | os.PathLike[str] | None = None,
+) -> dict:
+    """Load the shipped example contract only; never the live user file.
+
+    Both layers default to ``config/org.example.yaml``, so selftests
+    exercise the shipped contract and a configured ``config/org.yaml``
+    cannot flip the smoke gate red (F1: the README order Install ->
+    Verify -> Configure must keep verify green after Configure).
+    Environment overrides default to none, not to the process
+    environment. ``example_file`` and ``user_file`` stay overridable for
+    fixture tests.
+    """
+    return load_config(
+        environ=environ if environ is not None else {},
+        example_file=example_file if example_file else EXAMPLE_FILE,
+        user_file=user_file if user_file else EXAMPLE_FILE,
+    )
+
+
 def _selftest() -> int:
     """Cover the contract, the missing-key error, env overrides, and ~ expansion."""
     failures: list[str] = []
@@ -307,7 +329,7 @@ def _selftest() -> int:
 
     # 1. The shipped example file satisfies the full config contract.
     try:
-        baseline = load_config(environ={})
+        baseline = load_example_config()
         check("shipped example file satisfies the config contract", True)
     except ConfigError as exc:
         baseline = None
@@ -349,7 +371,7 @@ def _selftest() -> int:
 
     # 4. Environment overrides win over file values and parse as JSON.
     if baseline is not None:
-        overridden = load_config(
+        overridden = load_example_config(
             environ={
                 "UXR_CONFIG__DEFAULTS__START_WINDOW_DAYS": "30",
                 "UXR_CONFIG__ORG__BRAND_NAME": "Selftest Brand",
@@ -373,12 +395,12 @@ def _selftest() -> int:
         )
         check(
             "overrides do not leak into the next load",
-            load_config(environ={})["defaults"]["start_window_days"] == 90,
+            load_example_config()["defaults"]["start_window_days"] == 90,
         )
 
     # 5. '~' and ${VAR} in the paths section are expanded.
     if baseline is not None:
-        expanded = load_config(
+        expanded = load_example_config(
             environ={"UXR_CONFIG__PATHS__RESEARCH_ROOT": "~/zcode-config-selftest"}
         )
         expected = os.path.expanduser("~/zcode-config-selftest")
@@ -399,6 +421,21 @@ def _selftest() -> int:
             baseline["paths"]["state_dir"] == expected_state,
             repr(baseline["paths"]["state_dir"]),
         )
+
+    # 6. The example-only loader never merges the live user file (F1):
+    # equality with a load whose user file cannot exist proves the default
+    # user layer is the example, so a configured config/org.yaml cannot
+    # reach a selftest and the smoke gate stays green after Configure.
+    example_only = load_example_config()
+    pure = load_config(
+        environ={}, user_file=EXAMPLE_FILE.parent / "org.yaml.selftest-absent"
+    )
+    check(
+        "the example-only loader never merges the live user file",
+        example_only == pure,
+        f"example-only start_window_days={example_only['defaults']['start_window_days']!r}, "
+        f"pure-example start_window_days={pure['defaults']['start_window_days']!r}",
+    )
 
     if failures:
         print(f"selftest FAILED ({len(failures)} check(s))")
