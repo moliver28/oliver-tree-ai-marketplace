@@ -1,0 +1,7 @@
+# Runtime bytecode artifacts (zero-stub law, MAINTENANCE.md section 13)
+__pycache__/
+*.pyc
+
+# Local tool caches, never repo content
+.token-optimizer/
+.mimosa/

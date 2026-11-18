@@ -1,6 +1,6 @@
 # Voice onboarding template
 
-Fill in every `<FILL>` block, then delete this header. The completed profile tells any AI tool (Claude, Codex, or another agent) how to speak as THIS person: voice, channels, situations, conditions, and hard rules. Pair it with the delivery gate: profile sets register and structure; the tell scan plus the aphorism budget (enforcement in `plugins/voice-gate/`, user surface in `plugins/humanizer/`) gates every delivery pass.
+Fill in every `<FILL>` block, then delete this header. The completed profile tells any AI tool (Claude, Codex, or another agent) how to speak as THIS person: voice, channels, situations, conditions, and hard rules. Pair it with the delivery gate: profile sets register and structure; the tell scan plus the aphorism budget (enforcement in `voice-gate/`, user surface in `humanizer/`) gates every delivery pass.
 
 ## 1. Identity and context
 
@@ -58,7 +58,7 @@ List absolute bans, one per line:
 The delivery hooks fire silently after generation and before anything reaches another human:
 - **Chat output (Discord/Slack/agent replies):** STE gate runs on every outgoing reply. Pass = nothing happens. Fail = ONE short nudge line to the assistant before it sends ("STE: sentence over 20 words; patch in place"), never shown to you unless you ask why.
 - **Public copy (posts, docs, emails):** full gate (tell scan + STE per your STE-mode choice). Same silence-on-pass; the repair contract edits flagged phrases only.
-- **Where they register:** Claude Code installs the gate with the plugin; on other platforms, point the platform's pre-send hook at `plugins/humanizer/hooks/gate.py --surface chat` (chat) / `--surface public` (public copy). If the platform has no hook support, `/voice` carries the scan inline and chat output follows the same rules without mechanical enforcement.
+- **Where they register:** Claude Code installs the gate with the plugin; on other platforms, point the platform's pre-send hook at `humanizer/hooks/gate.py --surface chat` (chat) / `--surface public` (public copy). If the platform has no hook support, `/voice` carries the scan inline and chat output follows the same rules without mechanical enforcement.
 
 ## 7. Validation gates (do not deliver until every line passes)
 
