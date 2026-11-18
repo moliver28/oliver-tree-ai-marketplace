@@ -1,19 +1,11 @@
 #!/usr/bin/env python3
-"""Deterministic classifiers for the W2 efficiency pass: steps the commands
-used to hand to the model even though their output shape is fully specified.
-Keyword tables and rule data live under ``prompts/classify/``; this script
-only loads and applies them. No network, no tracker access, nothing written.
-
-Each subcommand prints one JSON object and exits 0:
-
-    intent "<message>" [--prefix <KEY>]     router intent pick (ux-research-tickets)
-    reply "<reply text>"                    recruit reply classification (phases F/H)
-    method --rqs "<RQ1; RQ2; ...>"          dominant RQ shape + method table row (new ph7)
-    decision "<one sentence>"               decision shape gate (new ph4)
-    route-finding --category "<category>"   review-finding routing (report review)
-    selftest
-
-Exit codes: 0 ok, 2 usage, 3 selftest failed.
+"""Deterministic classifiers (W2): steps the commands handed to the model
+even though the output shape is fully specified. Keyword tables live in
+``prompts/classify/``. Each subcommand prints one JSON object: ``intent
+"<msg>" [--prefix <KEY>]`` (router), ``reply "<text>"`` (recruit), ``method
+--rqs "<RQ1; ...>"`` (new ph7), ``decision "<sentence>"`` (new ph4),
+``route-finding --category "<c>"`` (report review), ``selftest``. Exit:
+0 ok, 2 usage/no match, 3 selftest failed.
 """
 
 from __future__ import annotations

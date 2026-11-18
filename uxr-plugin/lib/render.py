@@ -1,21 +1,16 @@
 #!/usr/bin/env python3
-"""Data-driven render helpers for the tracker views (W2 efficiency pass).
+"""Data-driven render helpers for the tracker views (W2).
 
-Table shapes, column order, the relative-time ladder, the show-card field
-order, and the emoji map are JSON data under ``prompts/render/``; these
-loops render from that data so output cannot drift from the spec. Canonical
-input JSON (commands assemble it mechanically from the tracker read):
-
-- mine item: ``{key, url, status, type, priority|null, summary, updated}``
-- show item: ``{key, url, summary, status, type, priority, assignee,
-  reporter, created, updated, labels, description, issuelinks: [{type, key,
-  url, summary, status}], comments: [{author, created, body}],
-  fields: {<shorthand>: {kind, value|values|name|start, end}}}``
-
-Field values render by kind: single_select/single_name the value;
-multi_select a comma list; user the display name; interval
-``start .. end`` (or the single date when equal); date as-is; url as
-``[url](url)``; text/labels as-is. Run ``scripts/render_view.py`` for the CLI.
+Shapes, columns, ladder, field order, and the emoji map are JSON data under
+``prompts/render/``; these loops render from that data so output cannot
+drift from the spec. Canonical mine item: ``{key, url, status, type,
+priority|null, summary, updated}``. Canonical show item: ``{key, url,
+summary, status, type, priority, assignee, reporter, created, updated,
+labels, description, issuelinks, comments, fields: {<shorthand>: {kind,
+value|values|name|start, end}}}``. Values render by kind (single_select/
+single_name value; multi_select comma list; user display name; interval
+``start .. end`` or the single date; url ``[url](url)``; text as-is).
+``scripts/render_view.py`` is the CLI.
 """
 
 from __future__ import annotations

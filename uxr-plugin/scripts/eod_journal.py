@@ -1,21 +1,14 @@
 #!/usr/bin/env python3
-"""Deterministic journal work for the eod command (W2 efficiency pass).
-
-The journal filter, the draft word-cap check, the ``--auto`` facts-only
-template, and the ``processed`` rewrite used to live as inline heredocs in
-the command prompt; they are one script now. The command owns every
-tracker call and the gate; this script only computes. Exit codes: 0 ok,
-2 usage, 3 selftest failed. ``filter`` prints the group JSON verbatim;
-``check`` prints ``<words> <True|False>``; ``draft-auto`` prints the draft;
-``rewrite`` is silent on success.
-
-Subcommands::
-
-    filter  --state <dir> --days <D1,D2 | A..B> [--ticket <KEY>]
-    check   --file <draft> --footer <footer text>
-    draft-auto --state <dir> --days <...> --ticket <KEY> --date <YYYY-MM-DD> [--footer <text>]
-    rewrite --state <dir> --days <...> --posted <KEY1,KEY2> --readonly <sid1,sid2>
-    selftest
+"""Deterministic journal work for the eod command (W2): the filter, the
+draft cap check, the ``--auto`` facts template, and the ``processed``
+rewrite were inline heredocs; they are one script now. The command owns
+tracker calls and gates. ``filter`` prints the group JSON; ``check``
+prints ``<words> <True|False>``; ``draft-auto`` prints the draft;
+``rewrite`` is silent. Subcommands: ``filter --state <dir> --days
+<D1,D2|A..B> [--ticket <KEY>]`` / ``check --file <draft> --footer <text>``
+/ ``draft-auto --state ... --ticket <KEY> --date <D> [--footer]`` /
+``rewrite --state ... --posted <K1,K2> --readonly <sid,sid>`` /
+``selftest``. Exit: 0 ok, 2 usage, 3 selftest failed.
 """
 
 from __future__ import annotations

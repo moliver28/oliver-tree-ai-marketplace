@@ -1,25 +1,16 @@
 #!/usr/bin/env python3
-"""Lazy-fragment prompt registry (W2 efficiency pass).
+"""Lazy-fragment prompt registry (W2).
 
-Assets live at ``prompts/<id>/prompt.md``: JSON front matter (``---``
-fenced) plus the default body. Keys: ``id``/``version`` (metering and
-``prompt: <id>@<version>`` doc references); ``vars`` + ``vars_source``
-(``spec|config|state``) naming the slots callers bind verbatim; ``when``
-(``[{"if": "field op value", "use": "file.md"}]`` variant rules, ops
-``== != > < >= <= in``, JSON-literal values); ``fragments``
-(``[{id, when?, file, budget?}]`` - a fragment loads ONLY when its
-condition fires, so rarely-used logic costs nothing until it applies);
-``budget`` (``{max_lines, max_vars}`` - over budget is an error, never a
-trim). A fragment/variant without ``when`` always applies. Selection
-costs zero tokens: the model sees only the resolved text, and every
+``prompts/<id>/prompt.md``: JSON front matter + default body. Keys:
+``id``/``version``; ``vars`` + ``vars_source`` (``spec|config|state``);
+``when`` variant rules (``[{"if": "field op value", "use": "file.md"}]``,
+ops ``== != > < >= <= in``, JSON-literal values); ``fragments``
+(``[{id, when?, file, budget?}]`` - loaded ONLY when the condition fires);
+``budget`` (``{max_lines, max_vars}`` - over budget errors, never trims).
+A missing ``when`` always applies. Selection costs zero tokens; every
 render logs ``<id>@<version> fragments=[...] est_tokens=N`` on stderr.
-
-Usage::
-
-    python lib/prompts.py render <id> [--set key=value ...] [--spec file] [--config]
-    python lib/prompts.py list | selftest
-
-Exit codes: 0 ok, 2 usage, 3 render or selftest failure.
+Usage: ``render <id> [--set k=v ...] [--spec f] [--config]`` | ``list`` |
+``selftest``. Exit: 0 ok, 2 usage, 3 failure.
 """
 
 from __future__ import annotations

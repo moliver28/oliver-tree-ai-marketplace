@@ -1,20 +1,9 @@
 #!/usr/bin/env python3
-"""Render the tracker views from canonical JSON (W2 efficiency pass).
-
-``mine`` prints the one table and footer line (or the exact empty line);
-``show`` prints the read-only ticket card. Shapes, columns, ladder, and
-emoji map come from ``prompts/render/`` via ``lib/render.py``; this CLI
-adds no prose. Input: a JSON file with ``{"items": [...], "now": ...,
-"mode": ..., "project_key": ...}`` for mine (flags ``--all``, ``--now``,
-``--project-key`` override) or ``{"now": ..., "item": {...}}`` for show.
-
-Usage::
-
-    python scripts/render_view.py mine <items.json> [--all] [--now <ISO>] [--project-key <KEY>]
-    python scripts/render_view.py show <item.json> [--now <ISO>]
-    python scripts/render_view.py selftest
-
-Exit codes: 0 ok, 2 usage, 3 selftest failed.
+"""Render tracker views from canonical JSON (W2): the shapes come from
+``prompts/render/`` via ``lib/render.py``; this CLI adds no prose. Usage:
+``mine <items.json> [--all] [--now <ISO>] [--project-key <KEY>]`` |
+``show <item.json> [--now <ISO>]`` | ``selftest``. Exit: 0 ok, 2 usage,
+3 selftest failed.
 """
 
 from __future__ import annotations

@@ -1,18 +1,11 @@
 #!/usr/bin/env python3
-"""Evidence sweep planner and digester (W2 efficiency pass).
-
-The sweep runs every enabled source in ONE parallel batch of tracker tool
-calls (commands own tracker I/O; this script never touches the network).
-This script owns the deterministic halves around that batch: ``plan``
-emits the per-source query spec (tool, window, limit, query text) from the
-loaded configuration so the documented queries are fired, not composed;
-``digest`` compresses the batch's raw results into the evidence digest and
-renders the synthesis table exactly, so the signals synthesis call
-consumes the digest ONLY - never raw search JSON.
-
-``digest`` input: ``{"<source key>": {"hits": n, "titles": [...],
-"owners": [...]}}`` per source, or ``"unavailable"``. Exit codes: 0 ok,
-2 usage or config error, 3 selftest failed.
+"""Evidence sweep planner and digester (W2). Commands own tracker I/O;
+this script never touches the network. ``plan`` prints the per-source
+query spec (tool, window, limit, query) from config; ``digest`` compresses
+raw results into the evidence digest and renders the synthesis table, so
+the signals call consumes the digest ONLY - never raw search JSON. Digest
+input: ``{"<key>": {"hits": n, "titles": [...], "owners": [...]}}`` or
+``"unavailable"`` per source. Exit: 0 ok, 2 usage/config, 3 selftest.
 """
 
 from __future__ import annotations
