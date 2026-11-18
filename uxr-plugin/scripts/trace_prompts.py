@@ -152,6 +152,58 @@ def research_roots(config: dict | None, environ=None) -> list[str]:
     return roots
 
 
+# --- W2: the RQ-to-hypothesis map + the drop rule (new phase 6) ---
+
+RQ_STOPWORDS = frozenset(
+    "what when where does with from that this than more they their have into "
+    "before after during about while whose which will would could should look "
+    "plan want makes like over under also each most many some such very".split())
+
+
+def _content_words(text: str) -> list[str]:
+    """Content words, lowercase; hyphenated compounds count double; a trailing
+    plural s folds (managers -> manager)."""
+    words: list[str] = []
+    for raw in re.split(r"[^a-z0-9-]+", str(text).lower()):
+        raw = raw.strip("-")
+        if not raw or raw in RQ_STOPWORDS:
+            continue
+        if len(raw) < 4 and "-" not in raw:
+            continue
+        folded = raw[:-1] if len(raw) > 4 and raw.endswith("s") and not raw.endswith("ss") else raw
+        words.append(folded)
+        if "-" in raw:
+            words.append(folded)  # compounds carry twice the weight
+    return words
+
+
+def rq_map(spec: dict) -> dict:
+    """Mechanical RQ-to-hypothesis trace: two or more content words shared
+    with a hypothesis (label or text) means the RQ traces to it. An RQ that
+    traces to nothing is listed under ``unmapped`` - the phase 6 drop rule
+    says drop it and say why. No inference involved."""
+    hypotheses = spec.get("hypotheses") or []
+    questions = spec.get("research_questions") or []
+    label_words: dict[str, set[str]] = {}
+    for index, hypothesis in enumerate(hypotheses, 1):
+        if not isinstance(hypothesis, dict):
+            continue
+        label = str(hypothesis.get("label") or "H%d" % index)
+        label_words[label] = set(_content_words(str(hypothesis.get("text") or ""))
+                                 + _content_words(label))
+    mapping: list[dict] = []
+    unmapped: list[str] = []
+    for index, question in enumerate(questions, 1):
+        words = set(_content_words(str(question)))
+        traces = [label for label, candidate in label_words.items()
+                  if len(words & candidate) >= 2]
+        mapping.append({"rq": "RQ%d" % index, "text": str(question), "traces_to": traces})
+        if not traces:
+            unmapped.append("RQ%d" % index)
+    return {"map": mapping, "unmapped": unmapped,
+            "drop_rule": "an RQ tracing to no hypothesis is dropped; say you dropped it and why"}
+
+
 def collect(key: str, config: dict | None, environ=None) -> list[dict]:
     """The merged, deduped, time-sorted prompt list for one key."""
     key = normalize_key(key, config)
@@ -196,12 +248,25 @@ def collect(key: str, config: dict | None, environ=None) -> list[dict]:
 
 
 def main(argv: list[str] | None = None, environ=None) -> int:
-    args = [arg for arg in (sys.argv[1:] if argv is None else argv)
-            if arg not in ("--selftest", "selftest")]
-    if args != [arg for arg in (sys.argv[1:] if argv is None else argv)]:
+    raw = list(sys.argv[1:] if argv is None else argv)
+    args = [arg for arg in raw if arg not in ("--selftest", "selftest")]
+    if args != raw:
         return _selftest()
+    if "--rq-map" in args:
+        index = args.index("--rq-map")
+        if index + 1 >= len(args):
+            print("usage: trace_prompts.py --rq-map <spec.json>", file=sys.stderr)
+            return 2
+        path = Path(args[index + 1]).expanduser()
+        try:
+            spec = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            print("trace_prompts: unreadable spec: %s" % exc, file=sys.stderr)
+            return 2
+        print(json.dumps(rq_map(spec if isinstance(spec, dict) else {}), ensure_ascii=False, indent=2))
+        return 0
     if len(args) != 1 or not args[0].strip() or args[0].startswith("-"):
-        print("usage: trace_prompts.py <KEY>", file=sys.stderr)
+        print("usage: trace_prompts.py <KEY> | --rq-map <spec.json>", file=sys.stderr)
         return 2
     config = _load_config()
     prompts = collect(args[0].strip(), config, environ=environ)
@@ -325,6 +390,28 @@ def _selftest() -> int:
         parsed = json.loads(out.getvalue())
         check("stdout is the verbatim JSON list", isinstance(parsed, list)
               and len(parsed) == 3, repr(len(parsed)))
+
+    # W2 rq-map: the phase 6 map is mechanical and matches the baseline map.
+    golden_spec = {
+        "research_questions": [
+            "Where do first-week users look for the timeline when they want to plan?",
+            "What does a first-session planning attempt look like for a new project manager?",
+            "What makes the timeline entry discoverable in the left navigation vs the header toolbar?",
+        ],
+        "hypotheses": [
+            {"label": "H1", "text": "First-week users look for planning features in the header toolbar before the left navigation."},
+            {"label": "H2", "text": "New project managers who find the timeline in their first session build a plan in that session."},
+            {"label": "H3", "text": "A navigation change increases first-session timeline discovery more than a guided tour."},
+        ],
+    }
+    mapped = rq_map(golden_spec)
+    check("rq map traces like the baseline",
+          [entry["traces_to"] for entry in mapped["map"]] == [["H1"], ["H2"], ["H1", "H3"]],
+          json.dumps(mapped["map"]))
+    orphaned = rq_map({"research_questions": ["What color should the button be?"],
+                       "hypotheses": golden_spec["hypotheses"][:1]})
+    check("rq map lists unmapped RQs under the drop rule",
+          orphaned["unmapped"] == ["RQ1"], json.dumps(orphaned["unmapped"]))
 
     if failures:
         print("selftest FAILED (%d check(s))" % len(failures))

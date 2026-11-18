@@ -1,0 +1,41 @@
+{
+  "topic": "New user navigation study: timeline discoverability",
+  "topic_class": "first-run adoption",
+  "results": {
+    "tracker_recent": "unavailable",
+    "tracker_topic": "unavailable",
+    "drive": "unavailable",
+    "feedback": "unavailable",
+    "chat": "unavailable",
+    "wiki": "unavailable",
+    "jtbd": "unavailable",
+    "personas": "unavailable",
+    "chat_discovery": "unavailable"
+  },
+  "expect_block_head": [
+    "## Evidence sweep",
+    "",
+    "| Source | Hits |",
+    "|---|---|",
+    "| Tracker: your recent items (other projects) | 0 |",
+    "| Tracker: topic search (other projects) | 0 |",
+    "| Drive | 0 |",
+    "| Feedback store | 0 |",
+    "| Chat | 0 |",
+    "| Wiki | 0 |",
+    "| JTBD | 0 |",
+    "| Personas | 0 |",
+    "",
+    "- searchJiraIssuesUsingJql: unavailable (skipped)",
+    "- Drive: unavailable (skipped)",
+    "- Feedback store: unavailable (skipped) — topic is first-run adoption; the study carries a gap: no customer-side pain counts this run",
+    "- Chat: unavailable (skipped)",
+    "- Wiki: unavailable (skipped)",
+    "- jtbd: unavailable (skipped)",
+    "- personas: unavailable (skipped)",
+    "- chat_discovery: unavailable (skipped)",
+    "",
+    "Top signals"
+  ],
+  "golden_ref": "baseline-artifacts uc-2 Phase 2 synthesis block (all sources unavailable)"
+}

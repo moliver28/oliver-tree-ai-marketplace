@@ -55,7 +55,7 @@ from __future__ import annotations
 import json
 import re
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
@@ -346,6 +346,134 @@ def classify_events(
     return result
 
 
+def _event_datetime(event: dict, key: str) -> datetime | None:
+    raw = str(event.get(key) or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00")).replace(tzinfo=None)
+    except ValueError:
+        return None
+
+
+def _h12(moment: datetime, meridiem: str | None = None) -> str:
+    hour = moment.hour % 12 or 12
+    text = f"{hour}:{moment.minute:02d}"
+    mer = meridiem or ("AM" if moment.hour < 12 else "PM")
+    return f"{text} {mer}"
+
+
+def _slot_label(day: date, start: datetime, end: datetime) -> str:
+    start_m = "AM" if start.hour < 12 else "PM"
+    end_m = "AM" if end.hour < 12 else "PM"
+    span = f"{_h12(start, start_m)}-{_h12(end, end_m)}" if start_m == end_m \
+        else f"{_h12(start)}-{_h12(end)}"
+    return f"{day.strftime('%a %m/%d')}, {span}"
+
+
+def pick_slots(
+    events: list[dict],
+    classes: dict,
+    level: str = "ii",
+    working_hours: str = "09:00-17:00",
+    session_minutes: int = 30,
+    slots_wanted: int = 3,
+) -> dict:
+    """Deterministic slot picking (W2): free gaps inside the working hours on
+    a 15-minute grid, first fit per day in window order, one slot per day,
+    3 to 5 slots across days. PTO blocks the whole day; weekend and declined
+    events are never busy and never offered. A day with no free gap offers
+    move candidates instead (movable events at level ii, movable plus other
+    at level iii) - every move still needs its own confirm."""
+    class_by_id: dict[str, str] = {}
+    for name in ("pto", "immovable", "movable", "other", "skipped"):
+        for entry in classes.get(name) or []:
+            class_by_id[str(entry.get("id"))] = name
+    try:
+        start_text, end_text = working_hours.split("-")
+        sh, sm = (int(part) for part in start_text.split(":"))
+        eh, em = (int(part) for part in end_text.split(":"))
+    except ValueError as exc:
+        raise SystemExit(f"calendar_prep: working_hours must look like 09:00-17:00 ({exc})")
+
+    pto_days: set[date] = set()
+    busy: dict[date, list[tuple[datetime, datetime]]] = {}
+    movable: dict[date, list[dict]] = {}
+    other: dict[date, list[dict]] = {}
+    seen_days: set[date] = set()
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        name = class_by_id.get(_event_id(event))
+        if name is None or name == "skipped":
+            continue
+        start = _event_datetime(event, "start")
+        end = _event_datetime(event, "end")
+        if start is None or end is None:
+            continue
+        day = start.date()
+        seen_days.add(day)
+        if name == "pto":
+            pto_days.add(day)
+            continue
+        if name == "immovable":
+            busy.setdefault(day, []).append((start, end))
+        elif name == "movable":
+            movable.setdefault(day, []).append({"id": _event_id(event),
+                                                "title": str(event.get("title") or "")})
+            busy.setdefault(day, []).append((start, end))
+        else:
+            other.setdefault(day, []).append({"id": _event_id(event),
+                                              "title": str(event.get("title") or "")})
+            busy.setdefault(day, []).append((start, end))
+
+    slots: list[dict] = []
+    move_candidates: list[dict] = []
+    for day in sorted(seen_days):
+        if day.weekday() >= 5 or day in pto_days or len(slots) >= slots_wanted:
+            continue
+        work_start = datetime(day.year, day.month, day.day, sh, sm)
+        work_end = datetime(day.year, day.month, day.day, eh, em)
+        merged: list[tuple[datetime, datetime]] = []
+        for start, end in sorted(busy.get(day) or []):
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+            else:
+                merged.append((start, end))
+        gaps: list[tuple[datetime, datetime]] = []
+        cursor = work_start
+        for start, end in merged:
+            if start > cursor:
+                gaps.append((cursor, min(start, work_end)))
+            cursor = max(cursor, end)
+        if cursor < work_end:
+            gaps.append((cursor, work_end))
+        placed = False
+        for gap_start, gap_end in gaps:
+            minute = (15 - gap_start.minute % 15) % 15
+            slot_start = gap_start.replace(second=0, microsecond=0) + timedelta(
+                minutes=minute + (1 if minute == 0 and gap_start.second else 0))
+            slot_end = slot_start + timedelta(minutes=session_minutes)
+            if slot_end > gap_end:
+                continue
+            slots.append({"date": day.isoformat(),
+                          "label": _slot_label(day, slot_start, slot_end),
+                          "start": slot_start.strftime("%H:%M"),
+                          "end": slot_end.strftime("%H:%M"), "kind": "free"})
+            placed = True
+            break
+        if not placed and level != "i":
+            pool = list(movable.get(day) or [])
+            if level == "iii":
+                pool += other.get(day) or []
+            for source in pool:
+                if all(candidate["id"] != source["id"] for candidate in move_candidates):
+                    move_candidates.append(source)
+    return {"level": level, "session_minutes": session_minutes,
+            "slots": slots[:slots_wanted], "move_candidates": move_candidates,
+            "fewer_than_3": len(slots) < 3}
+
+
 def _force_utf8_stdio() -> None:
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -409,6 +537,22 @@ def main(argv: list[str] | None = None) -> int:
     except _config.ConfigError:
         config = {}
     result = classify_events(events, config=config, managers=managers, keep=keep, allow=allow)
+    if "--pick" in args:
+        level = "ii"
+        if "--level" in args and args.index("--level") + 1 < len(args):
+            level = args[args.index("--level") + 1]
+        session_minutes = 30
+        if "--session-minutes" in args and args.index("--session-minutes") + 1 < len(args):
+            session_minutes = int(args[args.index("--session-minutes") + 1])
+        slots_wanted = 3
+        if "--slots" in args and args.index("--slots") + 1 < len(args):
+            slots_wanted = max(3, min(5, int(args[args.index("--slots") + 1])))
+        calendar = config.get("calendar") if isinstance(config.get("calendar"), dict) else {}
+        working_hours = str(calendar.get("working_hours") or "09:00-17:00")
+        pick = pick_slots(events, result, level=level, working_hours=working_hours,
+                          session_minutes=session_minutes, slots_wanted=slots_wanted)
+        print(json.dumps({"classes": result, "pick": pick}, ensure_ascii=False, indent=2))
+        return EXIT_OK
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return EXIT_OK
 
@@ -595,6 +739,41 @@ def _selftest() -> int:
             "skipped": len(result["skipped"]),
         },
     )
+
+    # W2 slot picking: deterministic free-gap fit on the shipped window fixture.
+    window_path = PLUGIN_ROOT / "tests" / "fixtures" / "calendar" / "window.json"
+    if window_path.is_file():
+        dump = json.loads(window_path.read_text(encoding="utf-8"))
+        window_events = dump.get("events") or []
+        window_classes = classify_events(
+            window_events,
+            config={"org": {"internal_domains": ["example.com"]},
+                    "calendar": {"manager_names": ["Sam Okafor"]}},
+        )
+        pick = pick_slots(window_events, window_classes, level="ii",
+                          working_hours="09:00-17:00", session_minutes=30)
+        labels = [slot["label"] for slot in pick["slots"]]
+        dates = [slot["date"] for slot in pick["slots"]]
+        check("pick: 3 slots across days", len(pick["slots"]) == 3 and len(set(dates)) == 3,
+              json.dumps(labels, ensure_ascii=False))
+        check("pick: no PTO-day slot", all(slot["date"] != "2026-11-19" for slot in pick["slots"]),
+              json.dumps(dates))
+        check("pick: no weekend slot", all(
+            datetime.fromisoformat(slot["date"]).weekday() < 5 for slot in pick["slots"]))
+        check("pick: label shape", all(
+            re.fullmatch(r"\w{3} \d{2}/\d{2}, \d{1,2}:\d{2}(?: [AP]M)?-\d{1,2}:\d{2} [AP]M", label)
+            for label in labels), json.dumps(labels, ensure_ascii=False))
+        check("pick: 15-minute grid", all(
+            int(slot["start"].split(":")[1]) % 15 == 0 and int(slot["end"].split(":")[1]) % 15 == 0
+            for slot in pick["slots"]))
+        check("pick: deterministic", pick_slots(window_events, window_classes, level="ii") == pick_slots(
+            window_events, window_classes, level="ii"))
+        check("pick: declined event never busy", all(
+            "Team lunch" not in slot["label"] for slot in pick["slots"]))
+        level_i = pick_slots(window_events, window_classes, level="i")
+        check("pick: level i stays free-only", level_i["move_candidates"] == [])
+    else:
+        check("pick: window fixture", False, "tests/fixtures/calendar/window.json missing")
 
     if failures:
         print(f"selftest FAILED ({len(failures)})")

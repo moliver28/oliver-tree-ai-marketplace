@@ -1,0 +1,79 @@
+{
+  "id": "evidence-sources",
+  "version": 1,
+  "sources": [
+    {
+      "key": "tracker_recent",
+      "label": "Tracker: your recent items (other projects)",
+      "window_days": 90,
+      "limit": 20,
+      "table": true,
+      "tracker": true
+    },
+    {
+      "key": "tracker_topic",
+      "label": "Tracker: topic search (other projects)",
+      "window_days": 180,
+      "limit": 10,
+      "table": true,
+      "tracker": true
+    },
+    {
+      "key": "drive",
+      "label": "Drive",
+      "limit": "15 + 25 recent",
+      "table": true
+    },
+    {
+      "key": "feedback",
+      "label": "Feedback store",
+      "table": true,
+      "adoption_gap": true
+    },
+    {
+      "key": "chat",
+      "label": "Chat",
+      "limit": 20,
+      "table": true
+    },
+    {
+      "key": "wiki",
+      "label": "Wiki",
+      "window_days": 180,
+      "limit": 10,
+      "table": true,
+      "skip_if": "tactical"
+    },
+    {
+      "key": "jtbd",
+      "label": "JTBD",
+      "limit": "3-5",
+      "table": true,
+      "unavailable_as": "jtbd"
+    },
+    {
+      "key": "personas",
+      "label": "Personas",
+      "limit": "3-5",
+      "table": true,
+      "unavailable_as": "personas"
+    },
+    {
+      "key": "chat_discovery",
+      "label": "Chat discovery",
+      "table": false,
+      "unavailable_as": "chat_discovery"
+    }
+  ],
+  "search_tools": {
+    "jira": "searchJiraIssuesUsingJql",
+    "linear": "issues (filtered query)",
+    "github": "gh search issues",
+    "asana": "GET /workspaces/{gid}/tasks/search"
+  },
+  "jql": {
+    "tracker_recent": "NOT project = {project_key} AND assignee = {current_user} AND updated >= \"{window_start}\" ORDER BY updated DESC",
+    "tracker_topic": "NOT project = {project_key} AND (summary ~ \"{topic}\" OR description ~ \"{topic}\") AND updated >= \"{window_start}\" ORDER BY updated DESC"
+  },
+  "note": "The plan subcommand emits one entry per source enabled in config evidence.sources; the digest subcommand renders the synthesis table in this file's order (chat_discovery has no Hits row)."
+}
