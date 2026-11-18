@@ -43,10 +43,23 @@ def _p99(xs):
     return xs[min(len(xs) - 1, max(0, math.ceil(0.99 * len(xs)) - 1))]
 
 
+def repo_root():
+    """Repo root: nearest dir above this file whose .claude-plugin holds the
+    marketplace manifest (each plugin dir carries only plugin.json). Works
+    from top-level voice-gate/ and from any nested checkout; None when there
+    is no repo root (caller decides)."""
+    root = HERE
+    while not (root / ".claude-plugin" / "marketplace.json").is_file():
+        if root == root.parent:
+            return None
+        root = root.parent
+    return root
+
+
 def _repo_prose():
-    root = HERE.parents[1]  # repo root when run from the marketplace checkout
-    if not (root / ".claude-plugin").is_dir():
-        raise SystemExit("no repo root above voice-tells.py; pass --bg FILE ...")
+    root = repo_root()
+    if root is None:
+        raise SystemExit("no repo root above voice-vector-build.py; pass --bg FILE ...")
     return sorted(root.rglob("*.md"))
 
 

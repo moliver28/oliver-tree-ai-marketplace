@@ -11,7 +11,7 @@ Prompt-level rules alone do not block AI tells. A pre_tool_call shell hook enfor
 - delegate_task: goals touching resume/cover-letter/portfolio get the enforcement contract appended automatically.
 - Every fire logs to `~/.hermes/logs/voice-gate.log` (JSONL events: chat_block, chat_pass, write_block, render_block, delegate_inject, vec_fallback, vec_hit, vec_collision, vec_skip, state_load, state_skip, state_uncalibrated).
 - Detection core lives in `voice-tells.py` (shared by hook and scanner, so they cannot drift):
-- Regex layer: 55 inflection- and variant-aware patterns (contractions, hyphen/spacing variants, tense/plural forms), word-boundary anchored, case-insensitive.
+- Regex layer: 61 inflection- and variant-aware patterns (contractions, hyphen/spacing variants, tense/plural forms), word-boundary anchored, case-insensitive.
 - Vector layer: cosine similarity against 18 embedded tell exemplars (negative parallelism, paradigm-shift inflation, testament/promo copulas, weasel attribution, reassurance kickers, aphorism/antimetabole density, and more). Embedders, tried in order:
   - Ollama fast path: local `nomic-embed-text` via `http://localhost:11434/api/embeddings`, warm 13-64 ms on a loaded daemon. Override the endpoint with `VOICE_GATE_OLLAMA_URL`.
   - ONNX availability path: when the daemon misses (down, refused, timed out) the same process falls back lazily to an in-process quantized `bge-small-en-v1.5` int8 model (~35 MB, downloaded from Hugging Face on first use and cached under `<HERMES_HOME>/state/models/`); onnxruntime is imported inside the fallback path only and is never required by CI or the regex layer. One daemon miss is sticky for the process, so warm scans never re-probe it.

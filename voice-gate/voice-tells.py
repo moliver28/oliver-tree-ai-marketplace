@@ -25,7 +25,7 @@ Runtime gate and published plugin share this ONE loading contract.
 
 Public API:
     find_regex_hits(text) -> list[str]
-    find_vector_hits(text, chunks=None) -> list[str]
+    find_vector_hits(text) -> list[str]
     state_path() -> Path
     effective_rules() -> dict (patterns/exemplars/thresholds + provenance)
 """
@@ -230,9 +230,15 @@ def _parse_state(p, key):
         if pats is not None and not isinstance(pats, list):
             warns.append(f"source '{src}': patterns is not a list")
         elif isinstance(pats, list):
-            for entry in pats:
+            for i, entry in enumerate(pats):
                 if (isinstance(entry, dict) and isinstance(entry.get("pattern"), str)
                         and isinstance(entry.get("label"), str)):
+                    try:
+                        re.compile(entry["pattern"], _FLAGS)
+                    except Exception as e:
+                        warns.append(f"source '{src}': pattern[{i}] {entry['pattern'][:40]!r} "
+                                     f"does not compile ({e!r}); skipped")
+                        continue
                     st["patterns"].append((entry["pattern"], entry["label"], src))
                 else:
                     warns.append(f"source '{src}': pattern entry needs pattern/label strings; skipped")
@@ -289,9 +295,18 @@ def _effective():
             seen.add(text)
             exs.append(text)
             esrc.append(src)
+    ths = st["thresholds"]
+    try:
+        compiled = [(re.compile(p, _FLAGS), l) for p, l in pats]
+    except Exception as e:  # belt and braces: a bad regex must never silence the gate
+        _log_vec("error", {"path": st["path"], "err": f"compile: {e!r}; embedded-only fallback"})
+        pats, psrc = list(PATTERNS), ["embedded"] * len(PATTERNS)
+        exs, esrc = list(EXEMPLARS), ["embedded"] * len(EXEMPLARS)
+        ths = {}
+        compiled = [(re.compile(p, _FLAGS), l) for p, l in pats]
     eff = {"patterns": pats, "pattern_sources": psrc, "exemplars": exs,
-           "exemplar_sources": esrc, "thresholds": dict(st["thresholds"]),
-           "state": st, "compiled": [(re.compile(p, _FLAGS), l) for p, l in pats]}
+           "exemplar_sources": esrc, "thresholds": dict(ths),
+           "state": st, "compiled": compiled}
     _eff_cache["key"], _eff_cache["value"] = st["key"], eff
     return eff
 
