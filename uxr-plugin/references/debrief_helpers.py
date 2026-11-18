@@ -34,6 +34,16 @@ Subcommands:
   ``What landed:`` and ``Not covered:`` present, footer last (when
   given). Exit 0 clean, 1 on any failure (one ``[FAIL]`` line each).
 
+- ``check-summary --file <summary.md>``
+  Gates the session summary's ``Insights -> Research Alignment`` block
+  at write time: every ``- H<n> (...)`` line must start with a
+  hypothesis stance (``Supports`` / ``Challenges`` / ``Mixed``) and
+  every ``- A<n> (...)`` line with an assumption stance (``Holds`` /
+  ``Breaks`` / ``Untested``) -- the frozen contract the report parser
+  reads; a missing block fails too. One ``WARN`` line per violation
+  (stderr), exit 0 clean, 1 on any violation (rewrite before
+  continuing), 2 usage.
+
 - ``upload-plan --workspace <dir> [--slug <slug>]``
   Builds the NotebookLM upload set as JSON: ``00-overview.md`` as
   ``Research-Plan-<slug>`` and each ``interviews/*-summary.md`` as
@@ -72,6 +82,19 @@ SUMMARY_DATE_RE = re.compile(r"-(\d{4}-\d{2}-\d{2})-summary\.md$")
 
 #: Bare research codes are banned in the recap draft.
 BARE_CODE_RE = re.compile(r"\b(?:RQ|H)\d")
+
+#: The frozen alignment contract (commands/uxr-debrief.md, "Summary and
+#: alignment block"; the report-side parser is references/report_helpers.py).
+#: Change these vocabularies together with the parser, or not at all.
+HYPOTHESIS_STANCES = ("Supports", "Challenges", "Mixed")
+ASSUMPTION_STANCES = ("Holds", "Breaks", "Untested")
+
+#: The alignment block starts under a heading carrying both tokens and ends
+#: at the next heading, the same enter and leave rules the report parser uses.
+ALIGN_ENTER_TOKENS = ("insights", "research alignment")
+
+#: ``- H1 (label): stance - why`` / ``- A1 (label): stance this session - why``.
+STANCE_LINE_RE = re.compile(r"^-\s+((?:H|A)\d+)\s*\(([^)]*)\)\s*:\s*(.*)$", re.IGNORECASE)
 
 TRANSCRIPT_RANKS = (
     ("speaker-labeled with a summary", 0),
@@ -487,6 +510,76 @@ def cmd_check_recap(args: dict[str, str]) -> int:
 
 
 # ---------------------------------------------------------------------------
+# check-summary
+# ---------------------------------------------------------------------------
+
+
+def check_summary_stances(text: str) -> list[str]:
+    """One ``WARN`` line per off-contract stance; empty means clean.
+
+    The report parser drops any alignment line whose stance is not one
+    of the frozen vocabulary words, which let an off-contract stance
+    flow through ``evidence-weight`` as silently empty verdicts (F2).
+    This check runs at write time so the block is rewritten instead.
+    """
+    lines = text.splitlines()
+    start = None
+    for index, line in enumerate(lines):
+        lowered = line.lower()
+        if ALIGN_ENTER_TOKENS[0] in lowered and ALIGN_ENTER_TOKENS[1] in lowered:
+            start = index + 1
+            break
+    if start is None:
+        return [
+            "WARN no Insights -> Research Alignment block found; write the "
+            "alignment block so the report can compute verdicts"
+        ]
+    warnings: list[str] = []
+    for line in lines[start:]:
+        stripped = line.strip()
+        if stripped.startswith("## ") and "insights" not in stripped.lower():
+            break
+        match = STANCE_LINE_RE.match(stripped)
+        if not match:
+            continue
+        entry_id = match.group(1).upper()
+        label = match.group(2).strip() or entry_id
+        stance_text = match.group(3).strip()
+        allowed = ASSUMPTION_STANCES if entry_id.startswith("A") else HYPOTHESIS_STANCES
+        if any(stance_text.upper().startswith(stance.upper()) for stance in allowed):
+            continue
+        warnings.append(
+            f"WARN stance on {entry_id} ({label}) is outside the contract "
+            f"({' / '.join(allowed)}); rewrite the alignment block in the summary"
+        )
+    return warnings
+
+
+def cmd_check_summary(args: dict[str, str]) -> int:
+    file_value = args.get("--file") or ""
+    if not file_value:
+        print("debrief_helpers: check-summary needs --file <summary.md>", file=sys.stderr)
+        return EXIT_USAGE
+    summary_path = Path(file_value).expanduser()
+    try:
+        text = summary_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        print(f"debrief_helpers: cannot read summary: {exc}", file=sys.stderr)
+        return EXIT_FAIL
+    warnings = check_summary_stances(text)
+    if warnings:
+        for line in warnings:
+            print(line, file=sys.stderr)
+        print(
+            f"summary FAILED ({len(warnings)} stance warning(s)); "
+            "rewrite the alignment block before continuing"
+        )
+        return EXIT_FAIL
+    print("summary ok: alignment block stances within the contract")
+    return EXIT_OK
+
+
+# ---------------------------------------------------------------------------
 # upload-plan
 # ---------------------------------------------------------------------------
 
@@ -758,6 +851,65 @@ def _selftest() -> int:
             repr(check_recap(good, "2026-11-05", "_Signed otherwise._")),
         )
 
+        # --- check_summary_stances ----------------------------------------------
+        aligned = (
+            "# Session\n\nNotes.\n\n"
+            "## Insights \u2192 Research Alignment\n"
+            "**Research Questions**\n"
+            "- RQ1 (How do users import?): The import lost her file once.\n"
+            "**Hypotheses**\n"
+            "- H1 (Import reduces confusion): Supports - she retried three times.\n"
+            "- H2 (Summary first): Mixed - liked it, missed the chart.\n"
+            "**Assumptions**\n"
+            "- A1 (Data loss is rare): Holds this session - no loss observed.\n"
+            "\n## Notable quotes\n"
+        )
+        check(
+            "a contract alignment block passes check-summary",
+            check_summary_stances(aligned) == [],
+            repr(check_summary_stances(aligned)),
+        )
+        off_assumption = check_summary_stances(aligned.replace(
+            "- A1 (Data loss is rare): Holds this session - no loss observed.",
+            "- A1 (Data loss is rare): Mixed this session - half lost."))
+        check(
+            "an off-contract assumption stance warns",
+            off_assumption == [
+                "WARN stance on A1 (Data loss is rare) is outside the contract "
+                "(Holds / Breaks / Untested); rewrite the alignment block in the summary"
+            ],
+            repr(off_assumption),
+        )
+        off_hypothesis = check_summary_stances(aligned.replace(
+            "- H2 (Summary first): Mixed - liked it, missed the chart.",
+            "- H2 (Summary first): Holds - liked it."))
+        check(
+            "an off-contract hypothesis stance warns",
+            len(off_hypothesis) == 1 and "H2" in off_hypothesis[0]
+            and "Supports / Challenges / Mixed" in off_hypothesis[0],
+            repr(off_hypothesis),
+        )
+        check(
+            "a summary without an alignment block warns",
+            len(check_summary_stances("# Session notes\n\nNo block.\n")) == 1,
+            repr(check_summary_stances("# Session notes\n\nNo block.\n")),
+        )
+        off_path = tmp / "off-contract-summary.md"
+        off_path.write_text(aligned.replace(
+            "- A1 (Data loss is rare): Holds this session - no loss observed.",
+            "- A1 (Data loss is rare): Mixed this session - half lost."),
+            encoding="utf-8")
+        check(
+            "check-summary exits 1 on an off-contract stance",
+            main(["check-summary", "--file", str(off_path)]) == EXIT_FAIL,
+        )
+        good_path = tmp / "aligned-summary.md"
+        good_path.write_text(aligned, encoding="utf-8")
+        check(
+            "check-summary exits 0 on a contract block",
+            main(["check-summary", "--file", str(good_path)]) == EXIT_OK,
+        )
+
         # --- upload_plan ---------------------------------------------------------
         nb = tmp / "notebook-study"
         (nb / "interviews" / "raw-transcripts").mkdir(parents=True)
@@ -805,6 +957,10 @@ def _selftest() -> int:
         main(["check-recap"]) == EXIT_USAGE,
     )
     check(
+        "missing --file for check-summary is a usage error",
+        main(["check-summary"]) == EXIT_USAGE,
+    )
+    check(
         "missing --workspace is a usage error",
         main(["upload-plan"]) == EXIT_USAGE,
     )
@@ -829,6 +985,7 @@ def main(argv: list[str] | None = None) -> int:
         "check-stale-transcripts",
         "pick-transcript",
         "check-recap",
+        "check-summary",
         "upload-plan",
     ):
         print(f"debrief_helpers: unknown subcommand {command!r}", file=sys.stderr)
@@ -855,6 +1012,7 @@ def main(argv: list[str] | None = None) -> int:
         "check-stale-transcripts": cmd_check_stale,
         "pick-transcript": cmd_pick_transcript,
         "check-recap": cmd_check_recap,
+        "check-summary": cmd_check_summary,
         "upload-plan": cmd_upload_plan,
     }
     return handlers[command](parsed)
