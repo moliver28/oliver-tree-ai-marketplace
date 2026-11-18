@@ -186,6 +186,7 @@ def _load_calibration():
 
 def _log_vec(event, detail):
     try:
+        LOG.parent.mkdir(parents=True, exist_ok=True)
         with open(LOG, "a") as f:
             f.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(),
                                 "event": event, **detail}) + "\n")
@@ -223,7 +224,7 @@ def _onnx_session():
             ONNX_DIR.mkdir(parents=True, exist_ok=True)
             _download(f"{ONNX_BASE}/onnx/model_quantized.onnx", model)
             _download(f"{ONNX_BASE}/tokenizer.json", tokf)
-        vocab = json.loads(tokf.read_text())["model"]["vocab"]
+        vocab = json.loads(tokf.read_text(encoding="utf-8"))["model"]["vocab"]
         sess = onnxruntime.InferenceSession(str(model), providers=["CPUExecutionProvider"])
         _onnx = (sess, vocab)
     return _onnx
