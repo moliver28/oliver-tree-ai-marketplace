@@ -532,27 +532,24 @@ def _ensure_identity(repo: Path) -> None:
 def commit_workspace(target: Path, readme: Path, slug: str, key: str, title: str) -> tuple[int, str]:
     """Make one path-scoped commit (workspace folder + README only).
 
-    Returns ``(exit_code, detail)``; exit 0 committed, exit 1 warns. When the
-    folder is not inside a repository, the README's parent is initialized
-    with a fallback identity first.
+    Returns ``(exit_code, detail)``; exit 0 committed, exit 1 warns. The
+    commit always lands in the repository rooted at the README's parent,
+    the research root: when any parent repository surrounds the root (the
+    usual repo-checked-out machine), committing there fails on its ignore
+    rules and the initial commit silently does not land (F4), so the
+    research root is initialized with a fallback identity whenever the
+    surrounding repository is not the root itself.
     """
-    code, _top, _err = _git(["rev-parse", "--show-toplevel"], target)
-    if code != 0:
-        code, _out, err = _git(["init", "-q"], readme.parent)
+    research_root = readme.parent
+    code, top, _err = _git(["rev-parse", "--show-toplevel"], target)
+    if code != 0 or Path(top).resolve() != research_root.resolve():
+        code, _out, err = _git(["init", "-q"], research_root)
         if code != 0:
             return EXIT_WARN, f"git init failed: {err}"
-    code, top, err = _git(["rev-parse", "--show-toplevel"], target)
-    if code != 0:
-        return EXIT_WARN, f"git rev-parse failed: {err}"
-    repo = Path(top)
+    repo = research_root
     _ensure_identity(repo)
-    try:
-        rel_target = os.path.relpath(target, repo)
-        rel_readme = os.path.relpath(readme, repo)
-    except ValueError as exc:
-        return EXIT_WARN, f"cannot compute relative paths for the commit: {exc}"
-    if rel_readme.startswith(".."):
-        return EXIT_WARN, f"README {readme} is outside the repository {repo}"
+    rel_target = os.path.relpath(target, repo)
+    rel_readme = os.path.relpath(readme, repo)
     code, _out, err = _git(["add", "--", rel_target, rel_readme], repo)
     if code != 0:
         return EXIT_WARN, f"git add failed: {err}"
@@ -1432,6 +1429,37 @@ def _selftest() -> int:
         check("second scaffold adds no README row",
               len([line for line in readme.read_text(encoding="utf-8").splitlines()
                    if "Invoice Export Usability" in line]) == 1)
+
+        # F4: a parent git repo around the research root must not swallow the
+        # initial commit; the root itself becomes the repository.
+        root4 = Path(td) / "parented"
+        research4 = root4 / "research"
+        research4.mkdir(parents=True)
+        _git(["init", "-q"], root4)
+        (root4 / ".gitignore").write_text("research/\n", encoding="utf-8")
+        template4 = _write_template(root4)
+        readme4 = research4 / "README.md"
+        _readme_with_table(readme4)
+        target4 = research4 / "parented-study"
+        code4 = cmd_scaffold(
+            {
+                "--template": str(template4),
+                "--target": str(target4),
+                "--mapping": json.dumps({"STUDY_TITLE": "Parented Study",
+                                         "TICKET_KEY": "ABC-90", "STUDY_SLUG": "parented-study",
+                                         "STATUS": "Planned", "UXR_NAME": "Ada",
+                                         "TICKET_URL": "https://example.com/ABC-90"}),
+                "--readme": str(readme4),
+                "--spec": str(spec_path),
+            }
+        )
+        check("scaffold inside a parent git repo exits 0", code4 == EXIT_OK, str(code4))
+        top_code4, top4, _ = _git(["rev-parse", "--show-toplevel"], target4)
+        check("the research root is its own repository",
+              top_code4 == 0 and Path(top4).resolve() == research4.resolve(), top4)
+        log_code4, log4, _ = _git(["log", "--oneline"], research4)
+        check("the initial commit lands in the research root repo",
+              log_code4 == 0 and "Add parented-study workspace" in log4, log4)
 
         # Template missing the hypotheses token fails with exit 3.
         root2 = Path(td) / "second"
