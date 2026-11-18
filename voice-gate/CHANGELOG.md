@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1] - 2026-11-18
+### Fixed
+- State-file loader now trial-compiles each learned/register pattern: an entry that does not compile is dropped and logged (`state_skip`, with source + entry id) instead of crashing the merged compile and silently disabling the whole gate (regex + vector). Belt-and-braces try/except on the final compile falls back to embedded-only with an `error` log. Contract now matches the docs: entry-level problems skip just that entry; valid entries still apply.
+- `voice-vector-build.py` repo-root resolution walks up to the dir whose `.claude-plugin` holds `marketplace.json` (was `parents[1]`, which escaped the repo after the plugins/* flatten and broke the documented default rebuild). verify.py now checks the resolved default corpus root is inside the repo (CI-safe, no embedders).
+
+### Changed
+- Pattern-count claims corrected 55 -> 61 in README + both plugin manifests, with a verifier parity check (claimed count == PATTERNS) so the number cannot drift again; docstring signature drift fixed; verify 0-byte scan scoped to tracked files; description checks read the full frontmatter block (multi-line YAML), bound aligned at 300.
+
 ## [0.3.0] - 2026-11-17
 ### Added
 - Learn/apply decoupling, marketplace half (issue #5): rules load at scan time from the runtime state file `<HERMES_HOME>/state/voice-rules.json` (path override `VOICE_RULES_STATE`), keyed per-source provenance (register, learn pass, owner manual entries). Valid state entries merge/override the embedded PATTERNS/EXEMPLARS (identical regex replaces the earlier label in place, later source wins; exemplars dedupe on exact text) and per-class thresholds override the embedded calibration. The runtime gate and the published plugin share this one loading contract.
