@@ -3,7 +3,6 @@
   "id": "config-setup",
   "version": 1,
   "vars": [],
-  "vars_source": "config",
   "when": [],
   "fragments": [],
   "default": "prompt.md",

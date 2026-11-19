@@ -3,7 +3,6 @@
   "id": "new-intake",
   "version": 1,
   "vars": ["pod_options"],
-  "vars_source": "config",
   "when": [],
   "fragments": [],
   "default": "prompt.md",

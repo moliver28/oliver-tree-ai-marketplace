@@ -5,7 +5,6 @@
   "vars": ["first_name", "study_title", "session_length", "why_this_recruit", "focus_clause",
            "slots_block", "sender_first_name", "study_short", "initial", "last_name",
            "day_abbrev", "m_d"],
-  "vars_source": "spec",
   "when": [],
   "fragments": [
     {"id": "dm-block", "when": "has_slack == true", "file": "fragments/dm-block.md", "budget": 10},

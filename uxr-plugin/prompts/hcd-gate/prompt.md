@@ -3,7 +3,6 @@
   "id": "hcd-gate",
   "version": 1,
   "vars": ["artifact", "artifact_kind", "factcheck"],
-  "vars_source": "state",
   "when": [],
   "fragments": [
     {"id": "residual-checklist", "file": "fragments/residual-checklist.md", "budget": 14},

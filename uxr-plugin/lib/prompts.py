@@ -2,15 +2,15 @@
 """Lazy-fragment prompt registry (W2).
 
 ``prompts/<id>/prompt.md``: JSON front matter + default body. Keys:
-``id``/``version``; ``vars`` + ``vars_source`` (``spec|config|state``);
-``when`` variant rules (``[{"if": "field op value", "use": "file.md"}]``,
-ops ``== != > < >= <= in``, JSON-literal values); ``fragments``
+``id``/``version``; ``vars``; ``when`` variant rules
+(``[{"if": "field op value", "use": "file.md"}]``, ops ``==`` and ``in`` -
+the only ones the shipped assets use; JSON-literal values); ``fragments``
 (``[{id, when?, file, budget?}]`` - loaded ONLY when the condition fires);
 ``budget`` (``{max_lines, max_vars}`` - over budget errors, never trims).
 A missing ``when`` always applies. Selection costs zero tokens; every
 render logs ``<id>@<version> fragments=[...] est_tokens=N`` on stderr.
-Usage: ``render <id> [--set k=v ...] [--spec f] [--config]`` | ``list`` |
-``selftest``. Exit: 0 ok, 2 usage, 3 failure.
+Usage: ``render <id> [--set k=v ...]`` | ``selftest``. Exit: 0 ok, 2 usage,
+3 failure.
 """
 
 from __future__ import annotations
@@ -74,32 +74,20 @@ def _literal(raw: str):
 
 def condition_passes(rule: str, fields: dict) -> bool:
     """Evaluate one ``field op value`` rule. No code execution: the left side
-    is a field name, the right side a JSON literal (or bare token)."""
+    is a field name, the right side a JSON literal (or bare token). Ops are
+    ``==`` and ``in`` - the ones the shipped assets declare."""
     match = COND_RE.match(rule or "")
     if not match:
-        raise PromptError(f"unparseable condition {rule!r} (ops: == != > < >= <= in)")
+        raise PromptError(f"unparseable condition {rule!r} (ops: == in)")
     field, op, raw = match.group(1), match.group(2), match.group(3)
     actual, expected = fields.get(field), _literal(raw)
+    if op == "==":
+        return actual == expected
     if op == "in":
         if isinstance(expected, str):
             return isinstance(actual, str) and actual in expected
         return actual in expected if isinstance(expected, (list, tuple)) else False
-    if op == "==":
-        return actual == expected
-    if op == "!=":
-        return actual != expected
-    if actual is None or expected is None:
-        return False
-    try:
-        if op == ">":
-            return actual > expected
-        if op == "<":
-            return actual < expected
-        if op == ">=":
-            return actual >= expected
-        return actual <= expected  # <=
-    except TypeError:
-        return False
+    raise PromptError(f"unsupported op {op!r} in {rule!r} (ops: == in)")
 
 
 def select_variant(meta: dict, fields: dict) -> str:
@@ -144,13 +132,10 @@ def render(name: str, fields: dict | None = None, prompts_dir: Path | None = Non
     missing = sorted(slots - set(fields))
     if missing:
         raise PromptError(f"{name}: unbound slots {missing} (bind every var verbatim)")
-    allowed = set(meta.get("vars") or [])
-    for rule in meta.get("when") or []:
-        allowed.add(COND_RE.match(rule.get("if", "")).group(1) if COND_RE.match(rule.get("if", "")) else "")
-    for frag in meta.get("fragments") or []:
-        match = COND_RE.match(frag.get("when", ""))
-        if match:
-            allowed.add(match.group(1))
+    conds = [rule.get("if", "") for rule in meta.get("when") or []] + \
+            [frag.get("when", "") for frag in meta.get("fragments") or []]
+    allowed = set(meta.get("vars") or []) | {
+        match.group(1) for match in map(COND_RE.match, conds) if match}
     undeclared = sorted(set(fields) - allowed)
     if undeclared:
         raise PromptError(f"{name}: fields not declared in vars: {undeclared}")
@@ -176,21 +161,12 @@ def _bind_fields(args: list[str]) -> dict:
     fields: dict = {}
     index = 0
     while index < len(args):
-        token = args[index]
-        if token == "--set":
+        if args[index] == "--set":
             key, _, value = (args[index + 1] if index + 1 < len(args) else "=").partition("=")
             fields[key.strip()] = _literal(value)
             index += 2
-        elif token == "--spec":
-            data = json.loads(Path(args[index + 1]).read_text(encoding="utf-8"))
-            fields.update(data if isinstance(data, dict) else {})
-            index += 2
-        elif token == "--config":
-            from lib.config import load_config
-            fields.update(load_config())
-            index += 1
         else:
-            raise PromptError(f"unknown argument {token!r}")
+            raise PromptError(f"unknown argument {args[index]!r}")
     return fields
 
 
@@ -198,16 +174,12 @@ def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if args and args[0] in ("selftest", "--selftest"):
         return _selftest()
-    if args and args[0] == "list":
-        for path in sorted(PROMPTS_DIR.glob("*/prompt.md")):
-            meta = _parse_asset(path)
-            print(f"{meta.get('id')}@{meta.get('version')} vars={meta.get('vars')}")
-        return 0
     if args and args[0] == "render" and len(args) > 1:
         try:
             fields = _bind_fields(args[2:])
-            print(render(args[1], fields))
-            print(metering_line(args[1], fields), file=sys.stderr)
+            text = render(args[1], fields)
+            print(text)
+            print(metering_line(args[1], fields, text=text), file=sys.stderr)
             return 0
         except (PromptError, IndexError, OSError) as exc:
             print(f"prompts: {exc}", file=sys.stderr)

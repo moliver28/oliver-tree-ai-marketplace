@@ -3,7 +3,6 @@
   "id": "signals",
   "version": 1,
   "vars": ["topic", "digest"],
-  "vars_source": "state",
   "when": [],
   "fragments": [
     {"id": "feedback-gap", "when": "feedback_gap == true", "file": "fragments/feedback-gap.md", "budget": 4},

@@ -3,7 +3,6 @@
   "id": "drafts",
   "version": 1,
   "vars": ["ask", "digest", "group", "owner"],
-  "vars_source": "state",
   "when": [],
   "fragments": [
     {"id": "craft-bars", "file": "fragments/craft-bars.md", "budget": 14},

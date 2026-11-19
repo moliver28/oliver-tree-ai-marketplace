@@ -3,7 +3,6 @@
   "id": "distribution",
   "version": 1,
   "vars": ["date", "filename", "headline", "next_line", "prelim", "footer", "channels"],
-  "vars_source": "state",
   "when": [
     {"if": "tier == lite", "use": "lite.md"},
     {"if": "tier == standard", "use": "standard.md"},
