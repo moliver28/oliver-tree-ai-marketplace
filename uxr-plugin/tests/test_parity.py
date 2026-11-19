@@ -44,7 +44,10 @@ SELFTESTS = [
 
 
 def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """Content hash of a pinned file, EOL-normalized so a pin survives any
+    checkout (git autocrlf converts text on clone; content, not line
+    endings, is what the pin guards)."""
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
 def _pinned(path: Path, hashes: dict) -> str | None:
