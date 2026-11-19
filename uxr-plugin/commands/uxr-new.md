@@ -112,10 +112,12 @@ match and ask for a separate "yes" per candidate before linking one.
 
 Run `python "${CLAUDE_PLUGIN_ROOT}/scripts/classify.py" method --rqs "<RQ1; RQ2; ...>"`.
 It prints the dominant shape, the method-table row (method, sample, length,
-investment), and one alternative. Rules the script already applies:
+investment), and one alternative (the highest other matching row; empty when
+no other row matches - omit the Alternative line then, never print it empty).
+Rules the script already applies:
 qualitative leads, never a survey for a why question, ties pick the lighter
 method. Show its output as: method, reason (the shape), sample size, session
-length, investment level, and the alternative. Research type comes from the
+length, investment level, and the alternative when one exists. Research type comes from the
 decision: a shipping decision is Evaluative; a direction or opportunity
 question is Generative or Strategic. Wait for the pick. Overrides are
 accepted for any line.

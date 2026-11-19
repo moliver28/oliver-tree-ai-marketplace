@@ -30,6 +30,8 @@ Usage::
 
     python scripts/calendar_prep.py <events.json> [--manager <names or emails>]
         [--keep <id>] [--allow <id>]
+    python scripts/calendar_prep.py <events.json> --pick [--level i|ii|iii]
+        [--session-minutes <N>] [--slots <3-5>]   (W2: the slot picker)
     python scripts/calendar_prep.py selftest
 
 Exit codes: 0 classified, 2 usage or unreadable input, 3 selftest failed.
@@ -356,19 +358,16 @@ def _event_datetime(event: dict, key: str) -> datetime | None:
         return None
 
 
-def _h12(moment: datetime, meridiem: str | None = None) -> str:
+def _h12(moment: datetime) -> str:
     hour = moment.hour % 12 or 12
-    text = f"{hour}:{moment.minute:02d}"
-    mer = meridiem or ("AM" if moment.hour < 12 else "PM")
-    return f"{text} {mer}"
+    return f"{hour}:{moment.minute:02d}"
 
 
 def _slot_label(day: date, start: datetime, end: datetime) -> str:
-    start_m = "AM" if start.hour < 12 else "PM"
-    end_m = "AM" if end.hour < 12 else "PM"
-    span = f"{_h12(start, start_m)}-{_h12(end, end_m)}" if start_m == end_m \
-        else f"{_h12(start)}-{_h12(end)}"
-    return f"{day.strftime('%a %m/%d')}, {span}"
+    """Golden slot-line format (R10 byte parity): ``Wed 11/18, 1:00-1:30 PM``
+    - the meridiem rides on the end time only."""
+    meridiem = "AM" if end.hour < 12 else "PM"
+    return f"{day.strftime('%a %m/%d')}, {_h12(start)}-{_h12(end)} {meridiem}"
 
 
 def pick_slots(
@@ -498,11 +497,16 @@ def main(argv: list[str] | None = None) -> int:
     keep: list[str] = []
     allow: list[str] = []
     managers: list[str] = []
+    options: dict[str, str] = {}
     positional: list[str] = []
     index = 0
     while index < len(args):
         token = args[index]
-        if token in ("--manager", "--keep", "--allow"):
+        if token == "--pick":
+            options["--pick"] = "1"
+            index += 1
+            continue
+        if token in ("--manager", "--keep", "--allow", "--level", "--session-minutes", "--slots"):
             if index + 1 >= len(args):
                 print(f"calendar_prep: {token} needs a value", file=sys.stderr)
                 return EXIT_USAGE
@@ -511,8 +515,10 @@ def main(argv: list[str] | None = None) -> int:
                 managers.extend(values)
             elif token == "--keep":
                 keep.extend(values)
-            else:
+            elif token == "--allow":
                 allow.extend(values)
+            else:
+                options[token] = values[0] if values else ""
             index += 2
             continue
         positional.append(token)
@@ -521,7 +527,8 @@ def main(argv: list[str] | None = None) -> int:
     if len(positional) != 1:
         print(
             "usage: calendar_prep.py <events.json> [--manager <names or emails>] "
-            "[--keep <id>] [--allow <id>]",
+            "[--keep <id>] [--allow <id>] [--pick [--level i|ii|iii] "
+            "[--session-minutes <N>] [--slots <3-5>]]",
             file=sys.stderr,
         )
         return EXIT_USAGE
@@ -537,19 +544,17 @@ def main(argv: list[str] | None = None) -> int:
     except _config.ConfigError:
         config = {}
     result = classify_events(events, config=config, managers=managers, keep=keep, allow=allow)
-    if "--pick" in args:
-        level = "ii"
-        if "--level" in args and args.index("--level") + 1 < len(args):
-            level = args[args.index("--level") + 1]
-        session_minutes = 30
-        if "--session-minutes" in args and args.index("--session-minutes") + 1 < len(args):
-            session_minutes = int(args[args.index("--session-minutes") + 1])
-        slots_wanted = 3
-        if "--slots" in args and args.index("--slots") + 1 < len(args):
-            slots_wanted = max(3, min(5, int(args[args.index("--slots") + 1])))
+    if "--pick" in options:
+        try:
+            session_minutes = int(options.get("--session-minutes") or 30)
+            slots_wanted = max(3, min(5, int(options.get("--slots") or 3)))
+        except ValueError:
+            print("calendar_prep: --session-minutes and --slots take integers", file=sys.stderr)
+            return EXIT_USAGE
         calendar = config.get("calendar") if isinstance(config.get("calendar"), dict) else {}
         working_hours = str(calendar.get("working_hours") or "09:00-17:00")
-        pick = pick_slots(events, result, level=level, working_hours=working_hours,
+        pick = pick_slots(events, result, level=options.get("--level") or "ii",
+                          working_hours=working_hours,
                           session_minutes=session_minutes, slots_wanted=slots_wanted)
         print(json.dumps({"classes": result, "pick": pick}, ensure_ascii=False, indent=2))
         return EXIT_OK
@@ -761,7 +766,7 @@ def _selftest() -> int:
         check("pick: no weekend slot", all(
             datetime.fromisoformat(slot["date"]).weekday() < 5 for slot in pick["slots"]))
         check("pick: label shape", all(
-            re.fullmatch(r"\w{3} \d{2}/\d{2}, \d{1,2}:\d{2}(?: [AP]M)?-\d{1,2}:\d{2} [AP]M", label)
+            re.fullmatch(r"\w{3} \d{2}/\d{2}, \d{1,2}:\d{2}-\d{1,2}:\d{2} [AP]M", label)
             for label in labels), json.dumps(labels, ensure_ascii=False))
         check("pick: 15-minute grid", all(
             int(slot["start"].split(":")[1]) % 15 == 0 and int(slot["end"].split(":")[1]) % 15 == 0

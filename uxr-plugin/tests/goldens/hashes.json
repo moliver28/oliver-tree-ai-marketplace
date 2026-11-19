@@ -8,6 +8,7 @@
   "tests/fixtures/classify/intent-create.json": "76c2f09ece0edd073f2b5375de2e95def3b893ee8817643646373a11052e4e97",
   "tests/fixtures/classify/intent-plate.json": "f5c9beb22bc37e90b53e12d92fecd772220f606a7a4e5d9f25a162b7e09700e3",
   "tests/fixtures/classify/intent-show-key.json": "3994ec6b89c3d43bbd8e402393fedab3df580866af3509e69c835f8757a0658c",
+  "tests/fixtures/classify/method-alternative.json": "ef95eea21c912d34b3c9a703464ee8d96c8b9396deaa3acdc58e3401147c769a",
   "tests/fixtures/classify/method-compare.json": "ec800274a3b4df7ed4d53e0260ef5d7eefdb3ce2c9caa2ab0a81b79e9af588f8",
   "tests/fixtures/classify/method-why.json": "fa92ba9a7188eb03883669cba25a56ceca5a76af287acd17f9309e40067fb3ae",
   "tests/fixtures/classify/reply-day-time.json": "a6cedbb6096d7a8caa23a37e18426ba738298c8abe8c5428e5a422f2768ed699",

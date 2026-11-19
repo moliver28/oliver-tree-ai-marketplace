@@ -106,8 +106,10 @@ def classify_method(rqs: list[str]) -> dict:
     if not scored:
         raise ClassifyError("no method row matches these RQs")
     scored.sort(key=lambda entry: -entry[0])
-    best_count, best, found = scored[0]
-    runner_up = scored[1][1]["method"] if len(scored) > 1 and scored[1][0] == best_count else ""
+    best, found = scored[0][1], scored[0][2]
+    # The contract promises one alternative: the highest other row that
+    # scored at least one keyword (a tie picks the lighter method = the best).
+    runner_up = scored[1][1]["method"] if len(scored) > 1 else ""
     return {"shape": best["shape"], "method": best["method"], "sample": best["sample"],
             "length": best["length"], "investment": best["investment"],
             "matched_on": found[:3], "alternative": runner_up,

@@ -1,0 +1,19 @@
+{
+  "subcommand": "method",
+  "input": [
+    "How do first-week users compare the two designs for planning a project?"
+  ],
+  "expect": {
+    "shape": "Does design A or B work better for task T",
+    "method": "Usability Test or Rapid Design Testing",
+    "sample": "5-8 per design",
+    "length": "45-60 min",
+    "investment": "M",
+    "matched_on": [
+      "compare",
+      "two designs"
+    ],
+    "alternative": "External Interviews",
+    "rules": "qualitative leads; never a survey for a why question; a tie picks the lighter method"
+  }
+}
