@@ -23,7 +23,6 @@ import json
 import re
 import sys
 from pathlib import Path
-from string import Template
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = PLUGIN_ROOT / "prompts"
@@ -32,6 +31,7 @@ FIXTURES_DIR = PLUGIN_ROOT / "tests" / "fixtures" / "prompts"
 FRONT_MATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 COND_RE = re.compile(r"^\s*([\w.]+)\s*(==|!=|>=|<=|>|<|\bin\b)\s*(.+?)\s*$")
 _SLOT_RE = re.compile(r"\$([a-z_][a-z0-9_]*)")
+_SUB_RE = re.compile(r"\$(\$|[a-z_][a-z0-9_]*|\{[a-z_][a-z0-9_]*\})")
 _METER_RE = re.compile(r"[\w-]+@\d+ fragments=\[[^\]]*\] est_tokens=\d+")
 
 
@@ -121,6 +121,23 @@ def _normalized(text: str) -> str:
     return " ".join(str(text).split()).casefold()
 
 
+def _fill(text: str, subs: dict) -> str:
+    """Replace ``$$``, ``$slot``, and ``${slot}`` with bound values (the
+    string.Template substitution contract, inline). A malformed or unbound
+    placeholder raises PromptError; a literal ``$`` not followed by a slot
+    name passes through."""
+    def repl(match: "re.Match[str]") -> str:
+        token = match.group(1)
+        if token == "$":
+            return "$"
+        if token.startswith("{"):
+            token = token[1:-1]
+        if token not in subs:
+            raise PromptError(f"unbound slot ${token}")
+        return subs[token]
+    return _SUB_RE.sub(repl, text)
+
+
 def render(name: str, fields: dict | None = None, prompts_dir: Path | None = None) -> str:
     """Select variant + lazy fragments, fill ``$slots`` with verbatim bound
     values, enforce the budget. Never paraphrases, never invents a value."""
@@ -152,7 +169,7 @@ def render(name: str, fields: dict | None = None, prompts_dir: Path | None = Non
         value, carried = subs.get(slot, ""), subs.get(anchor, "")
         if value and carried and _normalized(value) in _normalized(carried):
             subs[slot] = ""
-    text = Template(text).substitute(subs)
+    text = _fill(text, subs)
     budget = meta.get("budget") or {}
     max_lines, max_vars = budget.get("max_lines"), budget.get("max_vars")
     if max_lines is not None and len(text.splitlines()) > max_lines:

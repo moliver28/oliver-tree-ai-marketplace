@@ -27,9 +27,14 @@ Usage::
 from __future__ import annotations
 
 import contextlib
+import http.client
+import ipaddress
 import json
+import socket
+import ssl
 import sys
 import time
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -56,9 +61,74 @@ def _load_config() -> dict | None:
         return None
 
 
+class _Rejected(Exception):
+    """The endpoint failed the SSRF boundary checks."""
+
+
+def _endpoint_allowed(url: str) -> bool:
+    """Syntax + IP-literal boundary check, no DNS (resolution happens once,
+    in ``_open``, at connection time)."""
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != "https" or parts.username or parts.password or not parts.hostname:
+        return False
+    host = parts.hostname.lower()
+    if host == "localhost":
+        return False
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return True  # a regular hostname; the resolved boundary is _open's check
+    return not (ip.is_loopback or ip.is_link_local or ip.is_multicast
+                or ip.is_unspecified or (ip.is_private and not ip.is_global))
+
+
+def _validated_target(url: str):
+    """``(host, ip, port, path)`` for an https endpoint that is not a
+    loopback/link-local/private/metadata host, resolved once at validation
+    time. Raises _Rejected otherwise."""
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != "https" or parts.username or parts.password or not parts.hostname:
+        raise _Rejected("endpoint must be https with a plain hostname")
+    host = parts.hostname
+    port = parts.port or 443
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        raise _Rejected(f"cannot resolve {host}: {exc}") from exc
+    ip = ipaddress.ip_address(infos[0][4][0])
+    if ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_unspecified \
+            or (ip.is_private and not ip.is_global):
+        raise _Rejected(f"{host} resolves into a refused range ({ip})")
+    path = parts.path or "/"
+    if parts.query:
+        path += "?" + parts.query
+    return host, str(ip), port, path
+
+
+class _BoundHTTPSConnection(http.client.HTTPSConnection):
+    """Connects to the validated address, speaks TLS for the hostname
+    (SNI + certificate check intact), so a later DNS answer cannot redirect
+    the request (rebinding-safe). ``http.client`` performs no redirects."""
+
+    def __init__(self, host: str, ip: str, port: int, timeout: float):
+        super().__init__(host, port, timeout=timeout)
+        self._validated_ip = ip
+
+    def connect(self):
+        self.sock = socket.create_connection((self._validated_ip, self.port),
+                                             timeout=self.timeout)
+        self.sock = ssl.create_default_context().wrap_socket(
+            self.sock, server_hostname=self.host)
+
+
 def _open(request, timeout):
-    """One network call, isolated so tests can mock it."""
-    return urllib.request.urlopen(request, timeout=timeout)
+    """One network call over a validated https connection, isolated so
+    tests can mock it."""
+    host, ip, port, path = _validated_target(request.full_url)
+    headers = {k: v for k, v in request.header_items() if k.lower() != "host"}
+    conn = _BoundHTTPSConnection(host, ip, port, timeout)
+    conn.request(request.get_method(), path, body=request.data, headers=headers)
+    return conn.getresponse()
 
 
 def load_offsets(state_dir) -> dict:
@@ -96,8 +166,8 @@ def flush(state_dir, endpoint: str, api_key: str = "", offsets: dict | None = No
     summary = {"sent": 0, "calls": 0, "advanced": [], "done": False}
     if not endpoint:
         return summary
-    if not endpoint.startswith("https://"):
-        return summary  # refuse plaintext-http endpoints
+    if not _endpoint_allowed(endpoint):
+        return summary  # refuse plaintext/loopback/link-local/private endpoints
     state_dir = Path(state_dir)
     if offsets is None:
         offsets = load_offsets(state_dir)
@@ -296,8 +366,8 @@ def _selftest() -> int:
         # 3. A 200 flush advances the offset by exactly the sent lines.
         calls.clear()
         (state / NOTICE_FILE).unlink(missing_ok=True)
-        with open(analytics_common.buffer_path(state), "w", encoding="utf-8",
-                  newline="\n") as handle:
+        buffer = analytics_common.buffer_path(state)
+        with buffer.open("w", encoding="utf-8", newline="\n") as handle:
             for index in range(3):
                 handle.write(json.dumps({"v": 1, "event": "e%d" % index}) + "\n")
         summary = flush(state, endpoint, api_key="k", open_fn=mock_open)
@@ -316,8 +386,8 @@ def _selftest() -> int:
             calls.append(request.full_url)
             return Reply(500)
 
-        with open(analytics_common.buffer_path(state), "a", encoding="utf-8",
-                  newline="\n") as handle:
+        buffer = analytics_common.buffer_path(state)
+        with buffer.open("a", encoding="utf-8", newline="\n") as handle:
             for index in range(2):
                 handle.write(json.dumps({"v": 1, "event": "f%d" % index}) + "\n")
         calls.clear()
@@ -362,8 +432,8 @@ def _selftest() -> int:
 
         # 7. The budget stops the flush after the deadline.
         calls.clear()
-        with open(analytics_common.buffer_path(state), "a", encoding="utf-8",
-                  newline="\n") as handle:
+        buffer = analytics_common.buffer_path(state)
+        with buffer.open("a", encoding="utf-8", newline="\n") as handle:
             for index in range(30):
                 handle.write(json.dumps({"v": 1, "event": "budget%d" % index}) + "\n")
 

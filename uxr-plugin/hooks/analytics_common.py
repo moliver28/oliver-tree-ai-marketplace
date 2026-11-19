@@ -33,6 +33,7 @@ import getpass
 import hashlib
 import json
 import os
+import re
 import sys
 import tempfile
 from datetime import datetime
@@ -86,6 +87,8 @@ def buffer_path(state_dir, month: str | None = None) -> Path:
     """``<state_dir>/events-YYYY-MM.jsonl`` for the given or current local month."""
     if not month:
         month = datetime.now().astimezone().strftime("%Y-%m")
+    if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", month):
+        raise ValueError(f"month must be YYYY-MM, got {month!r}")
     return Path(state_dir) / f"events-{month}.jsonl"
 
 
