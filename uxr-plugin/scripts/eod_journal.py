@@ -27,15 +27,9 @@ FIXTURES = PLUGIN_ROOT / "tests" / "fixtures" / "eod"
 def _day_list(spec: str, today: _date | None = None) -> list[str]:
     text = str(spec or "").strip()
     if ".." in text:
-        start_text, end_text = text.split("..", 1)
-        start = _date.fromisoformat(start_text)
-        end = _date.fromisoformat(end_text)
-        days = []
-        cursor = start
-        while cursor <= end:
-            days.append(cursor.isoformat())
-            cursor += timedelta(days=1)
-        return days
+        start, end = (_date.fromisoformat(part) for part in text.split("..", 1))
+        return [(start + timedelta(days=offset)).isoformat()
+                for offset in range((end - start).days + 1)]
     if not text:
         return [(today or _date.today()).isoformat()]
     return [part.strip() for part in text.split(",") if part.strip()]

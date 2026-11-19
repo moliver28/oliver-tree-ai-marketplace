@@ -104,20 +104,14 @@ def render_show(item: dict, now: str | datetime = "now") -> str:
     spec = _spec("show")
     sections: list[str] = [f"## [{item['key']}]({item['url']}) · {item['summary']}"]
     meta = []
-    trio = " · ".join(f"**{label}** {value}" for label, value in (
-        ("Status", item.get("status")), ("Type", item.get("type")),
-        ("Priority", item.get("priority"))) if value)
-    if trio:
-        meta.append(trio)
-    pair = " · ".join(f"**{label}** {value}" for label, value in (
-        ("Assignee", item.get("assignee")), ("Reporter", item.get("reporter"))) if value)
-    if pair:
-        meta.append(pair)
-    times = " · ".join(f"**{label}** {relative_time(item[key], now)}"
-                       for label, key in (("Updated", "updated"), ("Created", "created"))
-                       if item.get(key))
-    if times:
-        meta.append(times)
+    for resolve, fields in (
+        (item.get, (("Status", "status"), ("Type", "type"), ("Priority", "priority"))),
+        (item.get, (("Assignee", "assignee"), ("Reporter", "reporter"))),
+        (lambda key: relative_time(item[key], now), (("Updated", "updated"), ("Created", "created"))),
+    ):
+        line = " · ".join(f"**{label}** {resolve(key)}" for label, key in fields if item.get(key))
+        if line:
+            meta.append(line)
     if item.get("labels"):
         meta.append("**Labels** " + ", ".join(str(v) for v in item["labels"]))
     if meta:

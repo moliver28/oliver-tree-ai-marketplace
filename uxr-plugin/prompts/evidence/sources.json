@@ -71,6 +71,15 @@
     "github": "gh search issues",
     "asana": "GET /workspaces/{gid}/tasks/search"
   },
+  "entry_extra": {
+    "chat": {"channels": {"config": "evidence.chat_channels", "default": []}},
+    "jtbd": {"ssot_url": {"config": "ssot.jtbd_url", "default": ""},
+             "ring_tags": ["internal", "external", "synthetic"]},
+    "personas": {"ssot_url": {"config": "ssot.personas_url", "default": ""},
+                 "ring_tags": ["internal", "external", "synthetic"]},
+    "drive": {"recent_files_limit": 25},
+    "chat_discovery": {"group_channels": {"config": "routing.group_to_channels", "default": {}}}
+  },
   "jql": {
     "tracker_recent": "NOT project = {project_key} AND assignee = {current_user} AND updated >= \"{window_start}\" ORDER BY updated DESC",
     "tracker_topic": "NOT project = {project_key} AND (summary ~ \"{topic}\" OR description ~ \"{topic}\") AND updated >= \"{window_start}\" ORDER BY updated DESC"

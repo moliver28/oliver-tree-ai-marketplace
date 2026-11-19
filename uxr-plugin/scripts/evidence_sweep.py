@@ -23,13 +23,23 @@ DATA = json.loads((PLUGIN_ROOT / "prompts" / "evidence" / "sources.json").read_t
 FIXTURES = PLUGIN_ROOT / "tests" / "fixtures" / "evidence"
 
 
+def _dotted(config: dict, path: str, default):
+    node = config
+    for part in path.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return default
+        node = node[part]
+    return node
+
+
 def build_plan(config: dict, topic: str, tactical: bool, current_user: str = "",
                today: date | None = None) -> dict:
-    """One query spec per source enabled in ``evidence.sources``."""
+    """One query spec per source enabled in ``evidence.sources``. Per-source
+    extras live in sources.json ``entry_extra``: a literal value, or
+    ``{"config": <dotted path>, "default": ...}`` resolved against ``config``."""
     today = today or date.today()
     enabled = (config.get("evidence") or {}).get("sources") or []
     tracker = (config.get("tracker") or {})
-    project_key = tracker.get("project_key", "")
     tool = DATA["search_tools"].get(tracker.get("kind", ""), "search(filter)")
     plan = {}
     for source in DATA["sources"]:
@@ -48,19 +58,14 @@ def build_plan(config: dict, topic: str, tactical: bool, current_user: str = "",
         template = DATA["jql"].get(key)
         if template:
             entry["query"] = template.format(
-                project_key=project_key, current_user=current_user or "<current user account id>",
+                project_key=tracker.get("project_key", ""),
+                current_user=current_user or "<current user account id>",
                 topic=topic, window_start=entry.get("window_start", ""))
         if source.get("adoption_gap"):
             entry["never_silently_skip"] = "churn, satisfaction, or adoption topics carry the gap clause"
-        if key == "chat":
-            entry["channels"] = (config.get("evidence") or {}).get("chat_channels") or []
-        if key in ("jtbd", "personas"):
-            entry["ssot_url"] = (config.get("ssot") or {}).get(f"{key}_url", "")
-            entry["ring_tags"] = ["internal", "external", "synthetic"]
-        if key == "drive":
-            entry["recent_files_limit"] = 25
-        if key == "chat_discovery":
-            entry["group_channels"] = ((config.get("routing") or {}).get("group_to_channels") or {})
+        for field, spec in (DATA.get("entry_extra") or {}).get(key, {}).items():
+            entry[field] = (_dotted(config, spec["config"], spec.get("default"))
+                            if isinstance(spec, dict) and "config" in spec else spec)
         plan[key] = entry
     return plan
 

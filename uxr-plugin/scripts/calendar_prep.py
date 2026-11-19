@@ -415,16 +415,10 @@ def pick_slots(
         if name == "pto":
             pto_days.add(day)
             continue
-        if name == "immovable":
-            busy.setdefault(day, []).append((start, end))
-        elif name == "movable":
-            movable.setdefault(day, []).append({"id": _event_id(event),
-                                                "title": str(event.get("title") or "")})
-            busy.setdefault(day, []).append((start, end))
-        else:
-            other.setdefault(day, []).append({"id": _event_id(event),
-                                              "title": str(event.get("title") or "")})
-            busy.setdefault(day, []).append((start, end))
+        if name in ("movable", "other"):
+            (movable if name == "movable" else other).setdefault(day, []).append(
+                {"id": _event_id(event), "title": str(event.get("title") or "")})
+        busy.setdefault(day, []).append((start, end))
 
     slots: list[dict] = []
     move_candidates: list[dict] = []
