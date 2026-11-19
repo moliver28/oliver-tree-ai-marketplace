@@ -3,15 +3,13 @@ description: "Edit one study ticket with shorthand keys: template sections go th
 argument-hint: "<KEY> [key=value ...]"
 ---
 
-Edit a study ticket without breaking its template. Sections and the roster
-are patched in the spec (the source of truth), validated, and pushed as a
-full body; tracker fields are resolved with `lib/field_map.py` and pushed on
-their own. One run makes at most one `update_item` call, and it carries the
-section changes and the field changes together.
-
-It writes through the operations in `references/tracker.md`:
-`get_item`, `find_user`, `update_item`, `add_comment`, `item_url`. It never
-calls `create_item` or `set_state` -- `edit` never moves a ticket.
+Edit a study ticket without breaking its template: sections and the roster
+patch the spec (the source of truth), validate, and push as one full body;
+tracker fields resolve through `lib/field_map.py`. One run makes at most one
+`update_item` call, carrying section and field changes together. Writes only
+through the `references/tracker.md` ops `get_item`, `find_user`,
+`update_item`, `add_comment`, `item_url`; never `create_item` or
+`set_state` -- `edit` never moves a ticket.
 
 ## Inputs
 
@@ -91,41 +89,35 @@ Special rules:
      this step entirely and continues at step 10.)
 
 7. Spec-path preparation, in order:
-   a. **Drift check.** Call `get_item` once and read the live `updated`
-      time. When it differs from the spec's `_meta.tracker_updated_at`
-      (including when `_meta.tracker_updated_at` is unset), print exactly
-      `<KEY> was edited in the tracker after the spec was last saved; recompiling will overwrite that change`
-      and wait for the user to say go or cancel. Keep the fields from this
-      same read; they feed steps 9 and 12.
+   a. **Drift check.** Call `get_item` once, read the live `updated` time.
+      When it differs from `_meta.tracker_updated_at` (including unset),
+      print exactly `<KEY> was edited in the tracker after the spec was last saved; recompiling will overwrite that change`
+      and wait for go or cancel. Keep the fields from this read; they feed
+      steps 9 and 12.
    b. **Patch the spec in memory.** Scalars assign (`sample=` lands in
       `sample_size`, `length=` in `session_length`, `artifact=` in
-      `artifact_link`); `questions=` splits on `|` characters or literal
-      newlines into trimmed, non-empty strings. List operations go through
+      `artifact_link`); `questions=` splits on `|` or literal newlines into
+      trimmed, non-empty strings. List operations go through
       `scripts/parse_shorthand.py`: pipe one JSON request per operation --
       `{"kind": "roster|hypotheses|assumptions|resources", "op": "+=|~=|-=", "arg": "<pipe string>"}`
-      -- and apply the printed delta. `+=` appends the row; `~=` finds rows
-      whose name or label contains the match string without case and patches
-      that one field; `-=` removes the row whose name or label is equal
-      without case. Zero or several matches: show what matched, ask, and
-      change nothing until the user picks.
-   c. **Drive permission check.** For every resources row this run added or
-      patched with a Drive URL: check the file's current sharing (Drive
-      read, never a permission change) and set `share_status` to what you
-      observe -- shared with the team domain, `private` otherwise, and
-      `unknown` when you cannot determine it. Say what you found in the
-      preview.
-   d. **Local path.** A resources row whose value is a local file path is
-      invalid and the validator would reject it. Stop before writing and
-      run the local-to-Drive flow from issue 06 instead: search Drive for a
-      matching file, propose candidates one at a time for yes/no, upload
-      only on an explicit yes, and put the Drive URL in the resource. Never
-      write a local path into the spec.
+      -- and apply the printed delta. `+=` appends; `~=` matches rows by
+      case-insensitive substring on name/label and patches that field; `-=`
+      removes the exact case-insensitive match. Zero or several matches:
+      show what matched, ask, change nothing until the user picks.
+   c. **Drive permission check.** For every resources row added or patched
+      with a Drive URL: read current sharing (never a permission change) and
+      set `share_status` to what you observe -- team domain, `private`, or
+      `unknown` when undeterminable. Say what you found in the preview.
+   d. **Local path.** A resources row holding a local path is invalid; stop
+      before writing and run the issue-06 local-to-Drive flow: search Drive
+      for a match, propose candidates one at a time for yes/no, upload only
+      on an explicit yes. Never write a local path into the spec.
    e. **Validate and render in one call.** Pipe the patched spec JSON into
-      `python scripts/build_body.py`. A non-zero exit writes nothing: exit
-      3 is a validation failure and exit 4 is an incomplete document; in
-      both cases print the `  - <error>` lines from stderr verbatim, save
-      no file, make no tracker call, and stop. (A bad roster status dies
-      here with exit 3 -- that is the "nothing is written" guarantee.)
+      `python scripts/build_body.py`. Non-zero exit writes nothing: exit 3
+      is a validation failure, exit 4 an incomplete document; print the
+      `  - <error>` lines from stderr verbatim, save no file, make no
+      tracker call, stop. (A bad roster status dies here with exit 3 -- the
+      "nothing is written" guarantee.)
 
 8. **Preview and gate.** Show a diff preview and wait for `yes`, `go`, or
    `apply` (anything else cancels and writes nothing):
