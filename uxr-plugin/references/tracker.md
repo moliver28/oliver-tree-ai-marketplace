@@ -3,33 +3,21 @@
 Commands never call a tracker directly. They use the generic operations in
 this table, with the tool name and parameters for the configured tracker:
 look up `tracker.kind` in config (`jira`, `linear`, `github`, or `asana`)
-and read that column. Every value that changes per organization (base URL,
-project key, field ids, priority values, footers) comes from
-`config/org.yaml` through `lib/config.py`. This file holds no organization
-values.
-
-The deterministic half of the adapter is `lib/field_map.py`: it resolves a
-field shorthand (`method=Survey`) into the payload this file tells you how
-to write, and it implements the routing helpers in the last section.
+and read that column. Every per-organization value (base URL, project key,
+field ids, priority values, footers) comes from `config/org.yaml` through
+`lib/config.py`. The deterministic half of the adapter is
+`lib/field_map.py`: it resolves a field shorthand (`method=Survey`) into
+the payload and implements the routing helpers. Linear/GitHub/Asana
+parameter detail and the field-kind mapping for those trackers live in
+`references/trackers-other.md` — read it when `tracker.kind` is not `jira`.
 
 ## Session rules (every command)
 
-1. Resolve `current_user()` once per session. Cache the id, display name,
-   and email, and reuse the cache. Never hardcode a user id.
-2. Jira: every tool call needs a `cloudId`. Take it from
-   `tracker.workspace_id`; when that is empty, call
-   `getAccessibleAtlassianResources` once, cache the cloudId with the
-   current user, and remind the user to set `tracker.workspace_id`.
-3. Read the live list of state changes (`list_state_changes`) immediately
-   before any status move, and move by transition `id`, never by name and
-   never from a remembered list.
-4. Every comment ends with the footer from `comments.footer`, separated
-   from the body by exactly one blank line.
-5. Verify every MCP parameter name live against your tracker server before
-   first use. The reference plugin shipped two different parameter names
-   for the comment body in two commands; this table pins the documented
-   names and marks anything that still needs a live check as
-   `verify-live`. Re-verify when your tracker announces tool changes.
+1. Resolve `current_user()` once per session; cache id, display name, email. Never hardcode a user id.
+2. Jira: every tool call needs a `cloudId` from `tracker.workspace_id`; when empty, call `getAccessibleAtlassianResources` once, cache it with the user, and remind the user to set `tracker.workspace_id`.
+3. Read `list_state_changes` immediately before any status move; move by transition `id`, never by name or from a remembered list.
+4. Every comment ends with the `comments.footer`, separated by exactly one blank line.
+5. Verify every MCP parameter name live before first use (the reference plugin shipped two different comment-body parameter names in two commands; this table pins the documented names and marks unverified ones `verify-live`). Re-verify when the tracker announces tool changes.
 
 ## Generic operations
 
@@ -77,30 +65,6 @@ Pre-ship checklist: before the first tracked change against a live Jira
 site, run each tool once with its documented parameters, confirm the
 response shape, and remove the `verify-live` marks that passed.
 
-## Linear, GitHub, Asana parameters
-
-These columns follow the same rules; none has been live-verified in this
-build environment, so treat every parameter as `verify-live` before first
-use.
-
-- **Linear (GraphQL API):** `viewer`; `userLookup` or the users search for
-  `find_user`; `issue` query with `id` for `get_item`; `issues` with a
-  filter for `search`; `issueCreate` / `issueUpdate` mutations;
-  `commentCreate` with a `body`; `issueUpdate` with `stateId` for
-  `set_state`, where the id comes from the team's `workflowStates` read in
-  the same session.
-- **GitHub Issues (`gh` CLI):** `gh api user`; `gh api search/users`;
-  `gh issue view <number> --repo <owner/repo> --json <fields>`;
-  `gh search issues`; `gh issue create --title --body --label`;
-  `gh issue edit`; `gh issue comment --body`. Projects-based fields (the
-  mapped kinds below) are read and written with `gh project field-list`,
-  `gh project item-list`, and `gh project item-edit`.
-- **Asana (REST API):** `GET /users/me`; workspace typeahead or user list;
-  `GET /tasks/{gid}`; the workspace search endpoint; `POST /tasks`;
-  `PUT /tasks/{gid}`; `POST /tasks/{gid}/stories` for comments (text
-  parameter); move to section for `set_state` after reading the project's
-  sections.
-
 ## Field payloads this adapter receives
 
 `lib/field_map.py resolve --shorthand "<shorthand>"` prints the payload as
@@ -128,20 +92,6 @@ Adapter duties before the write:
    account id, Linear user id, GitHub handle, Asana gid).
 3. The interval payload for Jira is already the JSON string the tracker
    expects; pass it through unparsed.
-
-## Field kind mapping when a tracker lacks a kind
-
-Map each configured field kind onto the tracker's closest mechanism; the
-mapping per field lives in `fields.<name>` (`id`), the mechanism choice
-here:
-
-| Kind | GitHub Issues | Linear | Asana |
-|---|---|---|---|
-| `single_select` | Projects single-select field, or label `name:value` | label group | enum custom field |
-| `multi_select` | labels | labels | multi-enum custom field |
-| `interval` | two date fields (start, target) | two custom dates or cycle | start and due dates |
-| `user` | assignees or Projects people field | assignee plus custom user property | custom people field |
-| `url` | Projects text field | link attachment | text custom field |
 
 ## Researcher routing (config-driven; used by `new`)
 
