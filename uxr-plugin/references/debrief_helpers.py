@@ -593,47 +593,52 @@ def assemble_summary_text(payload: dict) -> str:
     alignment block (every spec entry gets a line; unanswered items keep
     the exact contract wording)."""
     session = payload.get("session") or {}
-    parts: list[str] = [str(session.get("paragraph") or "").strip(), ""]
-    parts.append("Notable quotes")
+    alignment = payload.get("alignment") or {}
+    parts: list[str] = [str(session.get("paragraph") or "").strip(), "",
+                        "Notable quotes"]
     for quote in payload.get("quotes") or []:
         parts.append(f"- **{quote.get('speaker', '')}**: {quote.get('text', '')}")
-    parts.append("")
-    parts.append(_ALIGN_HEADING)
-    parts.append("**Research Questions**")
-    for entry in (payload.get("alignment") or {}).get("rq") or []:
-        short = entry.get("short") or entry.get("id", "")
+    parts += ["", _ALIGN_HEADING, "**Research Questions**"]
+    for entry in alignment.get("rq") or []:
         finding = str(entry.get("finding") or "").strip()
-        parts.append(f"- {entry.get('id', '')} ({short}): "
+        parts.append(f"- {entry.get('id', '')} ({entry.get('short') or entry.get('id', '')}): "
                      + (finding or "No direct evidence this session."))
-    parts.append("**Hypotheses**")
-    for entry in (payload.get("alignment") or {}).get("hypotheses") or []:
-        parts.append(f"- {entry.get('id', '')} ({entry.get('label', '')}): "
-                     f"{entry.get('stance', '')} - {entry.get('why', '')}")
-    parts.append("**Assumptions**")
-    for entry in (payload.get("alignment") or {}).get("assumptions") or []:
-        parts.append(f"- {entry.get('id', '')} ({entry.get('label', '')}): "
-                     f"{entry.get('stance', '')} this session - {entry.get('why', '')}")
+    for heading, group, suffix in (("**Hypotheses**", "hypotheses", ""),
+                                   ("**Assumptions**", "assumptions", " this session")):
+        parts.append(heading)
+        for entry in alignment.get(group) or []:
+            parts.append(f"- {entry.get('id', '')} ({entry.get('label', '')}): "
+                         f"{entry.get('stance', '')}{suffix} - {entry.get('why', '')}")
     return "\n".join(parts).rstrip() + "\n"
 
 
-def cmd_assemble_summary(args: dict[str, str]) -> int:
-    file_value = args.get("--file") or ""
-    payload_value = args.get("--payload") or ""
-    if not file_value or not payload_value:
-        print("debrief_helpers: assemble-summary needs --file <summary.md> --payload <json>",
-              file=sys.stderr)
+def _write_payload_doc(args: dict[str, str], required: tuple[str, ...], usage: str,
+                       render_fn) -> int:
+    """Shared writer for the payload-driven commands: check the required
+    flags, load the payload JSON, render, write (parents created), print the
+    path. Exit: 0 ok, 2 usage, 1 unreadable payload."""
+    values = {flag: (args.get(flag) or "") for flag in set(required) | {"--file", "--payload"}}
+    if any(not values[flag] for flag in required):
+        print(f"debrief_helpers: {usage}", file=sys.stderr)
         return EXIT_USAGE
     try:
-        payload = json.loads(Path(payload_value).expanduser().read_text(encoding="utf-8"))
+        payload = json.loads(Path(values["--payload"]).expanduser().read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         print(f"debrief_helpers: unreadable payload: {exc}", file=sys.stderr)
         return EXIT_FAIL
-    path = Path(file_value).expanduser()
+    path = Path(values["--file"]).expanduser()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(assemble_summary_text(payload if isinstance(payload, dict) else {}),
+    path.write_text(render_fn(payload if isinstance(payload, dict) else {}, args),
                     encoding="utf-8")
     print(path)
     return EXIT_OK
+
+
+def cmd_assemble_summary(args: dict[str, str]) -> int:
+    return _write_payload_doc(
+        args, ("--file", "--payload"),
+        "assemble-summary needs --file <summary.md> --payload <json>",
+        lambda payload, _args: assemble_summary_text(payload))
 
 
 def render_recap_text(payload: dict, expected_date: str, footer: str) -> str:
@@ -646,12 +651,10 @@ def render_recap_text(payload: dict, expected_date: str, footer: str) -> str:
         lines.append(str(payload["link"]))
     if payload.get("summary_path"):
         lines.append(str(payload["summary_path"]))
-    lines.append("")
-    lines.append("What landed:")
+    lines += ["", "What landed:"]
     for sentence in payload.get("landing") or []:
         lines.append(f"- {sentence}")
-    lines.append("")
-    lines.append("Not covered:")
+    lines += ["", "Not covered:"]
     for topic in payload.get("not_covered") or []:
         lines.append(f"- {topic}")
     if footer.strip():
@@ -660,25 +663,10 @@ def render_recap_text(payload: dict, expected_date: str, footer: str) -> str:
 
 
 def cmd_render_recap(args: dict[str, str]) -> int:
-    file_value = args.get("--file") or ""
-    payload_value = args.get("--payload") or ""
-    expected_date = args.get("--date") or ""
-    footer = args.get("--footer") or ""
-    if not file_value or not payload_value or not expected_date:
-        print("debrief_helpers: render-recap needs --file <draft.md> --payload <json> "
-              "--date <YYYY-MM-DD> [--footer <md>]", file=sys.stderr)
-        return EXIT_USAGE
-    try:
-        payload = json.loads(Path(payload_value).expanduser().read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        print(f"debrief_helpers: unreadable payload: {exc}", file=sys.stderr)
-        return EXIT_FAIL
-    path = Path(file_value).expanduser()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(render_recap_text(payload if isinstance(payload, dict) else {},
-                                      expected_date, footer), encoding="utf-8")
-    print(path)
-    return EXIT_OK
+    return _write_payload_doc(
+        args, ("--file", "--payload", "--date"),
+        "render-recap needs --file <draft.md> --payload <json> --date <YYYY-MM-DD> [--footer <md>]",
+        lambda payload, a: render_recap_text(payload, a.get("--date") or "", a.get("--footer") or ""))
 
 
 # ---------------------------------------------------------------------------
