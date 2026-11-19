@@ -3,70 +3,32 @@ description: "Turn a finished study into a slide deck shaped for one audience: s
 argument-hint: "<KEY> [--audience=leadership|design|product|research|org] [--tier=lite|standard|strategic] [--dry-run] [--refresh-persona=<name>] [--altitude=brief|standard|deep] [--render-only]"
 ---
 
-Build the deck for one study. Scripts compute the slide cap, the story
-skeleton, the finding source counts, and the geometry lint, so the
-numbers never drift; you fill the text slots on top of that skeleton.
-Every deck is generated from an outline file by the deck generator --
-never hand-edit the ``.pptx``, and never generate a raster image.
+Build the deck for one study: scripts compute the slide cap, story
+skeleton, source counts, and geometry lint; you fill the text slots.
+Generated from an outline file, never hand-edited `.pptx`, never raster
+images.
 
-## Safety rules (read before any step; they override everything below)
+## Safety rules (they override everything below)
 
-1. **`--dry-run` writes no file and calls no write tool.** Show the
-   plan, the beats, and the outline under a `DRY RUN - nothing written`
-   heading and stop before phase 5.
-2. **The persona cache lives in `<state_dir>`, never the plugin source
-   tree.** Cached `pe_framing_prompt` values go to
-   `<state_dir>/deck-persona-cache.json` through
-   `deck_helpers.py write-persona-field --cache-dir`. Never write
-   persona fields into `references/` at runtime.
-3. **The gitignore gate passes before the deck is generated.** Run
-   `scripts/gitignore_gate.py assert-ignored` on the deliverable path
-   in the workspace plus one path per `workspace.gitignored_paths`
-   entry from the loaded configuration (config adds to the hardcoded
-   path); exit 3 stops the whole run before the generator writes
-   anything.
-4. **The deck is regenerated, never edited.** After the generator
-   writes the `.pptx`, no tool edits that file. A change means: edit
-   the outline, re-lint, regenerate.
-5. **The Critic panel member is mandatory.** When
-   `deck.critic_agent` (default `hcd-researcher`) has no agent file
-   under `agents/`, stop before the panel and say which agent is
-   missing.
-6. **Verdict labels and evidence numbers are copied verbatim** from
-   `report_helpers.py` output. Never reword, soften, or upgrade them.
-7. **An optional Drive upload happens only after an explicit `go`**,
-   under the finish rules.
+1. **`--dry-run` writes no file and calls no write tool.** Show plan, beats, outline under `DRY RUN - nothing written`; stop before phase 5.
+2. **The persona cache lives in `<state_dir>`, never the plugin source tree.** Cached `pe_framing_prompt` values go to `<state_dir>/deck-persona-cache.json` via `deck_helpers.py write-persona-field --cache-dir`; never write persona fields into `references/` at runtime.
+3. **The gitignore gate passes before generation.** `scripts/gitignore_gate.py assert-ignored` on the deliverable path plus one path per `workspace.gitignored_paths` entry; exit 3 stops the run before the generator writes anything.
+4. **The deck is regenerated, never edited.** A change means: edit the outline, re-lint, regenerate.
+5. **The Critic panel member is mandatory.** When `deck.critic_agent` (default `hcd-researcher`) has no agent file under `agents/`, stop before the panel and say which agent is missing.
+6. **Verdict labels and evidence numbers are copied verbatim** from `report_helpers.py` output.
+7. **An optional Drive upload happens only after an explicit `go`**, under the finish rules.
 
 ## Inputs
 
-`$ARGUMENTS` is `<KEY>` with any of:
-`--audience=leadership|design|product|research|org` (no flag: show a
-1 to 5 menu of the personas from `list-personas` and ask),
-`--tier=lite|standard|strategic` (default: computed by `scope-tier` in
-phase 1), `--dry-run`, `--refresh-persona=<name>` (drop that persona's
-cached `pe_framing_prompt` and regenerate it in phase 4),
-`--altitude=brief|standard|deep` (maps to the tier the way
-`altitude --level` does, used when `--tier` is absent),
-`--render-only` (skip phases 1 to 4; render
-`<workspace>/deck/deck-outline-<KEY>.json` as-is through phase 5).
+`$ARGUMENTS` is `<KEY>` with any of: `--audience=leadership|design|product|research|org` (no flag: show the 1-5 persona menu from `list-personas` and ask), `--tier=lite|standard|strategic` (default: computed in phase 1), `--dry-run`, `--refresh-persona=<name>` (drop that persona's cached `pe_framing_prompt`, regenerate in phase 4), `--altitude=brief|standard|deep` (maps through `altitude --level` when `--tier` absent), `--render-only` (skip phases 1-4; render the existing outline through phase 5).
 
-Every gate in this command uses the same words: `go`, `edit`,
-`cancel` -- except the phase 4 lens check, which uses `apply`, `edit`,
-`skip`.
+Every gate uses `go`, `edit`, `cancel` -- except the phase 4 lens check: `apply`, `edit`, `skip`.
 
 ## Setup (every run)
 
-Load configuration once (`python "${CLAUDE_PLUGIN_ROOT}/lib/config.py"
---print`). Note `paths.research_root`, `paths.state_dir`,
-`deck.personas_file`, `deck.generator_path`, `deck.critic_agent`,
-`report.verdict_threshold`, `comments.footer`, and
-`tracker.ticket_regex`. Hardcode nothing.
+Load config once (`python "${CLAUDE_PLUGIN_ROOT}/lib/config.py" --print`). Note `paths.research_root`, `paths.state_dir`, `deck.personas_file`, `deck.generator_path`, `deck.critic_agent`, `report.verdict_threshold`, `comments.footer`, `tracker.ticket_regex`. Hardcode nothing.
 
-Generator resolution: `deck.generator_path` empty means the shipped
-`scripts/deck_render.py`; a non-empty value is the user's own
-generator script (called with the same `render <outline.json>
-<out.pptx>` contract: outline JSON in, `.pptx` out, geometry lint that
-fails on overflow and overlap, no raster images).
+Generator resolution: `deck.generator_path` empty means the shipped `scripts/deck_render.py`; non-empty means the user's own generator (same contract: outline JSON in, `.pptx` out, geometry lint on overflow/overlap, no raster images).
 
 ## Phases
 
