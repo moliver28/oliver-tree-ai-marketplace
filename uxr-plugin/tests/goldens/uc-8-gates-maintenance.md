@@ -50,6 +50,8 @@ Deterministic filter output:
 {"active": {"UXR-101": 1}, "unlinked_sessions": [], "readonly_sessions": []}
 ```
 
+<!-- DIFFERS: D1 (R6 eod template default) -->
+Post-change the eod golden path drafts from the journal-row template (22-word facts behind the same heading; `--polish` is the exception lane and was not invoked); the golden carries the baseline's 70-word model-written narrative.
 Draft (word-cap verified mechanically: `70 True`), shown under the `DRY RUN - nothing posted` heading:
 
 > [ux-eod 2026-11-17]
@@ -59,6 +61,7 @@ Draft (word-cap verified mechanically: `70 True`), shown under the `DRY RUN - no
 > _Posted by Claude Code on behalf of Jordan Reyes._
 
 Dry run stops: no posting, no journal rewrite.
+<!-- /DIFFERS: D1 -->
 
 ## `/uxr-plugin:uxr-stats` (after hook writes; `--days=1`, verbatim + closing line)
 

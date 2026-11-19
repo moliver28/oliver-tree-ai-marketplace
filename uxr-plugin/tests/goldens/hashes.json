@@ -47,9 +47,10 @@
   "tests/goldens/uc-1-install-onboarding.md": "ba753de839a0e8af62bb5ba1ebbb0af506c6614914ee6b94b0eda9f87b04fb2c",
   "tests/goldens/uc-2-project-setup-init.md": "cf2d6670f88ee6c327378b0aa4ad39f7fdc39010cbb2a1c059a1229f17abeeda",
   "tests/goldens/uc-3-ticket-understanding.md": "33f27b732a13804cac4a6c47f338b6729b5acd13baa8631da2d420d65095cc1c",
-  "tests/goldens/uc-4-recruitment.md": "a8de1945f5b5bb3cf2b68e27cc6c6ec8215514ce0da302ca372cb546e0dd55fd",
+  "tests/goldens/uc-4-recruitment.md": "bfe38e262d13e24aee345bb08414a773df05d08e5e8f4a9934d2bfe49e23fc96",
   "tests/goldens/uc-5-checklist-move.md": "e5c61f45030fc10c2381af3fef467320155aaf12f3966466c14c349d75f69d28",
   "tests/goldens/uc-6-analysis-debrief-report.md": "64feb31a458fe9f74179dfe4d05d443faaaeeb31d4b12fdef0797359c3d261f2",
   "tests/goldens/uc-7-sync-push.md": "1f6efa4091274aef7528f4ae4ee46c997af7904fbb434f818770e75e538701aa",
-  "tests/goldens/uc-8-gates-maintenance.md": "4f6096fd74e050756cfb006a32b80ff131182ee7420a3c4cc2a3c36997f45fc3"
+  "tests/goldens/uc-8-gates-maintenance.md": "5a6dfff32837218f603e4239f6d88717df3c5e2941528c8a7b8d4ef85500ec57",
+  "tests/fixtures/prompts/distribution/over-budget.json": "2e9bdf4d07cd9e10e8c56dfbfd433c446b0cac77180db714f35dd2a6c0166fd1"
 }

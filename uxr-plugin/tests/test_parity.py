@@ -81,7 +81,7 @@ def main() -> int:
         if problem:
             failures.append(problem)
         text = marker_file.read_text(encoding="utf-8")
-        for fid in ("F1", "F2", "F3", "F4"):
+        for fid in ("F1", "F2", "F3", "F4", "D1", "D2"):
             opens, closes = text.count(f"<!-- DIFFERS: {fid}"), text.count(f"<!-- /DIFFERS: {fid} -->")
             if opens and opens != closes:
                 failures.append(f"{marker_file.name}: unbalanced DIFFERS markers for {fid}")

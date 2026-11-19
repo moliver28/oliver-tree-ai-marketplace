@@ -44,11 +44,14 @@ OTHER     evt-001 'Daily standup'                rule: ordinary event (level iii
 SKIPPED   evt-007 'Team lunch (optional)'        rule: declined
 ```
 
+<!-- DIFFERS: D2 (R10 deterministic slots) -->
+Post-change the first-fit picker chooses the times; the golden's slots were the fixture's open_slots, model-picked at baseline. The same delta echoes in the draft bodies' slot lists and the hold-title dates below; the slot-label format itself is golden-pinned.
 Level ii picks free + movable; 3 slots chosen across days, 30 minutes, inside 09:00-17:00:
 
 > - Wed 11/18, 1:00-1:30 PM
 > - Tue 11/24, 10:00-10:30 AM
 > - Thu 11/26, 2:00-2:30 PM
+<!-- /DIFFERS: D2 -->
 
 Phase D (drafts, per recruit; `top_rq` = "Where do first-week users look for the timeline when they want to plan?"). Participant A verbatim block:
 
