@@ -14,6 +14,7 @@
     {"id": "video-script", "when": "video == requested", "file": "fragments/video-script.md", "budget": 6}
   ],
   "default": "lite.md",
-  "budget": {"max_lines": 60, "max_vars": 8}
+  "budget": {"max_lines": 60, "max_vars": 8},
+  "dedupe": {"prelim": "headline"}
 }
 ---

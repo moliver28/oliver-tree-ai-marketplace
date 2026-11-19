@@ -7,6 +7,9 @@
 the only ones the shipped assets use; JSON-literal values); ``fragments``
 (``[{id, when?, file, budget?}]`` - loaded ONLY when the condition fires);
 ``budget`` (``{max_lines, max_vars}`` - over budget errors, never trims).
+``dedupe`` (``{slot: anchor}`` - the slot renders empty when the anchor's
+bound value already carries it: case/whitespace-normalized containment,
+exact, never fuzzy).
 A missing ``when`` always applies. Selection costs zero tokens; every
 render logs ``<id>@<version> fragments=[...] est_tokens=N`` on stderr.
 Usage: ``render <id> [--set k=v ...]`` | ``selftest``. Exit: 0 ok, 2 usage,
@@ -113,6 +116,11 @@ def _fragment_text(meta: dict, frag: dict) -> str:
     return text
 
 
+def _normalized(text: str) -> str:
+    """Whitespace-collapsed, case-folded form for exact containment checks."""
+    return " ".join(str(text).split()).casefold()
+
+
 def render(name: str, fields: dict | None = None, prompts_dir: Path | None = None) -> str:
     """Select variant + lazy fragments, fill ``$slots`` with verbatim bound
     values, enforce the budget. Never paraphrases, never invents a value."""
@@ -139,7 +147,12 @@ def render(name: str, fields: dict | None = None, prompts_dir: Path | None = Non
     undeclared = sorted(set(fields) - allowed)
     if undeclared:
         raise PromptError(f"{name}: fields not declared in vars: {undeclared}")
-    text = Template(text).substitute({s: str(fields[s]) for s in slots})
+    subs = {slot: str(fields[slot]) for slot in slots}
+    for slot, anchor in (meta.get("dedupe") or {}).items():
+        value, carried = subs.get(slot, ""), subs.get(anchor, "")
+        if value and carried and _normalized(value) in _normalized(carried):
+            subs[slot] = ""
+    text = Template(text).substitute(subs)
     budget = meta.get("budget") or {}
     max_lines, max_vars = budget.get("max_lines"), budget.get("max_vars")
     if max_lines is not None and len(text.splitlines()) > max_lines:
