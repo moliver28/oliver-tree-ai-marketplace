@@ -3,35 +3,19 @@ description: "Turn a finished study into a report sized to its stakes: script-co
 argument-hint: "<KEY> [--audience=internal|product-team|leadership] [--tier=lite|standard|strategic] [--dry-run] [--video] [--altitude=brief|standard|deep] [--render-only] [--format=html] [--stakeholder-role=<role>]"
 ---
 
-Write the research report for one study. Scripts compute the report
-tier, the hypothesis verdicts, the evidence counts, and the citation
-checks, so the numbers never drift; you write the narrative on top of
-that skeleton. The finished study feeds the deck, the gallery, and
-every distribution draft, and nothing sends without the user.
+Write the research report for one study: scripts compute the tier,
+verdicts, evidence counts, and citation checks; you write the narrative on
+that skeleton. Nothing sends without the user.
 
-## Safety rules (read before any step; they override everything below)
+## Safety rules (they override everything below)
 
-1. **Every external action is a draft first.** Chat uses the chat
-   draft tool only; mail uses the mail draft tool only, and a mail
-   draft body carries no URL when the mail tool rewrites links.
-   Nothing sends without the user's reply.
-2. **A calendar agenda update appends one line after `go`.** Never
-   change a meeting's time or attendees.
+1. **Every external action is a draft first.** Chat/mail draft tools only; a mail draft body carries no URL when the mail tool rewrites links. Nothing sends without the user's reply.
+2. **A calendar agenda update appends one line after `go`.** Never change a meeting's time or attendees.
 3. **A revenue lookup message is drafted and waits for `go`.**
-4. **The gitignore gate passes before any deliverable write.**
-   Run `scripts/gitignore_gate.py assert-ignored` on the
-   `.sessions/gather-brief-*.md` path in the workspace plus one path
-   per `workspace.gitignored_paths` entry from the loaded
-   configuration (config adds to the hardcoded path); exit 3 stops
-   the whole run before a single file is written.
-5. **Publish is never automatic.** The gallery publish runs only on
-   the user's explicit `go`, and never passes `--force` on the user's
-   behalf.
-6. **`--dry-run` writes no file and calls no write tool.** Show every
-   draft and every computed number under a `DRY RUN - nothing written`
-   heading and stop before phase 5.
-7. **Verdict labels are copied verbatim from the script.** Never
-   reword, soften, or upgrade a computed verdict.
+4. **The gitignore gate passes before any deliverable write.** Run `scripts/gitignore_gate.py assert-ignored` on the `.sessions/gather-brief-*.md` path plus one path per `workspace.gitignored_paths` entry (config adds to the hardcoded path); exit 3 stops the whole run before any file is written.
+5. **Publish is never automatic.** Gallery publish runs only on the user's explicit `go`; never pass `--force` on the user's behalf.
+6. **`--dry-run` writes no file and calls no write tool.** Show every draft and computed number under a `DRY RUN - nothing written` heading; stop before phase 5.
+7. **Verdict labels are copied verbatim from the script.** Never reword, soften, or upgrade a computed verdict.
 
 ## Inputs
 
@@ -116,17 +100,14 @@ without a dominant side is `Partially supported`; no evidence is
 
 `python "${CLAUDE_PLUGIN_ROOT}/scripts/publish_artifact.py" publish <html> --slug <slug> --ticket <KEY> --pod "<area>" --tier <tier> --audience <audience> --date <date> --title "<finish-rule title>" --repo-path <publish.repo> --pages-url <publish.pages_url>`
 
-It refuses unless that repo is on `main` and clean, refuses a slug
-folder with foreign files (never pass `--force` for the user), writes
-`<slug>/index.html`, upserts `manifest.json`, rebuilds the gallery,
-updates the README list between markers, commits, pushes, and prints
-the page URL. Before publishing, check the finish rules: `pod-to-area
---pod <group>` for the area and `validate-finish-title --title "<title>"
---pod "<area>"` for the title (shape
+Refuses a dirty or non-`main` repo and a slug folder with foreign files
+(never `--force` for the user); writes `<slug>/index.html`, upserts
+`manifest.json`, rebuilds the gallery, updates the README list between
+markers, commits, pushes, prints the page URL. Finish rules first:
+`pod-to-area --pod <group>` for the area and `validate-finish-title --title "<title>" --pod "<area>"` for the title (shape
 `<Product Area> <What it was> <YYYY-MM>`). The Drive upload files the
 deliverable under `ssot.finished_artifacts_folder_id` in a product-area
-subfolder named by the same pattern; then update the ticket's output
-link field.
+subfolder of the same pattern; then update the ticket's output link field.
 
 ## Scripts
 
