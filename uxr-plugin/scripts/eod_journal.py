@@ -159,21 +159,21 @@ def main(argv: list[str] | None = None) -> int:
     sub = args[0] if args else ""
     days = _day_list(_value_of(args, "--days"))
     state = Path(_value_of(args, "--state")).expanduser() if _value_of(args, "--state") else None
+    if state is None and sub in ("filter", "draft-auto", "rewrite"):
+        print(f"eod_journal: {sub} needs --state <dir>", file=sys.stderr)
+        return 2
+
+    def csv_set(value: str) -> set[str]:
+        return {part.strip() for part in value.split(",") if part.strip()}
+
     if sub == "filter":
-        if state is None:
-            print("eod_journal: filter needs --state <dir>", file=sys.stderr)
-            return 2
         print(json.dumps(filter_rows(_read_rows(state, days, _value_of(args, "--ticket"))), indent=2))
         return 0
     if sub == "check":
-        draft = Path(_value_of(args, "--file")).expanduser()
-        text = draft.read_text(encoding="utf-8")
-        print(check_draft(text, _value_of(args, "--footer")))
+        print(check_draft(Path(_value_of(args, "--file")).expanduser().read_text(encoding="utf-8"),
+                          _value_of(args, "--footer")))
         return 0
     if sub == "draft-auto":
-        if state is None:
-            print("eod_journal: draft-auto needs --state <dir>", file=sys.stderr)
-            return 2
         ticket = _value_of(args, "--ticket")
         rows = _read_rows(state, days, ticket)
         if not rows:
@@ -183,12 +183,8 @@ def main(argv: list[str] | None = None) -> int:
                          _value_of(args, "--footer")))
         return 0
     if sub == "rewrite":
-        if state is None:
-            print("eod_journal: rewrite needs --state <dir>", file=sys.stderr)
-            return 2
-        posted = {part.strip() for part in _value_of(args, "--posted").split(",") if part.strip()}
-        readonly = {part.strip() for part in _value_of(args, "--readonly").split(",") if part.strip()}
-        rewrite_journal(state, days, posted, readonly)
+        rewrite_journal(state, days, csv_set(_value_of(args, "--posted")),
+                        csv_set(_value_of(args, "--readonly")))
         return 0
     print(__doc__.strip(), file=sys.stderr)
     return 2

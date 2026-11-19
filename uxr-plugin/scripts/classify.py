@@ -166,30 +166,21 @@ def main(argv: list[str] | None = None) -> int:
     def value_of(name: str) -> str:
         return rest[rest.index(name) + 1] if name in rest and rest.index(name) + 1 < len(rest) else ""
 
-    if sub == "intent" and rest:
-        text = " ".join(t for t in rest if not t.startswith("--"))
-    elif sub == "reply" and rest:
-        text = " ".join(rest)
-    elif sub == "method" and "--rqs" in rest:
-        text = None
-    elif sub == "decision" and rest:
-        text = " ".join(t for t in rest if not t.startswith("--"))
-    elif sub == "route-finding" and "--category" in rest:
-        text = None
-    else:
-        print(_usage(f"unknown subcommand or missing input: {sub}"), file=sys.stderr)
-        return 2
+    plain = " ".join(t for t in rest if not t.startswith("--"))
     try:
-        if sub == "intent":
-            result = classify_intent(text, value_of("--prefix"))
-        elif sub == "reply":
-            result = classify_reply(text)
-        elif sub == "method":
+        if sub == "intent" and rest:
+            result = classify_intent(plain, value_of("--prefix"))
+        elif sub == "reply" and rest:
+            result = classify_reply(" ".join(rest))  # a reply is never flag-parsed
+        elif sub == "method" and "--rqs" in rest:
             result = classify_method([rq for rq in re.split(r"[;\n]", value_of("--rqs")) if rq.strip()])
-        elif sub == "decision":
-            result = classify_decision(text)
-        else:
+        elif sub == "decision" and rest:
+            result = classify_decision(plain)
+        elif sub == "route-finding" and "--category" in rest:
             result = route_finding(value_of("--category"))
+        else:
+            print(_usage(f"unknown subcommand or missing input: {sub}"), file=sys.stderr)
+            return 2
     except ClassifyError as exc:
         print(_usage(str(exc)), file=sys.stderr)
         return 2

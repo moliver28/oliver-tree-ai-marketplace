@@ -248,9 +248,8 @@ def collect(key: str, config: dict | None, environ=None) -> list[dict]:
 
 
 def main(argv: list[str] | None = None, environ=None) -> int:
-    raw = list(sys.argv[1:] if argv is None else argv)
-    args = [arg for arg in raw if arg not in ("--selftest", "selftest")]
-    if args != raw:
+    args = list(sys.argv[1:] if argv is None else argv)
+    if "selftest" in args or "--selftest" in args:
         return _selftest()
     if "--rq-map" in args:
         index = args.index("--rq-map")

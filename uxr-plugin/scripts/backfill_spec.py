@@ -101,17 +101,18 @@ def main(argv: list[str] | None = None) -> int:
     if args and args[0] in ("-h", "--help"):
         print(__doc__.strip())
         return 0
+    def value_of(name: str) -> str:
+        return args[args.index(name) + 1] if name in args and args.index(name) + 1 < len(args) else ""
+
     if args and args[0] == "save-spec":
-        if "--key" in args and "--file" in args:
-            key = args[args.index("--key") + 1] if args.index("--key") + 1 < len(args) else ""
-            draft = Path(args[args.index("--file") + 1]).expanduser() if args.index("--file") + 1 < len(args) else None
-            if key and draft:
-                return save_spec(key, draft)
+        key, draft = value_of("--key"), value_of("--file")
+        if key and draft:
+            return save_spec(key, Path(draft).expanduser())
         print("usage: backfill_spec.py save-spec --key <KEY> --file <draft.json> [--command new]", file=sys.stderr)
         return 2
     if args and args[0] == "check-readback":
-        if "--file" in args and args.index("--file") + 1 < len(args):
-            return check_readback(Path(args[args.index("--file") + 1]).expanduser())
+        if value_of("--file"):
+            return check_readback(Path(value_of("--file")).expanduser())
         print("usage: backfill_spec.py check-readback --file <body.md>", file=sys.stderr)
         return 2
     code, stdout, stderr = run(sys.stdin.read())
