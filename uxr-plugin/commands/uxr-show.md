@@ -41,7 +41,7 @@ Steps:
    `value`; multi_select `values`; user `name`; interval `start` and `end`;
    date `value`; url `value`. Copy empty fields too - the script drops empty
    blocks.
-6. Run `python "${CLAUDE_PLUGIN_ROOT}/scripts/render_view.py" show <item.json>`
+6. Run `python "${CLAUDE_PLUGIN_ROOT}/lib/render.py" show <item.json>`
    and print its stdout verbatim, then stop. The script owns the whole card:
    the header line, the meta lines (`·`-separated), the UXR fields table
    (the 19 fixed rows in `prompts/render/show.json`, empty rows dropped),

@@ -36,7 +36,7 @@ EXPECTED_GLOBS = ["render/*.expected.txt", "evidence/*.json", "spec/*.json",
 
 #: the fixture-driven modules whose selftests regenerate every artifact above
 SELFTESTS = [
-    "lib/prompts.py", "lib/render.py", "scripts/render_view.py",
+    "lib/prompts.py", "lib/render.py",
     "scripts/classify.py", "scripts/evidence_sweep.py",
     "scripts/eod_journal.py", "scripts/calendar_prep.py",
     "scripts/trace_prompts.py", "scripts/backfill_spec.py",

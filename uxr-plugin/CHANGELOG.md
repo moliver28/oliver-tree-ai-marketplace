@@ -11,7 +11,7 @@ All notable changes to uxr-plugin. One `## X.Y.Z` heading per release, newest fi
 ### Added
 
 - Lazy-fragment prompt registry (`lib/prompts.py`) with prompt assets under `prompts/` (`config-setup`, `new-intake`, `signals`, `drafts`, `hcd-gate`, `distribution`, `outreach`), each rendered from JSON front matter with condition-matrix fixtures and metering lines (`prompt_id@version fragments=[...] est_tokens=N`).
-- Data-driven render helper (`lib/render.py` + `scripts/render_view.py`): mine table, show card, relative-time ladder, and emoji map are JSON specs in `prompts/render/`.
+- Data-driven render helper (`lib/render.py`, CLI folded in W2b): mine table, show card, relative-time ladder, and emoji map are JSON specs in `prompts/render/`.
 - Deterministic classifiers (`scripts/classify.py` + `prompts/classify/`): router intent, recruit reply classes, method-shape table, decision-shape gate, review-finding routing.
 - Evidence sweep planner and digester (`scripts/evidence_sweep.py`): emits the per-source query plan and compresses raw results into the evidence digest the signals call consumes.
 - Journal scripting (`scripts/eod_journal.py`): filter, cap check, facts-only `--auto` template, and the `processed` rewrite; `--polish` opts into one narrative rewrite per ticket.

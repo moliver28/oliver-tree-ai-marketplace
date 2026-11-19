@@ -60,7 +60,7 @@ Special rules:
    with the `normalize_key` rule (`references/tracker.md`) and refuse a key
    outside the study project the way `show` does; never search for it.
 
-3. No shorthand and no free text: call `get_item` once and render it the way `show` renders it now - through `scripts/render_view.py show` (the canonical item JSON, `commands/uxr-show.md` step 5). Then ask
+3. No shorthand and no free text: call `get_item` once and render it the way `show` renders it now - through `lib/render.py show` (the canonical item JSON, `commands/uxr-show.md` step 5). Then ask
    `What should change? For example: history=<text>, method+=Survey, roster+=Name|email|slack|reason|status|channel, priority=High`
    and stop. Continue at step 6 or 10 with whatever the user answers.
 

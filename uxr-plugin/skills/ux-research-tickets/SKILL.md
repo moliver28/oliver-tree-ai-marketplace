@@ -44,7 +44,7 @@ exactly.
 1. Never ask which command. Pick the most likely one, run it, and offer the
    alternative in one line at the end.
 2. A study name or shorthand without a key: `search(filter)` the study project
-   by label or summary text, render through `scripts/render_view.py mine`
+   by label or summary text, render through `lib/render.py mine`
    (the `commands/uxr-mine.md` shape), and let the user pick.
 3. Do not search other projects. If the user names another project's key, say
    so and ask which `<project_key>` issue they meant.

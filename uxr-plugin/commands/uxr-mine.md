@@ -35,7 +35,7 @@ Steps:
    "now": <ISO now>, "items": [{"key", "url" (from `item_url`), "status",
    "type", "priority" (or null), "summary", "updated"}]}` in the order the
    search returned.
-5. Run `python "${CLAUDE_PLUGIN_ROOT}/scripts/render_view.py" mine <rows.json>`
+5. Run `python "${CLAUDE_PLUGIN_ROOT}/lib/render.py" mine <rows.json>`
    and print its stdout verbatim, then stop. It prints the one table
    (`Key | Status | Type | Pri | Summary | Updated`) and the footer
    (`N open`, or `N total` with `all`), or the exact one-line empty case
