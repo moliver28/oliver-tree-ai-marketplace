@@ -641,22 +641,35 @@ def cmd_assemble_summary(args: dict[str, str]) -> int:
         lambda payload, _args: assemble_summary_text(payload))
 
 
+def _prose_clause(topics: list[str]) -> str:
+    """The ``Not covered:`` topics as one prose clause: comma-and joined,
+    one closing period. A topic's own trailing period never doubles."""
+    trimmed = [topic[:-1] if topic.endswith(".") else topic for topic in topics]
+    if not trimmed:
+        return ""
+    if len(trimmed) == 1:
+        return trimmed[0] + "."
+    return ", ".join(trimmed[:-1]) + ", and " + trimmed[-1] + "."
+
+
 def render_recap_text(payload: dict, expected_date: str, footer: str) -> str:
     """The recap comment from the debrief call's JSON: the fixed heading,
     the one-paragraph session intro, the transcript link and the summary's
-    relative path, ``What landed:``, ``Not covered:``, blank line, footer."""
+    relative path, ``What landed:`` with its sentences joined as one prose
+    line, ``Not covered:`` with the topics as one prose clause, blank line,
+    footer."""
     lines = [f"[uxr-debrief {expected_date}]", "",
              str(payload.get("paragraph") or "").strip()]
     if payload.get("link"):
         lines.append(str(payload["link"]))
     if payload.get("summary_path"):
         lines.append(str(payload["summary_path"]))
-    lines += ["", "What landed:"]
-    for sentence in payload.get("landing") or []:
-        lines.append(f"- {sentence}")
-    lines += ["", "Not covered:"]
-    for topic in payload.get("not_covered") or []:
-        lines.append(f"- {topic}")
+    landing = " ".join(str(s).strip() for s in payload.get("landing") or []
+                       if str(s).strip())
+    lines += ["", ("What landed: " + landing) if landing else "What landed:"]
+    covered = _prose_clause([str(t).strip() for t in payload.get("not_covered") or []
+                             if str(t).strip()])
+    lines += ["", ("Not covered: " + covered) if covered else "Not covered:"]
     if footer.strip():
         lines.extend(["", footer.strip()])
     return "\n".join(lines).rstrip() + "\n"
@@ -1095,6 +1108,21 @@ def _selftest() -> int:
         check("render-recap output passes check-recap",
               main(["check-recap", "--file", str(recap_path), "--date", "2026-11-18",
                     "--footer", "Posted by the runner."]) == EXIT_OK)
+
+    # --- golden recap fixture: the prose shape byte-matches the baseline ---
+    fixture = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "debrief"
+    case_path, expected_path = fixture / "recap-golden.json", fixture / "recap-golden.expected.txt"
+    if case_path.is_file() and expected_path.is_file():
+        case = json.loads(case_path.read_text(encoding="utf-8"))
+        got = render_recap_text(case["payload"], case["date"], case["footer"])
+        check("recap-golden fixture byte-matches the baseline draft",
+              got == expected_path.read_text(encoding="utf-8"),
+              repr(got[:160]))
+        check("recap-golden fixture passes check-recap",
+              check_recap(got, case["date"], case["footer"]) == [],
+              repr(check_recap(got, case["date"], case["footer"])))
+    else:
+        check("recap-golden fixture present", False, "missing tests/fixtures/debrief")
 
     if failures:
         print(f"selftest FAILED ({len(failures)} check(s))")

@@ -69,9 +69,11 @@ spec's own order, the exact `No direct evidence this session.` and
 report parser reads that exact shape; `check-summary` gates it at write
 time. `render-recap` writes the recap under 200 words: the
 `[uxr-debrief <date>]` first line, the one-paragraph intro, the transcript
-link and the summary's relative path, `What landed:` (2 to 4 plain
-sentences, no bare `RQ2`/`H1` codes), `Not covered:`, one blank line, then
-the `comments.footer`; `check-recap` gates it. A failed gate means the
+link and the summary's relative path, `What landed:` followed by its 2 to
+4 plain sentences as one prose line (no bare `RQ2`/`H1` codes), `Not
+covered:` followed by the topics as one prose clause (comma-and joined,
+one closing period), one blank line, then the `comments.footer`;
+`check-recap` gates it. A failed gate means the
 payload is corrected and re-assembled - never shown broken. Under
 `--dry-run` the recap is shown under a `DRY RUN - nothing posted` heading
 and the command stops.
