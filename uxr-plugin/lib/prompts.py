@@ -26,7 +26,8 @@ from pathlib import Path
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = PLUGIN_ROOT / "prompts"
-FIXTURES_DIR = PLUGIN_ROOT / "tests" / "fixtures" / "prompts"
+#: selftest fixtures live at repo level in a checkout; absent in an installed plugin
+FIXTURES_DIR = (PLUGIN_ROOT if (PLUGIN_ROOT / "tests").is_dir() else PLUGIN_ROOT.parent) / "tests" / "fixtures" / "prompts"
 
 FRONT_MATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 COND_RE = re.compile(r"^\s*([\w.]+)\s*(==|!=|>=|<=|>|<|\bin\b)\s*(.+?)\s*$")
@@ -222,6 +223,9 @@ def _selftest() -> int:
     """Every asset renders under its fixture condition matrix; each fragment
     fires somewhere; the over-budget case fails; the metering line formats."""
     print("lib/prompts.py selftest")
+    if not FIXTURES_DIR.is_dir():
+        print("skip: fixtures not shipped (repo-level tests/)")
+        return 0
     failures: list[str] = []
 
     def check(name: str, ok: bool, detail: str = "") -> None:

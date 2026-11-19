@@ -20,7 +20,7 @@ from lib.config import ConfigError, load_config  # noqa: E402
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 DATA = json.loads((PLUGIN_ROOT / "prompts" / "evidence" / "sources.json").read_text(encoding="utf-8"))
-FIXTURES = PLUGIN_ROOT / "tests" / "fixtures" / "evidence"
+FIXTURES = (PLUGIN_ROOT if (PLUGIN_ROOT / "tests").is_dir() else PLUGIN_ROOT.parent) / "tests" / "fixtures" / "evidence"
 
 
 def _dotted(config: dict, path: str, default):

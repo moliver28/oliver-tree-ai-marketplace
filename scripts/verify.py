@@ -359,7 +359,7 @@ ck("PROVENANCE.md" in readme, "README links provenance ledger")
 # change = explicit owner approval. Zero stubs / markers enforced below.
 TOP_GROUPS = {"business", "engineering", "hobby", "onboarding", "research", "voice", "writing"}
 TOP_PLUGINS = {"decision-advisor", "humanizer", "voice-gate", "uxr-plugin"}
-TOP_WHITELIST = TOP_GROUPS | TOP_PLUGINS | {"scripts"}
+TOP_WHITELIST = TOP_GROUPS | TOP_PLUGINS | {"scripts", "tests"}
 LEVEL2_WHITELIST = {
     "business": ["side-business-gtm"],
     "engineering": ["codebase-inspection", "deliberation", "iit-hci-integration", "llm-integration",
@@ -477,8 +477,10 @@ for doc in ("catalog.md", "PROVENANCE.md"):
 # hash-pins the baseline goldens (tests/goldens/, with DIFFERS markers on the
 # four F1-F4 sections). A failure here means a UX-visible output drifted.
 uxr = ROOT / "uxr-plugin"
-if uxr.is_dir():
-    parity = subprocess.run([sys.executable, str(uxr / "tests" / "test_parity.py")],
+#: parity harness at repo level; not in the installed plugin
+uxr_tests = ROOT / "tests"
+if uxr.is_dir() and uxr_tests.is_dir():
+    parity = subprocess.run([sys.executable, str(uxr_tests / "test_parity.py")],
                             capture_output=True, text=True, cwd=str(uxr))
     tail = ((parity.stdout or "") + (parity.stderr or "")).strip().splitlines()
     ck(parity.returncode == 0, f"uxr-plugin golden parity tests (W2): {tail[-1] if tail else parity.returncode}")

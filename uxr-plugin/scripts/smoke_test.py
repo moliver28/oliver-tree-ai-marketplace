@@ -133,7 +133,7 @@ def check_component_counts() -> None:
         record(
             "FAIL",
             f"skill count {skill_count} >= {MIN_SKILLS}",
-            "no SKILL.md under skills/ yet",
+            "no skills under skills/ yet",
         )
 
 
@@ -187,10 +187,11 @@ def check_selftests() -> None:
     failures = []
     for path in targets:
         ok, detail = _run_selftest(path)
+        paths = path.relative_to(PLUGIN_ROOT).as_posix()
         if ok:
-            record("ok", f"{path.relative_to(PLUGIN_ROOT).as_posix()} selftest")
+            record("ok", f"{paths} selftest")
         else:
-            record("FAIL", f"{path.relative_to(PLUGIN_ROOT).as_posix()} selftest", detail)
+            record("FAIL", f"{paths} selftest", detail)
             failures.append(path.name)
     if failures:
         record("FAIL", "all script and hook self-tests pass", ", ".join(failures))

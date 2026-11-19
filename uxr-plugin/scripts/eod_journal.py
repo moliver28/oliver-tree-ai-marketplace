@@ -21,7 +21,7 @@ from datetime import date as _date, timedelta
 from pathlib import Path
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
-FIXTURES = PLUGIN_ROOT / "tests" / "fixtures" / "eod"
+FIXTURES = (PLUGIN_ROOT if (PLUGIN_ROOT / "tests").is_dir() else PLUGIN_ROOT.parent) / "tests" / "fixtures" / "eod"
 
 
 def _day_list(spec: str, today: _date | None = None) -> list[str]:

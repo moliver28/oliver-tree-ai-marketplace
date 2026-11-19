@@ -25,9 +25,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-PLUGIN_ROOT = Path(__file__).resolve().parent.parent
-FIXTURES = PLUGIN_ROOT / "tests" / "fixtures"
-GOLDENS = PLUGIN_ROOT / "tests" / "goldens"
+#: repo root (this tree lives at <repo>/tests, outside the installed plugin)
+REPO_ROOT = Path(__file__).resolve().parent.parent
+PLUGIN_ROOT = REPO_ROOT / "uxr-plugin"
+FIXTURES = REPO_ROOT / "tests" / "fixtures"
+GOLDENS = REPO_ROOT / "tests" / "goldens"
 HASHES = GOLDENS / "hashes.json"
 
 #: fixture expected-output files, each pinned by hash (the parity targets)
@@ -55,7 +57,7 @@ def _sha256(path: Path) -> str:
 
 def _pinned(path: Path, hashes: dict) -> str | None:
     """One failure line when the file's hash is pinned and has moved."""
-    key = path.relative_to(PLUGIN_ROOT).as_posix().replace("\\", "/")
+    key = path.relative_to(REPO_ROOT).as_posix().replace("\\", "/")
     want = hashes.get(key)
     if want is None:
         return None
