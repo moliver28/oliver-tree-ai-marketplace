@@ -3,35 +3,21 @@ description: "Fill one study with participants: internal calendar-slot outreach 
 argument-hint: "<KEY> [--recruit=<name>] [--reply=<name>] [--level=i|ii|iii] [--external] [--status] [--check] [--dry-run]"
 ---
 
-Recruit participants for one study in a single command. The internal flow
-(default) offers calendar slots, drafts a chat DM and an email, places
-private holds, and tracks replies. The external flow (`--external`) sizes
-the eligible group, sources contacts, applies exclusions, builds a booking
-page, drafts the mail merge, and stops exactly once at the pre-send review.
-Every run ends with the recruitment table from `scripts/recruit_funnel.py`.
+Recruit participants for one study: internal flow (default) offers calendar
+slots, drafts a chat DM and email, places private holds, tracks replies;
+the external flow (`--external`) sizes the group, sources contacts, applies
+exclusions, builds a booking page, drafts the mail merge, and stops exactly
+once at the pre-send review. Every run ends with the recruitment table from
+`scripts/recruit_funnel.py`.
 
-## Safety rules (read before any step; they override everything below)
+## Safety rules (they override everything below)
 
-1. **Drafts only.** Never send a chat message or an email. The single
-   exception is the external self-test, which goes only to the user's own
-   inbox.
-2. **Per-move consent.** Every event move needs its own "go" for that one
-   proposal. A private hold with no attendees is the only event created
-   without a separate go.
-3. **Never move** an event that has an attendee outside
-   `org.internal_domains`, whatever the level or `--allow`. At most 3 moves
-   per recruit per run (`calendar.max_moves_per_recruit`).
-4. **Exclusions fail closed.** If the do-not-contact tab or the open-deal
-   list cannot be read, stop. `scripts/source_contacts.py` exits 2; never
-   improvise around it.
-5. **Customer personal data stays in the spreadsheet store.** No customer
-   email or account list goes into the repository, the ticket (outside
-   engaged roster rows), or chat logs. Refer to a contact as account plus
-   first name. `recruit_funnel.py` scrubs emails from its output; do not
-   paste them back in.
-6. **No URL in a mail draft body** when the mail tool rewrites links: keep
-   the booking link in its merge column, or print it for the user to paste.
-   Retest with check V2 on the user's own mail tool.
+1. **Drafts only.** Never send a chat message or email; the sole exception is the external self-test, to the user's own inbox only.
+2. **Per-move consent.** Every event move needs its own "go"; a private hold with no attendees is the only event created without one.
+3. **Never move** an event with an attendee outside `org.internal_domains`, whatever the level or `--allow`. Max 3 moves per recruit per run (`calendar.max_moves_per_recruit`).
+4. **Exclusions fail closed.** If the do-not-contact tab or open-deal list cannot be read, stop. `scripts/source_contacts.py` exits 2; never improvise around it.
+5. **Customer personal data stays in the spreadsheet store.** No customer email or account list in the repository, the ticket (outside engaged roster rows), or chat logs. Refer to a contact as account + first name. `recruit_funnel.py` scrubs emails from its output; do not paste them back in.
+6. **No URL in a mail draft body** when the mail tool rewrites links: keep the booking link in its merge column or print it for the user. Retest with check V2 on the user's own mail tool.
 7. `--dry-run` writes nothing: no spec change, no event, no draft.
 
 ## Inputs
