@@ -45,8 +45,7 @@ the user and stops; do not pre-fill the next phase while waiting.
 ### Phase 1. Topic and scope (**Wait**)
 
 Run `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render new-intake --set "pod_options=<comma list of the configured fields.pod values, joined with , or>"`,
-print its stdout verbatim, and stop. (Sample: `Three quick things before I
-run the evidence sweep:` then the three numbered questions.)
+print its stdout verbatim, and stop.
 
 ### Phase 2. Evidence sweep (no waiting after it)
 
