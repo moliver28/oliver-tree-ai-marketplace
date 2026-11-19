@@ -29,12 +29,15 @@ Public API:
     state_path() -> Path
     effective_rules() -> dict (patterns/exemplars/thresholds + provenance)
 """
+import http.client
+import ipaddress
 import json
 import math
 import os
 import re
+import socket
 import unicodedata
-import urllib.request
+import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -366,24 +369,85 @@ def _log_vec(event, detail):
         pass
 
 
+def _post_json(url: str, body: dict, timeout: float) -> dict:
+    """POST JSON to the configured model server. http is allowed only for
+    loopback/link-local hosts (the local model server); https elsewhere.
+    No userinfo; redirects are never followed."""
+    parts = urllib.parse.urlsplit(url)
+    host = (parts.hostname or "").lower()
+    if parts.username or parts.password or not host:
+        raise ValueError("endpoint must have a plain hostname")
+    if parts.scheme == "https":
+        conn_cls = http.client.HTTPSConnection
+    elif parts.scheme == "http":
+        _require_local(host)
+        conn_cls = http.client.HTTPConnection
+    else:
+        raise ValueError("only https, or http to a local model server, is supported")
+    port = parts.port or (443 if parts.scheme == "https" else 80)
+    path = parts.path or "/"
+    if parts.query:
+        path += "?" + parts.query
+    conn = conn_cls(host, port, timeout=timeout)
+    try:
+        conn.request("POST", path, body=json.dumps(body).encode(),
+                     headers={"Content-Type": "application/json"})
+        payload = conn.getresponse().read()
+    finally:
+        conn.close()
+    return json.loads(payload)
+
+
+def _is_local_ip(ip_text: str) -> bool:
+    ip = ipaddress.ip_address(ip_text)
+    return ip.is_loopback or ip.is_link_local
+
+
+def _require_local(host: str) -> None:
+    """Every resolved address must be loopback/link-local."""
+    for _family, _type, _proto, _canon, sockaddr in socket.getaddrinfo(host, None):
+        if not _is_local_ip(sockaddr[0]):
+            raise ValueError(f"{host} resolves outside loopback/link-local")
+
+
 def _embed_ollama(text, timeout=EMBED_TIMEOUT_S):
-    req = urllib.request.Request(
-        OLLAMA_URL,
-        data=json.dumps({"model": MODEL, "prompt": text[:MAX_EMBED_CHARS]}).encode(),
-        headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read())["embedding"]
+    return _post_json(OLLAMA_URL, {"model": MODEL, "prompt": text[:MAX_EMBED_CHARS]},
+                      timeout)["embedding"]
 
 
 def _download(url, dest):
     tmp = dest.with_suffix(dest.suffix + ".part")
-    req = urllib.request.Request(url, headers={"User-Agent": "voice-gate"})
-    with urllib.request.urlopen(req, timeout=120) as r, open(tmp, "wb") as f:
-        while True:
-            b = r.read(1 << 20)
-            if not b:
-                break
-            f.write(b)
+    for _hop in range(4):
+        parts = urllib.parse.urlsplit(url)
+        host = (parts.hostname or "").lower()
+        if parts.username or parts.password or not host:
+            raise ValueError("endpoint must have a plain hostname")
+        if parts.scheme == "https":
+            conn_cls = http.client.HTTPSConnection
+        elif parts.scheme == "http":
+            _require_local(host)
+            conn_cls = http.client.HTTPConnection
+        else:
+            raise ValueError("downloads are https (or http to a local server) only")
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+        path = parts.path or "/"
+        if parts.query:
+            path += "?" + parts.query
+        conn = conn_cls(host, port, timeout=120)
+        try:
+            conn.request("GET", path, headers={"User-Agent": "voice-gate"})
+            resp = conn.getresponse()
+            if resp.status in (301, 302, 303, 307, 308):
+                url = urllib.parse.urljoin(url, resp.getheader("Location") or "")
+                continue
+            body = resp.read()
+        finally:
+            conn.close()
+        break
+    else:
+        raise ValueError("too many redirects")
+    with tmp.open("wb") as f:
+        f.write(body)
     tmp.replace(dest)
 
 

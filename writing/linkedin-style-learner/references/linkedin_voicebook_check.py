@@ -21,8 +21,38 @@ Exit codes: 0 = pass; 1 = hard fail (blocked); 2 = pass with warnings.
 Usage:
   linkedin_voicebook_check.py --post FILE --log LOG [--variant V1..V5] [--record]
 """
-import argparse, hashlib, json, os, re, sys
+import argparse, hashlib, http.client, ipaddress, json, os, re, socket, sys, urllib.parse
 from pathlib import Path
+
+
+def _fetch_page(url: str, timeout: float) -> str:
+    """GET an https page: no userinfo, resolved hosts must be public (no
+    loopback/link-local/private/metadata ranges); redirects are followed
+    manually up to 3 hops with re-validation per hop."""
+    for _hop in range(4):
+        parts = urllib.parse.urlsplit(url)
+        host = (parts.hostname or "").lower()
+        if parts.scheme != "https" or parts.username or parts.password or not host:
+            raise ValueError("only plain https URLs are fetched")
+        infos = socket.getaddrinfo(host, parts.port or 443, type=socket.SOCK_STREAM)
+        ips = [ipaddress.ip_address(info[4][0]) for info in infos]
+        if not ips or any(ip.is_loopback or ip.is_link_local or ip.is_multicast
+                          or ip.is_unspecified
+                          or (ip.is_private and not ip.is_global) for ip in ips):
+            raise ValueError(f"{host} resolves into a refused range")
+        conn = http.client.HTTPSConnection(host, parts.port or 443, timeout=timeout)
+        try:
+            conn.request("GET", (parts.path or "/") + ("?" + parts.query if parts.query else ""),
+                         headers={"User-Agent": "facebookexternalhit/1.1"})
+            resp = conn.getresponse()
+            if resp.status in (301, 302, 303, 307, 308):
+                url = urllib.parse.urljoin(url, resp.getheader("Location") or "")
+                continue
+            page = resp.read().decode("utf-8", "replace")
+        finally:
+            conn.close()
+        return page
+    raise ValueError("too many redirects")
 
 VARIANTS = ["V1", "V2", "V3", "V4", "V5"]
 
@@ -668,11 +698,8 @@ def main():
     # S5 og metadata on the linked URL (drives LinkedIn preview + search)
     if a.check_og and url:
         import time as _time
-        import urllib.request
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "facebookexternalhit/1.1"})
-            with urllib.request.urlopen(req, timeout=15) as r:
-                page = r.read().decode("utf-8", "replace")
+            page = _fetch_page(url, timeout=15)
             mt = re.search(r'<meta property="og:title" content="([^"]*)"', page)
             md = re.search(r'<meta (?:property="og:description"|name="description") content="([^"]*)"', page)
             t_ok = bool(mt) and "notion" not in mt.group(1).lower()[:7]
