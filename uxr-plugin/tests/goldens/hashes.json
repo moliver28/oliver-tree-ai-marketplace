@@ -18,9 +18,12 @@
   "tests/fixtures/classify/reply-slot.json": "dbc5af1f70284f9cfd4375d607d8e0aba785c6d408209a90b4f7773af9dd183d",
   "tests/fixtures/classify/route-content.json": "45db881736dc6dbb8818a1db8ee439a2d91044f508bd74b357cf4f9f9586b5b0",
   "tests/fixtures/classify/route-render.json": "cd2372ead10efeb5e7ead576cc1c21ca279e928bd622c204fd480295c2197821",
+  "tests/fixtures/debrief/recap-golden.expected.txt": "67118c00c7bbdb3905093d8de810c2aba543281a7d824ce69f797322abc2c393",
   "tests/fixtures/eod/journal-2026-11-17.jsonl": "0dbf2e1f929ccd0d7c4ff15e662d537f5a96514eb509732817e5fac3749edfe3",
   "tests/fixtures/evidence/digest-empty.json": "ca4a307424ce6875dd26dcfe8db92995439a3388549478d53224f0c9ff78298b",
+  "tests/fixtures/gates/blocked-move.expected.txt": "3942439d232583becf37605246ede26421c21ac1c2c8b01346f95c28dd87b6bb",
   "tests/fixtures/prompts/config-setup/case-default.json": "0e2dad66f53b5f1274b4b2b78f3fc1a58955d8ce81ec78feec11496339b5b947",
+  "tests/fixtures/prompts/distribution/case-lite-carried.json": "8eed16762397c48cc22f2f99126364d196146bfa2089f87f4b4eb9ff6b556cc6",
   "tests/fixtures/prompts/distribution/case-lite-golden.json": "5bfe2f7c7b325ef27aca5ce4d0029a54fe788af1b74dea0fcdae18ae22d9263f",
   "tests/fixtures/prompts/distribution/case-standard.json": "3f2ed269df5ba450660d32ebd170fd759ee85673156d67bdd4eb8f23e652fae5",
   "tests/fixtures/prompts/distribution/case-strategic.json": "0afcb71abfb9aefee1af59f84d08353996d2c2466c018f3c02d30eabbd1fbf3f",
@@ -48,6 +51,5 @@
   "tests/goldens/uc-5-checklist-move.md": "e5c61f45030fc10c2381af3fef467320155aaf12f3966466c14c349d75f69d28",
   "tests/goldens/uc-6-analysis-debrief-report.md": "64feb31a458fe9f74179dfe4d05d443faaaeeb31d4b12fdef0797359c3d261f2",
   "tests/goldens/uc-7-sync-push.md": "1f6efa4091274aef7528f4ae4ee46c997af7904fbb434f818770e75e538701aa",
-  "tests/goldens/uc-8-gates-maintenance.md": "4f6096fd74e050756cfb006a32b80ff131182ee7420a3c4cc2a3c36997f45fc3",
-  "tests/fixtures/prompts/distribution/case-lite-carried.json": "8eed16762397c48cc22f2f99126364d196146bfa2089f87f4b4eb9ff6b556cc6"
+  "tests/goldens/uc-8-gates-maintenance.md": "4f6096fd74e050756cfb006a32b80ff131182ee7420a3c4cc2a3c36997f45fc3"
 }

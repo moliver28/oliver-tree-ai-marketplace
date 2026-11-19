@@ -3,14 +3,15 @@
 
 Parametrized over the fixture cases under ``tests/fixtures/``: every
 deterministic artifact (mine table, show card, evidence synthesis block,
-classifier verdicts, prompt renders, eod grouping, RQ map, slot picks) is
-regenerated through the same functions the commands call and compared
-against its committed expected output; the expected outputs and the
-baseline goldens in ``tests/goldens/`` are hash-pinned in
-``tests/goldens/hashes.json`` so the parity targets cannot drift
-silently. The baseline goldens carry ``<!-- DIFFERS: Fid -->`` markers on
-the four sections W1 changed; everything outside a DIFFERS pair is the
-byte-parity target.
+classifier verdicts, prompt renders, eod grouping, RQ map, slot picks,
+recap draft, blocked-move line) is regenerated through the same functions
+the commands call and compared against its committed expected output; the
+expected outputs and the baseline goldens in ``tests/goldens/`` are
+hash-pinned in ``tests/goldens/hashes.json`` so the parity targets cannot
+drift silently. The baseline goldens carry ``<!-- DIFFERS: Fid -->``
+markers on the four sections W1 changed (plus ``D1``/``D2`` on the two
+by-design deltas ratified separately); everything outside a DIFFERS pair
+is the byte-parity target.
 
 Run: ``python tests/test_parity.py`` (also wired into the repo-level
 ``scripts/verify.py``). Exit 0 = all parity gates green.
@@ -32,7 +33,8 @@ HASHES = GOLDENS / "hashes.json"
 #: fixture expected-output files, each pinned by hash (the parity targets)
 EXPECTED_GLOBS = ["render/*.expected.txt", "evidence/*.json", "spec/*.json",
                   "calendar/window.json", "eod/*.jsonl", "classify/*.json",
-                  "prompts/*/*.json"]
+                  "prompts/*/*.json", "debrief/*.expected.txt",
+                  "gates/*.expected.txt"]
 
 #: the fixture-driven modules whose selftests regenerate every artifact above
 SELFTESTS = [
@@ -40,6 +42,7 @@ SELFTESTS = [
     "scripts/classify.py", "scripts/evidence_sweep.py",
     "scripts/eod_journal.py", "scripts/calendar_prep.py",
     "scripts/trace_prompts.py", "scripts/backfill_spec.py",
+    "lib/phase_gates.py", "references/debrief_helpers.py",
 ]
 
 
