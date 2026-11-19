@@ -38,12 +38,15 @@ CLI (exit codes: 0 pass / 1 not ready / 2 usage or config / 4 selftest)::
 
     python lib/phase_gates.py check --status "Recruiting" --spec spec.json --fields fields.json
     python lib/phase_gates.py suggest --status "Recruiting" --spec spec.json --fields fields.json
+    python lib/phase_gates.py missing --json check-output.json --key UXR-101
     python lib/phase_gates.py --selftest
 
 ``check`` prints one JSON object: ``{"target", "gated", "ok", "missing"}``
 where every ``missing`` entry is ``{"item", "fix"}`` and ``fix`` is the
 ``edit`` shorthand that closes the gap. ``suggest`` prints the suggested
-phase name, or nothing when there is no suggestion.
+phase name, or nothing when there is no suggestion. ``missing`` prints the
+blocked-move lines for a ``check`` output (one per missing item, golden
+format), which the command prints verbatim.
 """
 
 from __future__ import annotations
@@ -412,6 +415,30 @@ def edit_fix(item: str) -> str:
     return ""
 
 
+def missing_lines(items: Any, key: str) -> list[str]:
+    """The blocked-move lines, one per gate-JSON ``missing`` entry.
+
+    ``items`` is the ``check`` output itself (the ``{"target", "gated",
+    "ok", "missing"}`` object) or the bare ``missing`` list. A ``spec
+    check failed: <predicate>`` item renders its predicate in single
+    quotes (the golden format); every other item renders verbatim. The
+    ``-> run edit`` part drops when the entry carries no fix. Gate
+    semantics stay in ``check``: this only formats what ``check`` emitted.
+    """
+    if isinstance(items, dict):
+        items = items.get("missing")
+    lines: list[str] = []
+    for entry in items if isinstance(items, list) else []:
+        if isinstance(entry, dict):
+            item, fix = str(entry.get("item") or ""), str(entry.get("fix") or "")
+        else:
+            item, fix = str(entry), ""
+        if item.startswith("spec check failed: "):
+            item = "spec check failed: '" + item[len("spec check failed: "):].strip() + "'"
+        lines.append(f"missing: {item}" + (f" -> run edit {key} {fix}" if fix else ""))
+    return lines
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -419,11 +446,14 @@ def edit_fix(item: str) -> str:
 USAGE = """usage:
   python lib/phase_gates.py check --status "<status>" --spec <spec.json> [--fields <fields.json>]
   python lib/phase_gates.py suggest --status "<status>" --spec <spec.json> [--fields <fields.json>]
+  python lib/phase_gates.py missing --json <check-output.json|-> --key <KEY>
   python lib/phase_gates.py --selftest
 
 Pass `--spec -` or `--fields -` to read that JSON from stdin (at most one
 of them per run). A missing spec file counts as an empty spec (spec checks
-fail closed). Exit codes: 0 pass, 1 not ready, 2 usage or config, 4
+fail closed). `missing` prints one blocked-move line per missing item of a
+`check` output (pass the JSON via a file or `--json -`), in the golden
+format. Exit codes: 0 pass, 1 not ready, 2 usage or config, 4
 self-test failed."""
 
 
@@ -567,6 +597,39 @@ def _cli_suggest(rest: list[str]) -> int:
     return 0
 
 
+def _cli_missing(rest: list[str]) -> int:
+    json_arg: str | None = None
+    key = ""
+    index = 0
+    while index < len(rest):
+        arg = rest[index]
+        if arg == "--json" and index + 1 < len(rest):
+            json_arg = rest[index + 1]
+            index += 2
+            continue
+        if arg == "--key" and index + 1 < len(rest):
+            key = rest[index + 1]
+            index += 2
+            continue
+        print(f"missing: unknown or incomplete argument {arg!r}\n\n{USAGE}", file=sys.stderr)
+        return 2
+    if not json_arg or not key:
+        print(f"missing: --json and --key are required\n\n{USAGE}", file=sys.stderr)
+        return 2
+    try:
+        data = (
+            json.loads(sys.stdin.read() or "{}")
+            if json_arg == "-"
+            else _read_json_arg(json_arg, "json")
+        )
+    except ValueError as exc:
+        print(f"missing: {exc}", file=sys.stderr)
+        return 2
+    for line in missing_lines(data, key):
+        print(line)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     _force_utf8_stdio()
     args = list(sys.argv[1:] if argv is None else argv)
@@ -579,6 +642,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cli_check(args[1:])
     if args and args[0] == "suggest":
         return _cli_suggest(args[1:])
+    if args and args[0] == "missing":
+        return _cli_missing(args[1:])
     print(USAGE)
     return 2
 
@@ -780,6 +845,35 @@ def _selftest() -> int:
         and edit_fix("spec check failed: results_filled") == "results=<text>"
         and edit_fix("phase gate crashed on malformed input: x") == "",
     )
+
+    # --- missing_lines (the blocked-move golden format) -------------------------
+    check(
+        "missing_lines quotes the spec-check predicate",
+        missing_lines([{"item": "spec check failed: roster_has_scheduled",
+                        "fix": "roster~=Name|status=Scheduled"}], "UXR-101")
+        == ["missing: spec check failed: 'roster_has_scheduled' -> run edit UXR-101 roster~=Name|status=Scheduled"],
+    )
+    check(
+        "missing_lines renders other items verbatim and drops an empty fix",
+        missing_lines([{"item": "field 'research_method' is not set", "fix": ""}], "ABC-42")
+        == ["missing: field 'research_method' is not set"],
+    )
+    check(
+        "missing_lines accepts the whole check output",
+        missing_lines({"ok": False, "missing": [{"item": "spec check failed: results_filled",
+                                                 "fix": "results=<text>"}]}, "UXR-101")
+        == ["missing: spec check failed: 'results_filled' -> run edit UXR-101 results=<text>"],
+    )
+    gates_fixture = PLUGIN_ROOT / "tests" / "fixtures" / "gates"
+    blocked_path, blocked_expected = gates_fixture / "blocked-move.json", gates_fixture / "blocked-move.expected.txt"
+    if blocked_path.is_file() and blocked_expected.is_file():
+        case = json.loads(blocked_path.read_text(encoding="utf-8"))
+        got = missing_lines(case, case["key"])
+        check("blocked-move fixture byte-matches the golden line",
+              "\n".join(got) + ("\n" if got else "") == blocked_expected.read_text(encoding="utf-8"),
+              repr(got))
+    else:
+        check("blocked-move fixture present", False, "missing tests/fixtures/gates")
 
     # --- build_field_state --------------------------------------------------------------
     check(

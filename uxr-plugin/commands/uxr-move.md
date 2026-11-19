@@ -75,15 +75,17 @@ spec file.
 
    Exit codes: 0 means the gate passed (an ungated target passes with an
    empty missing list); 1 means blocked; 2 is a usage or config error --
-   print the error and stop. On 1, print one line per missing item, using
-   the item and fix from the gate's JSON output:
+   print the error and stop. On 1, save the gate's JSON output to a
+   temporary file and print verbatim the output of:
 
-   `missing: field 'research_method' -> run edit ABC-42 method=...`
+   `python "${CLAUDE_PLUGIN_ROOT}/lib/phase_gates.py" missing --json <file> --key <KEY>`
 
-   (`missing: <item> -> run edit <KEY> <fix>`; drop the `->` part when the
-   fix is empty.) Then stop. `set_state` is never called for a blocked
-   move. Offer nothing beyond the fix lines until the user changes
-   something.
+   one line per missing item, in the golden format:
+
+   `missing: spec check failed: 'roster_has_scheduled' -> run edit UXR-101 roster~=Name|status=Scheduled`
+
+   Then stop. `set_state` is never called for a blocked move. Offer nothing
+   beyond the fix lines until the user changes something.
 
 7. **Finish checks** -- only when the resolved target is Done (the same
    contains match against `Done`). Warn, never block; show all gaps
