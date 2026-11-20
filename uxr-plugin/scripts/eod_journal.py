@@ -186,7 +186,6 @@ def main(argv: list[str] | None = None) -> int:
 
 def _selftest() -> int:
     print("scripts/eod_journal.py selftest")
-    import tempfile
     failures: list[str] = []
 
     def check(name: str, ok: bool, detail: str = "") -> None:

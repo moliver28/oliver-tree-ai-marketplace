@@ -189,7 +189,6 @@ def _selftest() -> int:
     if golden_path.is_file():
         case = json.loads(golden_path.read_text(encoding="utf-8"))
         out = digest(case["results"], case["topic"], False, case.get("topic_class", ""))
-        block = out["synthesis_block"] + "\n- Owning group: Onboarding (from the ask alone; no evidence to cluster)\n- Hypotheses in flight: none surfaced (all sources unavailable)\n- Pain strength: low\n- Stakeholders:\n"
         expected_head = "\n".join(case["expect_block_head"])
         check("digest empty-sweep table", out["synthesis_block"].startswith(expected_head),
               out["synthesis_block"][:200])
