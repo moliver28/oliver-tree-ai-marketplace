@@ -48,6 +48,7 @@ if str(PLUGIN_ROOT) not in sys.path:
 
 import analytics_common  # noqa: E402
 from provenance import failure_kind  # noqa: E402  (same hooks/ directory)
+from lib.util import load_config as _load_config  # noqa: E402  (shared plumbing)
 
 #: How much transcript tail to scan for a plugin agent name, in bytes.
 TAIL_BYTES = 262144
@@ -72,16 +73,6 @@ COMMAND_DEDUP_FILENAME = "command-dedup.json"
 
 #: Upper bound on kept dedup entries (oldest dropped on write).
 COMMAND_DEDUP_MAX_ENTRIES = 200
-
-
-def _load_config() -> dict | None:
-    """Load the plugin config through the one loader; None on any failure."""
-    try:
-        from lib.config import load_config
-
-        return load_config()
-    except Exception:
-        return None
 
 
 def plugin_agents(agents_dir=None) -> list[str]:

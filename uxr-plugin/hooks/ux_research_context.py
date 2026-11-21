@@ -29,31 +29,11 @@ import sys
 from pathlib import Path
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+if str(PLUGIN_ROOT) not in sys.path:
+    sys.path.insert(0, str(PLUGIN_ROOT))
+
+from lib.util import ENV_RESEARCH_DIRS, load_config as _load_config, resolve as _resolve  # noqa: E402  (shared plumbing)
 OVERVIEW_MARKER = "00-overview.md"
-ENV_RESEARCH_DIRS = "UXR_RESEARCH_DIRS"
-
-
-def _resolve(path) -> Path:
-    """Expand and resolve a path; fall back to the absolute form on failure."""
-    try:
-        return Path(path).expanduser().resolve()
-    except OSError:
-        try:
-            return Path(path).expanduser().absolute()
-        except OSError:
-            return Path(path)
-
-
-def _load_config() -> dict | None:
-    """Load the plugin config through the one loader; None on any failure."""
-    try:
-        if str(PLUGIN_ROOT) not in sys.path:
-            sys.path.insert(0, str(PLUGIN_ROOT))
-        from lib.config import load_config
-
-        return load_config()
-    except Exception:
-        return None
 
 
 def _research_roots(config: dict | None, environ: dict) -> list[str]:

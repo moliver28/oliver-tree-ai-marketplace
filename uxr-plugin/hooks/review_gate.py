@@ -48,6 +48,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+if str(PLUGIN_ROOT) not in sys.path:
+    sys.path.insert(0, str(PLUGIN_ROOT))
+
+from lib.util import (
+    find_workspace,
+    load_config as _load_config,
+    resolve as _resolve,
+    utcnow as _utcnow,
+)  # noqa: E402  (shared plumbing)
 
 AGENT_NAME = "hcd-researcher"
 OVERVIEW_MARKER = "00-overview.md"
@@ -84,34 +93,6 @@ TRANSCRIPT_SCAN_BYTES = 262_144
 # ---------------------------------------------------------------------------
 
 
-def _utcnow() -> str:
-    """ISO 8601 UTC time with a ``Z`` suffix, second precision."""
-    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-
-
-def _resolve(path) -> Path:
-    """Expand and resolve a path; fall back to the absolute form on failure."""
-    try:
-        return Path(path).expanduser().resolve()
-    except OSError:
-        try:
-            return Path(path).expanduser().absolute()
-        except OSError:
-            return Path(path)
-
-
-def _load_config() -> dict | None:
-    """Load the plugin config through the one loader; None on any failure."""
-    try:
-        if str(PLUGIN_ROOT) not in sys.path:
-            sys.path.insert(0, str(PLUGIN_ROOT))
-        from lib.config import load_config
-
-        return load_config()
-    except Exception:
-        return None
-
-
 def _strip_anchors(pattern: str) -> str:
     """Drop one leading ``^`` and one trailing ``$`` from a regex string.
 
@@ -138,17 +119,6 @@ def _ticket_regex(config: dict | None):
         except re.error:
             pass
     return FALLBACK_KEY_RE
-
-
-def find_workspace(cwd) -> Path | None:
-    """The cwd, or its nearest ancestor, holding ``.sessions/`` or ``00-overview.md``."""
-    real = _resolve(cwd)
-    if (real / SESSIONS_DIRNAME).is_dir() or (real / OVERVIEW_MARKER).is_file():
-        return real
-    for parent in real.parents:
-        if (parent / SESSIONS_DIRNAME).is_dir() or (parent / OVERVIEW_MARKER).is_file():
-            return parent
-    return None
 
 
 def _overview_text(workspace: Path) -> str:

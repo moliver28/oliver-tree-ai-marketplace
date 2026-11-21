@@ -58,43 +58,17 @@ from provenance import (  # noqa: E402  (same hooks/ directory)
     ticket_regex,
     write_workspace_manifests,
 )
+from lib.util import load_config as _load_config, research_roots  # noqa: E402  (shared plumbing)
 
 SNIPPET_CHARS = 280
 EDIT_TOOLS = ("Edit", "Write", "MultiEdit", "NotebookEdit")
 COMMAND_TAG_START = "<command-name>"
 COMMAND_TAG_END = "</command-name>"
-ENV_RESEARCH_DIRS = "UXR_RESEARCH_DIRS"
-
-
-def _load_config() -> dict | None:
-    """Load the plugin config through the one loader; None on any failure."""
-    try:
-        from lib.config import load_config
-
-        return load_config()
-    except Exception:
-        return None
 
 
 def local_now() -> str:
     """ISO 8601 local time with offset, second precision."""
     return datetime.now().astimezone().isoformat(timespec="seconds")
-
-
-def research_roots(config: dict | None, environ=None) -> list[str]:
-    """Candidate research roots: UXR_RESEARCH_DIRS entries, then the config path."""
-    environ = os.environ if environ is None else environ
-    roots: list[str] = []
-    for part in str(environ.get(ENV_RESEARCH_DIRS) or "").split(os.pathsep):
-        if part.strip():
-            roots.append(part.strip())
-    if isinstance(config, dict):
-        value = config.get("paths", {})
-        if isinstance(value, dict):
-            root = value.get("research_root")
-            if isinstance(root, str) and root.strip():
-                roots.append(root)
-    return roots
 
 
 def normalize_commands(text: str, commands_dir=None, plugin_root=None) -> list[str]:

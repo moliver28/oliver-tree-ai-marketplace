@@ -65,6 +65,13 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
+from lib.util import (
+    find_workspace,
+    load_config as _load_config,
+    resolve as _resolve,
+    utcnow as _utcnow,
+)  # noqa: E402  (shared plumbing)
+
 SESSIONS_DIRNAME = ".sessions"
 PROVENANCE_FILE = "provenance.jsonl"
 SOURCES_INDEX_FILE = "sources-index.json"
@@ -135,35 +142,9 @@ ID_PREFIX = {
 # ---------------------------------------------------------------------------
 
 
-def _utcnow() -> str:
-    """ISO 8601 UTC time with a ``Z`` suffix, second precision."""
-    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-
-
 def hash12(text: str) -> str:
     """First 12 hex characters of the SHA-256 of ``text`` (UTF-8)."""
     return hashlib.sha256(str(text).encode("utf-8")).hexdigest()[:12]
-
-
-def _resolve(path) -> Path:
-    """Expand and resolve a path; fall back to the absolute form on failure."""
-    try:
-        return Path(path).expanduser().resolve()
-    except OSError:
-        try:
-            return Path(path).expanduser().absolute()
-        except OSError:
-            return Path(path)
-
-
-def _load_config() -> dict | None:
-    """Load the plugin config through the one loader; None on any failure."""
-    try:
-        from lib.config import load_config
-
-        return load_config()
-    except Exception:
-        return None
 
 
 def strip_anchors(pattern: str) -> str:
@@ -305,17 +286,6 @@ def _atomic_write(path: Path, text: str) -> bool:
             for leftover in path.parent.glob(f"{path.name}*.tmp"):
                 leftover.unlink(missing_ok=True)
         return False
-
-
-def find_workspace(cwd) -> Path | None:
-    """The cwd, or its nearest ancestor, holding ``.sessions/`` or ``00-overview.md``."""
-    real = _resolve(cwd)
-    if (real / SESSIONS_DIRNAME).is_dir() or (real / OVERVIEW_MARKER).is_file():
-        return real
-    for parent in real.parents:
-        if (parent / SESSIONS_DIRNAME).is_dir() or (parent / OVERVIEW_MARKER).is_file():
-            return parent
-    return None
 
 
 # ---------------------------------------------------------------------------

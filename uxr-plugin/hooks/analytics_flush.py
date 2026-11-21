@@ -41,22 +41,13 @@ if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
 import analytics_common  # noqa: E402
+from lib.util import load_config as _load_config  # noqa: E402  (shared plumbing)
 
 BATCH_LINES = 100
 REQUEST_TIMEOUT = 2.5
 TOTAL_BUDGET = 3.0
 OFFSET_FILE = "flush-offsets.json"
 NOTICE_FILE = "analytics-notice"
-
-
-def _load_config() -> dict | None:
-    """Load the plugin config through the one loader; None on any failure."""
-    try:
-        from lib.config import load_config
-
-        return load_config()
-    except Exception:
-        return None
 
 
 class _Rejected(Exception):
