@@ -1,7 +1,7 @@
 {
   "name": "humanizer-voice",
-  "description": "Rewrites copy in the user's learned voice and runs a quiet AI-tell gate. Use when the user says: '/voice polish this post', 'make this sound like me', 'humanize this draft before it ships', 'de-AI my blog intro'.",
-  "version": "0.2.0",
+  "description": "Learns the user's writing voice with deterministic tools, rewrites copy in it via /voice, and gates delivery quietly. Use when the user says: '/voice polish this post', 'make this sound like me', 'humanize this draft before it ships'.",
+  "version": "1.0.0",
   "author": {
     "name": "Michael Oliver"
   },
