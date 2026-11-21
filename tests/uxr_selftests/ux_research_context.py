@@ -86,9 +86,8 @@ def _selftest() -> int:
             repr(output[:120]),
         )
         check(
-            "context text names the tracker and the routing note",
-            bool(specific) and "Tracker:" in specific["additionalContext"]
-            and "Routing:" in specific["additionalContext"],
+            "context text is the one routing-pointer line",
+            bool(specific) and specific["additionalContext"] == CONTEXT_LINE,
             repr(specific.get("additionalContext", "")[:200]),
         )
 

@@ -7,8 +7,8 @@ inside a research root -- ``paths.research_root`` from the config contract,
 or a directory in the ``UXR_RESEARCH_DIRS`` environment variable (entries
 separated by the platform path separator) -- or when the working directory
 or a parent below ``$HOME`` holds ``00-overview.md``. With the gate open it
-prints one SessionStart ``additionalContext`` JSON object naming the plugin's
-commands, the tracker constants, and the routing note. Otherwise it prints
+prints one SessionStart ``additionalContext`` JSON object: a single
+routing-pointer line (MO-approved trim 2026-11-20). Otherwise it prints
 nothing.
 
 Hook contract (all hooks in this plugin):
@@ -76,58 +76,19 @@ def _gate_open(
     return False
 
 
-def _commands_line() -> str:
-    """List the shipped slash commands; empty while none exist."""
-    try:
-        names = sorted(path.stem for path in (PLUGIN_ROOT / "commands").glob("*.md"))
-    except OSError:
-        return ""
-    if not names:
-        return ""
-    return "Commands: " + ", ".join(f"/uxr-plugin:{name}" for name in names)
-
-
-def _tracker_line(config: dict | None) -> str:
-    if not config:
-        return "Tracker: not configured (copy config/org.example.yaml to config/org.yaml)."
-    tracker = config.get("tracker", {}) if isinstance(config.get("tracker"), dict) else {}
-    parts: list[str] = []
-    if tracker.get("kind"):
-        parts.append(str(tracker["kind"]))
-    if tracker.get("project_key"):
-        parts.append(f"project {tracker['project_key']}")
-    if tracker.get("ticket_regex"):
-        parts.append(f"ticket keys match {tracker['ticket_regex']}")
-    if tracker.get("bare_number_prefix"):
-        parts.append(f"bare numbers become {tracker['bare_number_prefix']}-<n>")
-    if not parts:
-        return "Tracker: not configured (copy config/org.example.yaml to config/org.yaml)."
-    return "Tracker: " + ", ".join(parts)
-
-
-def _routing_note(config: dict | None) -> str:
-    default = ""
-    if config and isinstance(config.get("routing"), dict):
-        default = str(config["routing"].get("default_researcher") or "")
-    if default:
-        return (
-            "Routing: each study belongs to its product area's researcher; "
-            f"default owner {default}."
-        )
-    return (
-        "Routing: each study belongs to its product area's researcher; "
-        "fall back to routing.default_researcher."
-    )
+#: The one line injected at session start. Commands are natively
+#: discoverable in the session UI; tracker constants and the routing
+#: default live in config/org.yaml and are read on demand.
+CONTEXT_LINE = (
+    "UX research workspace detected. uxr-plugin workflows are active. "
+    "Route study requests via the ux-research-tickets skill or "
+    "/uxr-plugin:uxr-<command>; config: config/org.yaml."
+)
 
 
 def _context_text(config: dict | None) -> str:
-    lines = [
-        "UX research workspace detected. The uxr-plugin workflows are active.",
-        _commands_line(),
-        _tracker_line(config),
-        _routing_note(config),
-    ]
-    return "\n".join(line for line in lines if line)
+    """The single routing-pointer line (config kept for signature stability)."""
+    return CONTEXT_LINE
 
 
 def _session_start_output(

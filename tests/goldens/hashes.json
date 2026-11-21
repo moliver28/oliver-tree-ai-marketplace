@@ -44,7 +44,7 @@
   "tests/fixtures/render/show-golden.expected.txt": "a4ea701e3108c681f430b1ee08bc4591eedbad6dfb99283fb5cbf8b3a6368c02",
   "tests/fixtures/spec/uc2-spec-with-rq3.json": "8198189bf7930a75cfa5ce7be10f17f7b488e95f226820e2a4c5a3270a2fadd3",
   "tests/fixtures/spec/uc2-spec.json": "46b6679c61b7bbc208652fd3b1c0299948a9c18406863f4d37a4c01211c183f1",
-  "tests/goldens/uc-1-install-onboarding.md": "ba753de839a0e8af62bb5ba1ebbb0af506c6614914ee6b94b0eda9f87b04fb2c",
+  "tests/goldens/uc-1-install-onboarding.md": "28f7927a5cfc832b2b52d5d00f0f349929b282f7557d504c662110c7a9cde4d0",
   "tests/goldens/uc-2-project-setup-init.md": "cf2d6670f88ee6c327378b0aa4ad39f7fdc39010cbb2a1c059a1229f17abeeda",
   "tests/goldens/uc-3-ticket-understanding.md": "33f27b732a13804cac4a6c47f338b6729b5acd13baa8631da2d420d65095cc1c",
   "tests/goldens/uc-4-recruitment.md": "bfe38e262d13e24aee345bb08414a773df05d08e5e8f4a9934d2bfe49e23fc96",

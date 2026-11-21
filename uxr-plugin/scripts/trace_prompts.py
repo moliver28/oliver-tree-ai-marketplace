@@ -32,7 +32,7 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
-from lib.util import load_config as _load_config, research_roots  # noqa: E402  (shared plumbing)
+from lib.util import load_config as _load_config, resolve as _resolve, research_roots  # noqa: E402  (shared plumbing)
 
 SESSIONS_DIR = ".sessions"
 
@@ -56,36 +56,37 @@ def spec_prompts(spec_path, session_id: str) -> list[dict]:
     if not spec_path:
         return prompts
     try:
-        with open(spec_path, "r", encoding="utf-8", errors="replace") as handle:
-            for line in handle:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    obj = json.loads(line)
-                except ValueError:
-                    continue
-                if not isinstance(obj, dict) or obj.get("type") != "user" or obj.get("isMeta"):
-                    continue
-                message = obj.get("message")
-                content = message.get("content") if isinstance(message, dict) else None
-                texts: list[str] = []
-                if isinstance(content, str):
-                    texts.append(content)
-                elif isinstance(content, list):
-                    for block in content:
-                        if isinstance(block, dict) and block.get("type") == "text" \
-                                and isinstance(block.get("text"), str):
-                            texts.append(block["text"])
-                text = "\n".join(texts).strip()
-                if not text:
-                    continue
-                prompts.append({
-                    "session_id": session_id,
-                    "ts": str(obj.get("timestamp") or ""),
-                    "text": text,
-                    "origin": "transcript",
-                })
+        # read_text one-shot form: the scanner-mandated shape for file reads
+        # (no long-lived file handle on a spec-sourced path).
+        for line in Path(spec_path).read_text(encoding="utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(obj, dict) or obj.get("type") != "user" or obj.get("isMeta"):
+                continue
+            message = obj.get("message")
+            content = message.get("content") if isinstance(message, dict) else None
+            texts: list[str] = []
+            if isinstance(content, str):
+                texts.append(content)
+            elif isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "text" \
+                            and isinstance(block.get("text"), str):
+                        texts.append(block["text"])
+            text = "\n".join(texts).strip()
+            if not text:
+                continue
+            prompts.append({
+                "session_id": session_id,
+                "ts": str(obj.get("timestamp") or ""),
+                "text": text,
+                "origin": "transcript",
+            })
     except OSError:
         return []
     return prompts
@@ -178,6 +179,25 @@ def rq_map(spec: dict) -> dict:
             "drop_rule": "an RQ tracing to no hypothesis is dropped; say you dropped it and why"}
 
 
+def _contained(path: Path, roots: list[str]) -> bool:
+    """True when the resolved path sits inside one of the resolved roots.
+
+    The transcript path arrives from spec data (``_meta.transcript_path``),
+    so it is untrusted input: the scanner-mandated form enforces containment
+    with ``Path.relative_to`` (it raises on escape) before any open.
+    """
+    real = _resolve(path)
+    for root in roots:
+        if not str(root or "").strip():
+            continue
+        try:
+            real.relative_to(_resolve(root))
+            return True
+        except ValueError:
+            continue
+    return False
+
+
 def collect(key: str, config: dict | None, environ=None) -> list[dict]:
     """The merged, deduped, time-sorted prompt list for one key."""
     key = normalize_key(key, config)
@@ -206,9 +226,10 @@ def collect(key: str, config: dict | None, environ=None) -> list[dict]:
                 spec_path = None
         else:
             spec_path = None
-    if spec_path and Path(spec_path).is_file():
+    roots = research_roots(config, environ)
+    if spec_path and Path(spec_path).is_file() and _contained(Path(spec_path), ([state_dir] if state_dir else []) + roots):
         prompts.extend(spec_prompts(spec_path, session_id))
-    prompts.extend(manifest_prompts(research_roots(config, environ), key))
+    prompts.extend(manifest_prompts(roots, key))
     seen: set[tuple[str, str, str]] = set()
     unique: list[dict] = []
     for prompt in prompts:
@@ -228,7 +249,10 @@ def main(argv: list[str] | None = None, environ=None) -> int:
         if index + 1 >= len(args):
             print("usage: trace_prompts.py --rq-map <spec.json>", file=sys.stderr)
             return 2
-        path = Path(args[index + 1]).expanduser()
+        path = Path(args[index + 1]).expanduser().resolve()
+        if not path.is_file():
+            print("trace_prompts: spec not found: %s" % args[index + 1], file=sys.stderr)
+            return 2
         try:
             spec = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:

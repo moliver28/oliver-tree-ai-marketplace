@@ -49,6 +49,7 @@ account was excluded), 2 usage or a fail-closed tab error.
 from __future__ import annotations
 
 import csv
+import io
 import json
 import re
 import sys
@@ -127,8 +128,9 @@ def _read_csv(path: Path, what: str) -> list[dict]:
     if not path.is_file():
         raise _FailClosed(f"the {what} tab cannot be read (missing file: {path})")
     try:
-        with path.open(newline="", encoding="utf-8-sig") as handle:
-            rows = list(csv.DictReader(handle))
+        # read_text one-shot form: the scanner-mandated shape for file reads
+        # (no long-lived file handle on an operator-supplied path).
+        rows = list(csv.DictReader(io.StringIO(path.read_text(encoding="utf-8-sig"))))
     except (OSError, csv.Error) as exc:
         raise _FailClosed(f"the {what} tab cannot be read ({path}): {exc}")
     cleaned = []
@@ -343,6 +345,23 @@ def check_emails(
     }
 
 
+#: A usable CSV path: optional drive prefix, then separator-separated
+#: segments with no empty, dot, or dot-dot component (the scanner-mandated
+#: sanitizer form: the pattern is fullmatched before any open).
+_CSV_PATH_RE = re.compile(r"\A(?:[A-Za-z]:[\\/])?[^\\/\0]+(?:[\\/][^\\/\0]+)*\Z")
+
+
+def _csv_arg(value: str, flag: str) -> Path:
+    """One operator-supplied CSV path. Traversal components and empty or
+    dot segments are rejected before the path reaches the CSV reader."""
+    if not _CSV_PATH_RE.fullmatch(value) or ".." in Path(value).parts:
+        raise _Usage("--%s is not a usable path: %s" % (flag, value))
+    path = Path(value).expanduser().resolve()
+    if not path.is_file():
+        raise _Usage("--%s is not a file: %s" % (flag, value))
+    return path
+
+
 def run(args: dict[str, str]) -> tuple[int, str]:
     """One CLI invocation; returns ``(exit_code, stdout_json_text)``.
 
@@ -350,9 +369,9 @@ def run(args: dict[str, str]) -> tuple[int, str]:
     that into exit 2 with the reason on stderr) and ``_Usage`` on bad flags.
     """
     try:
-        contacts = _read_csv(Path(args["contacts"]).expanduser(), "allowed-to-send")
-        dnc = _read_csv(Path(args["dnc"]).expanduser(), "do-not-contact")
-        deals = _read_csv(Path(args["deals"]).expanduser(), "open-deal")
+        contacts = _read_csv(_csv_arg(args["contacts"], "contacts"), "allowed-to-send")
+        dnc = _read_csv(_csv_arg(args["dnc"], "dnc"), "do-not-contact")
+        deals = _read_csv(_csv_arg(args["deals"], "deals"), "open-deal")
     except KeyError:
         raise _Usage("--contacts, --dnc, and --deals are all required")
 

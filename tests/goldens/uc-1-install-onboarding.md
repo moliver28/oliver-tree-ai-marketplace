@@ -50,17 +50,16 @@ Filled with a fictional org (no credentials): tracker kind `jira`, project `UXR`
 SessionStart hook fired with event JSON `{"hook_event_name":"SessionStart","cwd":"<research root>","session_id":"baseline-uc1"}`. Verbatim stdout (one line, the injected context):
 
 ```
-{"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": "UX research workspace detected. The uxr-plugin workflows are active.\nCommands: /uxr-plugin:uxr-cheatsheet, /uxr-plugin:uxr-debrief, /uxr-plugin:uxr-deck, /uxr-plugin:uxr-edit, /uxr-plugin:uxr-eod, /uxr-plugin:uxr-feedback, /uxr-plugin:uxr-init, /uxr-plugin:uxr-mine, /uxr-plugin:uxr-move, /uxr-plugin:uxr-new, /uxr-plugin:uxr-notebook, /uxr-plugin:uxr-recruit, /uxr-plugin:uxr-report, /uxr-plugin:uxr-show, /uxr-plugin:uxr-stats, /uxr-plugin:uxr-trace\nTracker: jira, project UXR, ticket keys match ^UXR-[0-9]+$, bare numbers become UXR-<n>\nRouting: each study belongs to its product area's researcher; default owner Jordan Reyes."}}
+{"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": "UX research workspace detected. uxr-plugin workflows are active. Route study requests via the ux-research-tickets skill or /uxr-plugin:uxr-<command>; config: config/org.yaml."}}
 ```
 
 Rendered for the user, the injected context block is:
 
 ```
-UX research workspace detected. The uxr-plugin workflows are active.
-Commands: /uxr-plugin:uxr-cheatsheet, /uxr-plugin:uxr-debrief, /uxr-plugin:uxr-deck, /uxr-plugin:uxr-edit, /uxr-plugin:uxr-eod, /uxr-plugin:uxr-feedback, /uxr-plugin:uxr-init, /uxr-plugin:uxr-mine, /uxr-plugin:uxr-move, /uxr-plugin:uxr-new, /uxr-plugin:uxr-notebook, /uxr-plugin:uxr-recruit, /uxr-plugin:uxr-report, /uxr-plugin:uxr-show, /uxr-plugin:uxr-stats, /uxr-plugin:uxr-trace
-Tracker: jira, project UXR, ticket keys match ^UXR-[0-9]+$, bare numbers become UXR-<n>
-Routing: each study belongs to its product area's researcher; default owner Jordan Reyes.
+UX research workspace detected. uxr-plugin workflows are active. Route study requests via the ux-research-tickets skill or /uxr-plugin:uxr-<command>; config: config/org.yaml.
 ```
+
+> D3 (MO-approved 2026-11-20): the SessionStart injection is one routing-pointer line. The pre-trim four-line block (commands list, tracker constants, routing note) is by-design different. Commands stay discoverable in the session UI; tracker constants and the routing default are read from config/org.yaml on demand.
 
 Session fired outside any research root prints nothing (verified with `cwd: C:/Windows` -> empty output; gate closed, plugin stays silent as documented).
 

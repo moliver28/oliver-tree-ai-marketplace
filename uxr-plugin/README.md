@@ -44,7 +44,7 @@ Fill the values by hand from the contract comments (there is no wizard); verify 
 
 1. Configure `config/org.yaml` (or export `UXR_RESEARCH_DIRS`, entries separated by the platform path separator).
 2. Open a Claude Code session inside a study folder -- any folder under a research root, or any folder (or a parent below your home directory) holding `00-overview.md`.
-3. The SessionStart hook injects a short context block: the commands, the tracker constants, and the routing note. Outside research folders the plugin stays silent.
+3. The SessionStart hook injects one routing-pointer line (router skill, command pattern, config location). Outside research folders the plugin stays silent.
 
 ## Commands
 
