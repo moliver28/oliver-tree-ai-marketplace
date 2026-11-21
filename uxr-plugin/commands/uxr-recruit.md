@@ -3,12 +3,11 @@ description: "Fill one study with participants: internal calendar-slot outreach 
 argument-hint: "<KEY> [--recruit=<name>] [--reply=<name>] [--level=i|ii|iii] [--external] [--status] [--check] [--dry-run]"
 ---
 
-Recruit participants for one study: internal flow (default) offers calendar
-slots, drafts a chat DM and email, places private holds, tracks replies;
-the external flow (`--external`) sizes the group, sources contacts, applies
-exclusions, builds a booking page, drafts the mail merge, and stops exactly
-once at the pre-send review. Every run ends with the recruitment table from
-`scripts/recruit_funnel.py`.
+Recruit participants for one study. Internal flow (default): calendar
+slots, a chat DM and email draft, private holds, reply tracking. External
+flow (`--external`): sizing, sourcing, exclusions, booking page, mail-merge
+draft, one stop at the pre-send review. Every run ends with the recruitment
+table from `scripts/recruit_funnel.py`.
 
 ## Safety rules (they override everything below)
 

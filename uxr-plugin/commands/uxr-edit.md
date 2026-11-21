@@ -6,10 +6,9 @@ argument-hint: "<KEY> [key=value ...]"
 Edit a study ticket without breaking its template: sections and the roster
 patch the spec (the source of truth), validate, and push as one full body;
 tracker fields resolve through `lib/field_map.py`. One run makes at most one
-`update_item` call, carrying section and field changes together. Writes only
-through the `references/tracker.md` ops `get_item`, `find_user`,
-`update_item`, `add_comment`, `item_url`; never `create_item` or
-`set_state` -- `edit` never moves a ticket.
+`update_item` call. Writes only through the `references/tracker.md` ops
+`get_item`, `find_user`, `update_item`, `add_comment`, `item_url`; never
+`create_item` or `set_state` -- `edit` never moves a ticket.
 
 ## Inputs
 
@@ -29,11 +28,10 @@ through the `references/tracker.md` ops `get_item`, `find_user`,
 | Fields | every shorthand in the issue 03 field table (`lib/field_map.py`); multi-select fields accept `=A,B` (replace), `+=A` (add), `-=A` (remove) |
 | Standard | `summary=`, `assignee=me\|<name>`, `priority=`, `labels=a,b` or `labels=+x`, `duedate=`, `description=` (warn: replaces the full body; prefer sections) |
 
-The spec-path keys are `history`, `decision`, `results`, `sample`,
-`persona`, `length`, `artifact`, `questions`, and every list operation on
-`hypotheses`, `assumptions`, `resources`, `roster`. Everything else is a
-field-path key. A run with at least one spec-path key takes the spec path
-for the whole run; a run with only field-path keys takes the field path.
+Spec-path keys: the spec scalars and every list operation in the table
+above; everything else is a field-path key. Any spec-path key routes the
+whole run through the spec path; a field-only run skips steps 6 to 9 and
+go straight to step 10.
 
 Special rules:
 
@@ -131,15 +129,13 @@ Special rules:
    ```
 
    One line per change: `  <name>:<spaces> <old> → <new>`. Old is
-   `[placeholder]` when the previous value was the template placeholder
-   text, `[unset]` when it was empty or absent; quote string values. List
-   edits summarize rows before and after. Field changes show the resolved
-   payload (`method: + Survey`, `priority: → High`, `uxr: → <resolved name>`)
-   after you applied the `__op__` wrappers of `lib/field_map.py` payloads
-   against the live values read in step 7a (`+=` merges additions into the
-   current list, `-=` removes from it) and resolved every
-   `{"__resolve_user__": token}` with `find_user` (`me` is the cached
-   current user). Resolve shorthands with
+   `[placeholder]` for template placeholder text, `[unset]` when empty or
+   absent; quote string values; list edits summarize rows before and after.
+   Field changes show the resolved payload (`method: + Survey`,
+   `priority: → High`, `uxr: → <resolved name>`) after applying the
+   `__op__` wrappers of `lib/field_map.py` payloads against the step 7a
+   live values and resolving every `{"__resolve_user__": token}` with
+   `find_user` (`me` is the cached current user). Resolve shorthands with
    `python "${CLAUDE_PLUGIN_ROOT}/lib/field_map.py" resolve --shorthand "<shorthand>"`.
 
 9. **Save and push, in this order.** On `yes`, `go`, or `apply`:
@@ -157,14 +153,12 @@ Special rules:
    d. Never transition a status from `edit`, even when the ticket now
       qualifies.
 
-10. Field-only path: with only field-path shorthands there is no spec load
-    and no body push. Preview the resolved payloads (step 8 format), gate
-    on the same words, then make one `update_item` call with the fields
-    only. A field-only edit sends no body -- do not pass a description or
-    body parameter at all. (`summary=`, `priority=`, `labels=`, `duedate=`
-    resolve through `lib/field_map.py` like any field; `assignee=` and
-    `description=` are not configured fields -- assignee writes the
-    tracker's standard assignee, description follows its own warning rule.)
+10. Field-only path: no spec load, no body push. Preview the resolved
+    payloads (step 8 format), gate on the same words, then one
+    `update_item` call with the fields only -- no description or body
+    parameter at all. (`assignee=` and `description=` are not configured
+    fields: assignee writes the tracker's standard assignee, description
+    follows its own warning rule.)
 
 11. **Refresh the workspace overview.** Run
     `python "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold_workspace.py" lookup-workspace --ticket <KEY> --readme <research_root>/README.md`.

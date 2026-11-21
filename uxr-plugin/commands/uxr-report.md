@@ -3,9 +3,8 @@ description: "Turn a finished study into a report sized to its stakes: script-co
 argument-hint: "<KEY> [--audience=internal|product-team|leadership] [--tier=lite|standard|strategic] [--dry-run] [--video] [--altitude=brief|standard|deep] [--render-only] [--format=html] [--stakeholder-role=<role>]"
 ---
 
-Write the research report for one study: scripts compute the tier,
-verdicts, evidence counts, and citation checks; you write the narrative on
-that skeleton. Nothing sends without the user.
+Scripts compute the tier, verdicts, evidence counts, and citation checks;
+you write the narrative on that skeleton. Nothing sends without the user.
 
 ## Safety rules (they override everything below)
 
@@ -70,9 +69,7 @@ sources_cited: [<slug>, ...]
 | Standard (~1000) | Executive Summary 60-80, Key Decision Framing 80-100, Key Findings 400-500 (4 to 7), Implications 150-200, Next Steps 80-100 |
 | Strategic (~2000) | Executive Summary 150-200, Key Decision 80-100, Background 150-200, Methodology 100-120, Key Findings 700-900 (5 to 8, a verdict each, 2 sources each or the line "single source; treat as preliminary"), Implications 200-250, Strategic Recommendations 200-250, Appendices A (participants), B (method detail), C (source registry) |
 
-A section is `OVER` when `word-count-sections` shows more than 20%
-above its limit; rewrite until none is over. Label analyst inference
-exactly `Analyst inference` with no slug. Describe diagrams in words;
+Label analyst inference exactly `Analyst inference` with no slug. Describe diagrams in words;
 never generate images. `--altitude=brief` writes the lite shape,
 `standard` the standard shape, `deep` the strategic shape (map it with
 `altitude --level`).

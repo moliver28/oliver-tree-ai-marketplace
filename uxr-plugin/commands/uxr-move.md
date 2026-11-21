@@ -3,15 +3,12 @@ description: "Move a study ticket to its next phase, gated on readiness: Recruit
 argument-hint: "<KEY> [<status name> | <number>]"
 ---
 
-Move a study ticket through its phases. The move itself is one tracker
-transition; a readiness gate decides whether the ticket may enter the
-target phase, and a set of finish checks warns when a move to Done leaves
-gaps behind.
-
-It uses the operations in `references/tracker.md`: `get_item`,
-`list_state_changes`, `set_state`, `item_url`, `find_user`. It never calls
-`create_item`, `update_item`, or `add_comment`, and it never writes the
-spec file.
+Move a study ticket through its phases: one tracker transition, gated on a
+readiness check per target phase; finish checks warn when a move to Done
+leaves gaps behind. Ops from `references/tracker.md`: `get_item`,
+`list_state_changes`, `set_state`, `item_url`, `find_user`; never
+`create_item`, `update_item`, `add_comment`, and never writes the spec
+file.
 
 ## Inputs
 
