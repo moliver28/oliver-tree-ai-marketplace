@@ -43,13 +43,14 @@ EXPECTED_GLOBS = ["render/*.expected.txt", "evidence/*.json", "spec/*.json",
 #: (run with the ``selftest`` argv) to its repo-level tests/uxr_selftests/
 #: module (run bare; the module's __main__ guard raises SystemExit(_selftest())).
 SELFTESTS_SHIPPED = [
-    "scripts/classify.py", "scripts/evidence_sweep.py",
-    "scripts/eod_journal.py", "scripts/calendar_prep.py",
-    "scripts/trace_prompts.py", "scripts/backfill_spec.py",
+    "scripts/calendar_prep.py",
+    "scripts/trace_prompts.py",
     "references/debrief_helpers.py",
 ]
 SELFTESTS_REPO = [
     "prompts.py", "render.py", "phase_gates.py",
+    "classify.py", "evidence_sweep.py", "eod_journal.py",
+    "backfill_spec.py",
 ]
 
 

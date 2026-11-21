@@ -4,8 +4,8 @@ even though the output shape is fully specified. Keyword tables live in
 ``prompts/classify/``. Each subcommand prints one JSON object: ``intent
 "<msg>" [--prefix <KEY>]`` (router), ``reply "<text>"`` (recruit), ``method
 --rqs "<RQ1; ...>"`` (new ph7), ``decision "<sentence>"`` (new ph4),
-``route-finding --category "<c>"`` (report review), ``selftest``. Exit:
-0 ok, 2 usage/no match, 3 selftest failed.
+``route-finding --category "<c>"`` (report review). Exit:
+0 ok, 2 usage/no match.
 """
 
 from __future__ import annotations
@@ -17,10 +17,6 @@ from pathlib import Path
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PLUGIN_ROOT / "prompts" / "classify"
-#: selftest fixtures live at repo level in a checkout; absent in an installed plugin
-FIXTURES = (PLUGIN_ROOT if (PLUGIN_ROOT / "tests").is_dir() else PLUGIN_ROOT.parent) / "tests" / "fixtures" / "classify"
-
-
 def _spec(name: str) -> dict:
     return json.loads((DATA_DIR / f"{name}.json").read_text(encoding="utf-8"))
 
@@ -152,13 +148,11 @@ def route_finding(category: str) -> dict:
 
 
 def _usage(message: str) -> str:
-    return f"classify: {message}\nusage: classify.py intent|reply|method|decision|route-finding|selftest"
+    return f"classify: {message}\nusage: classify.py intent|reply|method|decision|route-finding"
 
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    if args and args[0] in ("selftest", "--selftest"):
-        return _selftest()
     if not args:
         print(_usage("a subcommand is required"), file=sys.stderr)
         return 2
@@ -186,41 +180,6 @@ def main(argv: list[str] | None = None) -> int:
         print(_usage(str(exc)), file=sys.stderr)
         return 2
     print(json.dumps(result, ensure_ascii=False))
-    return 0
-
-
-def _selftest() -> int:
-    print("scripts/classify.py selftest")
-    failures: list[str] = []
-    cases = sorted(FIXTURES.glob("*.json"))
-    if not cases:
-        print("skip: fixtures not shipped (repo-level tests/)")
-        return 0
-    for case_path in cases:
-        case = json.loads(case_path.read_text(encoding="utf-8"))
-        try:
-            if case["subcommand"] == "intent":
-                got = classify_intent(case["input"], case.get("prefix", ""))
-            elif case["subcommand"] == "reply":
-                got = classify_reply(case["input"])
-            elif case["subcommand"] == "method":
-                got = classify_method(case["input"])
-            elif case["subcommand"] == "decision":
-                got = classify_decision(case["input"])
-            else:
-                got = route_finding(case["input"])
-        except ClassifyError as exc:
-            got = {"error": str(exc)}
-        if got == case["expect"]:
-            print(f"  [ok] {case_path.stem}")
-        else:
-            failures.append(f"{case_path.stem}: {got} != {case['expect']}")
-    if failures:
-        print(f"selftest FAILED ({len(failures)} check(s))")
-        for item in failures:
-            print(f"  [FAIL] {item}")
-        return 3
-    print("selftest: all checks passed")
     return 0
 
 
