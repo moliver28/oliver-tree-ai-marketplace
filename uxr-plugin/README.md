@@ -2,7 +2,7 @@
 
 UX research operations plugin for Claude Code, currently v0.2.0.
 
-One plugin for the research lifecycle: study tickets, specs, recruitment, interview scripts, reports, and decks. Code owns the rules (deterministic scripts, each with a `selftest`); the model owns judgment. Drafts, never sends. Hooks fail open; exclusions fail closed. See docs/ARCHITECTURE.md for the vocabulary and principles.
+One plugin for the research lifecycle: study tickets, specs, recruitment, interview scripts, reports, and decks. Code owns the rules (deterministic scripts; their offline selftests live in the repo's tests/uxr_selftests/); the model owns judgment. Drafts, never sends. Hooks fail open; exclusions fail closed. See docs/ARCHITECTURE.md for the vocabulary and principles.
 
 ## Install
 
@@ -28,7 +28,7 @@ claude plugin validate .          # manifest and component paths
 python3 scripts/smoke_test.py     # the authoritative all-local gate
 ```
 
-The smoke test makes no network call. It checks the version triple (manifest, README, CHANGELOG), command and skill minimums, every script's `selftest`, JSON schemas, front matter, the no-tracker-writes rule for `scripts/`, and dash-free recruitment templates. Exit 0 on pass.
+The smoke test makes no network call. It checks the version triple (manifest, README, CHANGELOG), command and skill minimums, the selftest suite (`tests/uxr_selftests/` in a checkout; skipped in a standalone install), JSON schemas, front matter, the no-tracker-writes rule for `scripts/`, and dash-free recruitment templates. Exit 0 on pass.
 
 ## Configure
 
@@ -102,6 +102,6 @@ Still Claude Code-only: the true `SessionEnd` final write of the workspace manif
 
 ## Development
 
-- Every script and hook answers `selftest` (or `--selftest`) and exits 0 on pass.
+- Every selftest module in `tests/uxr_selftests/` (repo checkout) passes offline; a standalone install ships no selftest code.
 - `python3 scripts/smoke_test.py` is the pre-commit and CI gate.
 - CI (`.github/workflows/plugin-ci.yml`) runs the smoke test plus a non-blocking `claude plugin validate` step (the CLI may require auth in CI; the smoke gate is authoritative). The workflow fires when this repo is used standalone; GitHub only reads workflows from a repository root's `.github/workflows/`, so when the plugin is vendored at a nested path the file is inert there and the local smoke gate is the authoritative check.

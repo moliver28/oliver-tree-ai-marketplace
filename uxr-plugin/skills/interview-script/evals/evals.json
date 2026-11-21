@@ -1,7 +1,7 @@
 {
   "skill": "interview-script",
   "version": 1,
-  "description": "Behavior evals for the interview-script review loop. Each case names a fixture, the steps a runner replays, and the observable assertions checked from the session transcript and the files on disk. The deterministic parts of every case (checker exits, schema outcomes) are also covered by scripts/review_checks.py selftest, which passes offline; these cases cover the model-side behavior around those checks.",
+  "description": "Behavior evals for the interview-script review loop. Each case names a fixture, the steps a runner replays, and the observable assertions checked from the session transcript and the files on disk. The deterministic parts of every case (checker exits, schema outcomes) are also covered by tests/uxr_selftests/review_checks.py, which passes offline; these cases cover the model-side behavior around those checks.",
   "how_to_run": "Agent-driven: run the skill against the fixture inputs in a scratch workspace, then evaluate the assertions against the transcript (dispatch order, wording, gates) and the saved files. No case requires a live tracker, chat, calendar, or Drive service; tracker and Drive steps assert on draft intent and no-op behavior only.",
   "cases": [
     {
@@ -145,7 +145,7 @@
       ],
       "assertions": [
         "Any flat-answer-risk flag has confidence hedged.",
-        "A flat-answer-risk flag with confidence asserted fails schema validation (review_checks.py selftest proves the deterministic half).",
+        "A flat-answer-risk flag with confidence asserted fails schema validation (tests/uxr_selftests/review_checks.py proves the deterministic half).",
         "The expert flag types are limited to over-explanation, redundant-question, jargon-mismatch, and flat-answer-risk.",
         "The expert reply opens with the reader context line before the flag array."
       ]

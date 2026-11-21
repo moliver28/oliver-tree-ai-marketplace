@@ -38,12 +38,12 @@ EXPECTED_GLOBS = ["render/*.expected.txt", "evidence/*.json", "spec/*.json",
                   "prompts/*/*.json", "debrief/*.expected.txt",
                   "gates/*.expected.txt"]
 
-#: the fixture-driven modules whose selftests regenerate every artifact above.
-#: During the selftest extraction each entry moves from the shipped module
-#: (run with the ``selftest`` argv) to its repo-level tests/uxr_selftests/
-#: module (run bare; the module's __main__ guard raises SystemExit(_selftest())).
-SELFTESTS_SHIPPED = []
-SELFTESTS_REPO = [
+#: the fixture-driven modules whose selftests regenerate every artifact
+#: above. Each is a repo-level tests/uxr_selftests/ module, run bare in a
+#: subprocess (its __main__ guard raises SystemExit(_selftest())); a
+#: standalone install ships no selftest code, so these live outside the
+#: plugin payload.
+SELFTESTS = [
     "prompts.py", "render.py", "phase_gates.py",
     "classify.py", "evidence_sweep.py", "eod_journal.py",
     "backfill_spec.py", "calendar_prep.py", "trace_prompts.py",
@@ -85,9 +85,7 @@ def main() -> int:
     failures: list[str] = []
     hashes = json.loads(HASHES.read_text(encoding="utf-8")) if HASHES.is_file() else {}
 
-    for script in SELFTESTS_SHIPPED:
-        failures.extend(_run_module([sys.executable, str(PLUGIN_ROOT / script), "selftest"], script))
-    for name in SELFTESTS_REPO:
+    for name in SELFTESTS:
         failures.extend(_run_module(
             [sys.executable, str(REPO_ROOT / "tests" / "uxr_selftests" / name)], name))
 
@@ -113,7 +111,7 @@ def main() -> int:
         for item in failures:
             print(f"  [FAIL] {item}")
         return 1
-    print(f"parity: all gates green ({len(SELFTESTS_SHIPPED) + len(SELFTESTS_REPO)} module selftests, "
+    print(f"parity: all gates green ({len(SELFTESTS)} module selftests, "
           f"{len(list(GOLDENS.glob('uc-*.md')))} goldens hash-pinned)")
     return 0
 
