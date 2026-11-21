@@ -104,7 +104,7 @@ def sync_workspace(workspace, config, ended_at: str | None = None) -> dict:
 
 def main(argv=None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    print(__doc__.strip())
+    print(__doc__.strip().splitlines()[0])  # terse CLI pointer; full doc in this file
     return 0
 
 

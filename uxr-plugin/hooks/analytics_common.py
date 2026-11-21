@@ -265,7 +265,7 @@ def read_buffer_lines(path, offset: int = 0, limit: int | None = None) -> tuple[
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    print(__doc__.strip())
+    print(__doc__.strip().splitlines()[0])  # terse CLI pointer; full doc in this file
     return 0
 
 
