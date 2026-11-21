@@ -38,13 +38,18 @@ EXPECTED_GLOBS = ["render/*.expected.txt", "evidence/*.json", "spec/*.json",
                   "prompts/*/*.json", "debrief/*.expected.txt",
                   "gates/*.expected.txt"]
 
-#: the fixture-driven modules whose selftests regenerate every artifact above
-SELFTESTS = [
-    "lib/prompts.py", "lib/render.py",
+#: the fixture-driven modules whose selftests regenerate every artifact above.
+#: During the selftest extraction each entry moves from the shipped module
+#: (run with the ``selftest`` argv) to its repo-level tests/uxr_selftests/
+#: module (run bare; the module's __main__ guard raises SystemExit(_selftest())).
+SELFTESTS_SHIPPED = [
     "scripts/classify.py", "scripts/evidence_sweep.py",
     "scripts/eod_journal.py", "scripts/calendar_prep.py",
     "scripts/trace_prompts.py", "scripts/backfill_spec.py",
-    "lib/phase_gates.py", "references/debrief_helpers.py",
+    "references/debrief_helpers.py",
+]
+SELFTESTS_REPO = [
+    "prompts.py", "render.py", "phase_gates.py",
 ]
 
 
@@ -65,16 +70,28 @@ def _pinned(path: Path, hashes: dict) -> str | None:
     return None if got == want else f"{key}: sha256 {got[:12]} != pinned {want[:12]}"
 
 
+def _run_module(argv: list[str], label: str) -> list[str]:
+    """Run one selftest module in a subprocess (10s timeout); return failures."""
+    try:
+        proc = subprocess.run(argv, capture_output=True, text=True,
+                              cwd=str(PLUGIN_ROOT), timeout=10)
+    except subprocess.TimeoutExpired:
+        return [f"{label}: selftest timed out after 10s"]
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout).strip().splitlines()
+        return [f"{label}: selftest exit {proc.returncode}: {tail[-1] if tail else ''}"]
+    return []
+
+
 def main() -> int:
     failures: list[str] = []
     hashes = json.loads(HASHES.read_text(encoding="utf-8")) if HASHES.is_file() else {}
 
-    for script in SELFTESTS:
-        proc = subprocess.run([sys.executable, str(PLUGIN_ROOT / script), "selftest"],
-                              capture_output=True, text=True, cwd=str(PLUGIN_ROOT))
-        if proc.returncode != 0:
-            tail = (proc.stderr or proc.stdout).strip().splitlines()
-            failures.append(f"{script}: selftest exit {proc.returncode}: {tail[-1] if tail else ''}")
+    for script in SELFTESTS_SHIPPED:
+        failures.extend(_run_module([sys.executable, str(PLUGIN_ROOT / script), "selftest"], script))
+    for name in SELFTESTS_REPO:
+        failures.extend(_run_module(
+            [sys.executable, str(REPO_ROOT / "tests" / "uxr_selftests" / name)], name))
 
     if not GOLDENS.is_dir() or not list(GOLDENS.glob("uc-*.md")):
         failures.append("tests/goldens: no baseline goldens committed")
@@ -98,7 +115,7 @@ def main() -> int:
         for item in failures:
             print(f"  [FAIL] {item}")
         return 1
-    print(f"parity: all gates green ({len(SELFTESTS)} module selftests, "
+    print(f"parity: all gates green ({len(SELFTESTS_SHIPPED) + len(SELFTESTS_REPO)} module selftests, "
           f"{len(list(GOLDENS.glob('uc-*.md')))} goldens hash-pinned)")
     return 0
 

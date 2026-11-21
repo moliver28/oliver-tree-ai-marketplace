@@ -11,7 +11,7 @@ value|values|name|start, end}}}``. Values render by kind (single_select/
 single_name value; multi_select comma list; user display name; interval
 ``start .. end`` or the single date; url ``[url](url)``; text as-is).
 CLI: ``mine <items.json> [--all] [--now <ISO>] [--project-key <KEY>]`` |
-``show <item.json> [--now <ISO>]`` | ``selftest``. Exit: 0 ok, 2 usage.
+``show <item.json> [--now <ISO>]``. Exit: 0 ok, 2 usage.
 """
 
 from __future__ import annotations
@@ -141,54 +141,9 @@ def render_show(item: dict, now: str | datetime = "now") -> str:
     return convert_emoji("\n\n".join(sections))
 
 
-def _selftest() -> int:
-    """Byte-compare every tests/fixtures/render case against its expected.txt."""
-    cases = sorted(((PLUGIN_ROOT if (PLUGIN_ROOT / "tests").is_dir() else PLUGIN_ROOT.parent)
-                    / "tests" / "fixtures" / "render").glob("*.json"))
-    print("lib/render.py selftest")
-    failures: list[str] = []
-    if not cases:
-        print("skip: fixtures not shipped (repo-level tests/)")
-        return 0
-    for case_path in cases:
-        expected = case_path.with_suffix(".expected.txt")
-        if not expected.is_file():
-            failures.append(f"{case_path.name}: no expected.txt")
-            continue
-        data = json.loads(case_path.read_text(encoding="utf-8"))
-        if case_path.name.startswith("mine"):
-            got = render_mine(data.get("items") or [], data.get("mode") or "default",
-                              data.get("now") or "now", data.get("project_key") or "")
-        else:
-            got = render_show(data["item"], data.get("now") or "now")
-        if got + "\n" != expected.read_text(encoding="utf-8"):
-            failures.append(f"{case_path.stem}: differs from expected.txt")
-        else:
-            print(f"  [ok] {case_path.stem}")
-    now = "2026-11-17T21:54:24Z"
-    for label, ts, want in (("just now", "2026-11-17T21:54:00Z", "just now"),
-                            ("12h", "2026-11-17T09:54:00Z", "12h ago"),
-                            ("7d", "2026-11-10T21:30:00Z", "7d ago"),
-                            ("1w", "2026-11-08T21:54:00Z", "1w ago"),
-                            ("1mo", "2026-10-17T21:00:00Z", "1mo ago")):
-        if relative_time(ts, now) != want:
-            failures.append(f"ladder {label}: {relative_time(ts, now)} != {want}")
-    if convert_emoji("look :eyes:") != "look \U0001f440" or convert_emoji(":nope:") != ":nope:":
-        failures.append("emoji conversion")
-    if failures:
-        print(f"selftest FAILED ({len(failures)} check(s))")
-        for item in failures:
-            print(f"  [FAIL] {item}")
-        return 3
-    print("selftest: all checks passed")
-    return 0
-
-
 def _cli(argv: list[str] | None = None) -> int:
     """The mine/show CLI (W2b: folded in from scripts/render_view.py)."""
     args = list(sys.argv[1:] if argv is None else argv)
-    if args and args[0] in ("selftest", "--selftest"):
-        return _selftest()
     if len(args) < 2 or args[0] not in ("mine", "show"):
         print(__doc__.strip(), file=sys.stderr)
         return 2
