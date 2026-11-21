@@ -3,15 +3,12 @@ description: "Move a study ticket to its next phase, gated on readiness: Recruit
 argument-hint: "<KEY> [<status name> | <number>]"
 ---
 
-Move a study ticket through its phases. The move itself is one tracker
-transition; a readiness gate decides whether the ticket may enter the
-target phase, and a set of finish checks warns when a move to Done leaves
-gaps behind.
-
-It uses the operations in `references/tracker.md`: `get_item`,
-`list_state_changes`, `set_state`, `item_url`, `find_user`. It never calls
-`create_item`, `update_item`, or `add_comment`, and it never writes the
-spec file.
+Move a study ticket through its phases: one tracker transition, gated on a
+readiness check per target phase; finish checks warn when a move to Done
+leaves gaps behind. Ops from `references/tracker.md`: `get_item`,
+`list_state_changes`, `set_state`, `item_url`, `find_user`; never
+`create_item`, `update_item`, `add_comment`, and never writes the spec
+file.
 
 ## Inputs
 
@@ -26,12 +23,7 @@ spec file.
 
 ## Steps
 
-1. Read configuration once: run `python "${CLAUDE_PLUGIN_ROOT}/lib/config.py" --print`
-   (when `CLAUDE_PLUGIN_ROOT` is not set, run it with the path of the plugin
-   directory that holds `lib/`, `config/`, and `scripts/`). Note
-   `tracker.kind`, `tracker.project_key`, `tracker.ticket_regex`,
-   `tracker.bare_number_prefix`, `paths.state_dir`, and the `ssot.*` keys.
-   Every `<placeholder>` below is filled from that output; hardcode nothing.
+1. Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - and follow it. Note `tracker.kind`, `tracker.project_key`, `tracker.ticket_regex`, `tracker.bare_number_prefix`, `paths.state_dir`, and the `ssot.*` keys.
 
 2. Parse `$ARGUMENTS`: the ticket key and an optional target (a status
    phrase or a number). Normalize the key with the `normalize_key` rule
@@ -80,15 +72,17 @@ spec file.
 
    Exit codes: 0 means the gate passed (an ungated target passes with an
    empty missing list); 1 means blocked; 2 is a usage or config error --
-   print the error and stop. On 1, print one line per missing item, using
-   the item and fix from the gate's JSON output:
+   print the error and stop. On 1, save the gate's JSON output to a
+   temporary file and print verbatim the output of:
 
-   `missing: field 'research_method' -> run edit ABC-42 method=...`
+   `python "${CLAUDE_PLUGIN_ROOT}/lib/phase_gates.py" missing --json <file> --key <KEY>`
 
-   (`missing: <item> -> run edit <KEY> <fix>`; drop the `->` part when the
-   fix is empty.) Then stop. `set_state` is never called for a blocked
-   move. Offer nothing beyond the fix lines until the user changes
-   something.
+   one line per missing item, in the golden format:
+
+   `missing: spec check failed: 'roster_has_scheduled' -> run edit UXR-101 roster~=Name|status=Scheduled`
+
+   Then stop. `set_state` is never called for a blocked move. Offer nothing
+   beyond the fix lines until the user changes something.
 
 7. **Finish checks** -- only when the resolved target is Done (the same
    contains match against `Done`). Warn, never block; show all gaps

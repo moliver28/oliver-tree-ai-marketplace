@@ -61,7 +61,7 @@ footer { margin-top: 36px; color: var(--muted); font-size: 12.5px; border-top: 1
 <tr><td><code>uxr-debrief</code></td><td>--participant --transcript --dry-run --check</td></tr>
 <tr><td><code>uxr-deck</code></td><td>--audience --tier --dry-run --refresh-persona --altitude --render-only</td></tr>
 <tr><td><code>uxr-edit</code></td><td><em>none</em></td></tr>
-<tr><td><code>uxr-eod</code></td><td>--dry-run --days --ticket --auto</td></tr>
+<tr><td><code>uxr-eod</code></td><td>--dry-run --days --ticket --auto --polish</td></tr>
 <tr><td><code>uxr-feedback</code></td><td><em>none</em></td></tr>
 <tr><td><code>uxr-init</code></td><td>--dir --no-ticket</td></tr>
 <tr><td><code>uxr-mine</code></td><td><em>none</em></td></tr>
@@ -151,24 +151,24 @@ its sources on demand and never rewrites the editorial sections.</p></details>
 </section>
 
 
-<section id="methods" data-generated="methods">
-<p>Method rows (from <code>references/research-craft.md</code>): pick the row for the dominant research question shape.</p>
+<section data-generated="methods">
+      <p>Method rows (from <code>prompts/classify/methods.json</code>): pick the row for the dominant research question shape.</p>
 <table class="grid"><thead><tr><th>Dominant RQ shape</th><th>Method</th></tr></thead>
 <tbody>
-<tr><td>How or why X happens</td><td>External Interviews</td></tr>
-<tr><td>How internal stakeholders think about Y</td><td>Internal Interviews</td></tr>
-<tr><td>Does design A or B work better for task T</td><td>Usability Test or Rapid Design Testing</td></tr>
-<tr><td>Which concept resonates</td><td>Concept Testing</td></tr>
-<tr><td>Performance on standard metrics</td><td>Usability Benchmark</td></tr>
 <tr><td>What proportion do or feel X</td><td>Survey</td></tr>
-<tr><td>How users organize a domain</td><td>Card Sort</td></tr>
+<tr><td>Performance on standard metrics</td><td>Usability Benchmark</td></tr>
 <tr><td>Can users find content in this structure</td><td>Tree Test</td></tr>
-<tr><td>What existing literature says</td><td>Desk Research</td></tr>
+<tr><td>How users organize a domain</td><td>Card Sort</td></tr>
+<tr><td>Which concept resonates</td><td>Concept Testing</td></tr>
+<tr><td>Does design A or B work better for task T</td><td>Usability Test or Rapid Design Testing</td></tr>
 <tr><td>What the feedback corpus says</td><td>Data Analytics</td></tr>
-<tr><td>Mixed strategic synthesis</td><td>Desk Research + External Interviews</td></tr>
+<tr><td>What existing literature says</td><td>Desk Research</td></tr>
+<tr><td>How internal stakeholders think about Y</td><td>Internal Interviews</td></tr>
 <tr><td>Research alongside iterative design</td><td>Design Partnership</td></tr>
+<tr><td>Mixed strategic synthesis</td><td>Desk Research + External Interviews</td></tr>
+<tr><td>How or why X happens</td><td>External Interviews</td></tr>
 </tbody></table>
-</section>
+    </section>
 
 <section id="template" data-generated="template">
 <p>Every study workspace (<code>templates/workspace/00-overview.md</code>) carries the same sections, in this order:</p>

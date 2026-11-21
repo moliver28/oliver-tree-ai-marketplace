@@ -4,23 +4,21 @@ description: "Write a bias-controlled interview script, discussion guide, or mod
 ---
 
 Write a complete interview script from a study ticket so a moderator can
-run the session without a second review pass. Judgment is yours; every
-hard rule is checked by `scripts/review_checks.py` before anything saves.
-This skill performs no tracker write until the script is done, and never
-sends or shares anything.
+run the session without a second review pass. Every hard rule is checked
+by `scripts/review_checks.py` before anything saves. No tracker write
+until the script is done; never sends or shares anything.
 
 ## Setup
 
-1. Read configuration once: run `python "${CLAUDE_PLUGIN_ROOT}/lib/config.py" --print`.
+1. Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - and follow it.
    Note `tracker.kind` (the ticket header label follows the tracker, for
    example `Jira Ticket:` on Jira, `Linear Issue:` on Linear),
    `tracker.ticket_regex`, `script.default_minutes`, `script.time_buffer`,
    `script.word_cap`, `script.grade_warn`, `script.grade_block`, and
    `workflow.script_status_candidates`. Hardcode nothing.
-2. The agents this skill dispatches (`expert-participant`,
-   `novice-participant`, `script-writer`, and issue 10's
-   `hcd-researcher`) resolve to a workspace
-   `.claude/agents/<name>.md` first when one exists, otherwise to this
+2. Dispatched agents (`expert-participant`, `novice-participant`,
+   `script-writer`, `hcd-researcher`) resolve to a workspace
+   `.claude/agents/<name>.md` first when one exists, otherwise the
    plugin's `agents/<name>.md`.
 
 ## Flow
@@ -44,8 +42,7 @@ and write to its `scripts/` folder; with no workspace, use the current
 folder. File name: `interview-script-<KEY>.md`.
 
 If that file already exists, ask before overwriting and offer `-v2`
-(`interview-script-<KEY>-v2.md`). The review loop (step 9) always runs on
-the new draft before any overwrite prompt is answered.
+(`interview-script-<KEY>-v2.md`).
 
 ### 3. Sequence the research questions
 
@@ -227,11 +224,7 @@ Publish when the user passes `--drive`, or answers yes to one question
 
 ## Hard rules recap
 
-- The checker, not judgment, gates the save: `review_checks.py check`
-  exit 0 or 1 to save, one writer retry on exit 3, stop on the second.
-- Review loop before every save, including `-v2` reruns.
 - No artifact fetched means zero `artifact_grounded: true` flags.
 - Writer edits never change headings, question numbers, minute values, or
   RQ map cells, and every edit resolves at least one flag.
-- The ticket status moves only after the loop succeeded.
 - Published docs contain no Quality Check text.

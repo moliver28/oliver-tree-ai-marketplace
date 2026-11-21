@@ -1,0 +1,10 @@
+{
+  "subcommand": "reply",
+  "input": "Thursday 2pm works for me",
+  "expect": {
+    "class": "slot-picked",
+    "action": "book",
+    "matched": "works for me",
+    "lane": "deterministic"
+  }
+}

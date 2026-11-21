@@ -1,0 +1,10 @@
+{
+  "subcommand": "decision",
+  "input": "Understand how users feel about the timeline",
+  "expect": {
+    "shape": "topic-only",
+    "good": false,
+    "has_owner": false,
+    "sentences": 1
+  }
+}

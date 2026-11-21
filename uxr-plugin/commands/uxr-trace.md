@@ -32,11 +32,7 @@ workspace, ask which key to trace (one line, no command menu).
 
 ## Steps
 
-1. Read configuration once: run
-   `python "${CLAUDE_PLUGIN_ROOT}/lib/config.py" --print`; note
-   `paths.research_root`, `paths.state_dir`, `tracker.ticket_regex`,
-   `tracker.bare_number_prefix`, `tracker.base_url`, and
-   `tracker.kind`.
+1. Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - and follow it. Note `paths.research_root`, `paths.state_dir`, `tracker.ticket_regex`, `tracker.bare_number_prefix`, `tracker.base_url`, and `tracker.kind`.
 2. **No data: stop here.** Scan `<research_root>/*/.sessions/` and
    `<state_dir>/work-log-*.jsonl`. When there are no `.sessions/`
    folders and no journal rows at all, print exactly one line and stop:

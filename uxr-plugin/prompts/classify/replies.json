@@ -1,0 +1,13 @@
+{
+  "id": "replies",
+  "version": 1,
+  "classes": [
+    {"class": "declined", "action": "decline", "any": ["not interested", "decline", "no thanks", "no thank you", "pass on", "stop contacting", "unsubscribe", "remove me", "do not contact"]},
+    {"class": "new-options", "action": "edit", "any": ["none of these", "doesn't work", "does not work", "can't make", "cannot make", "not available", "conflict", "other times", "different time", "new time", "another day"]},
+    {"class": "booked", "action": "book", "any": ["booked", "booked it", "invite accepted", "signed up", "http://", "https://"]},
+    {"class": "slot-picked", "action": "book", "any": ["works for me", "that time works", "this time works", "let's do", "lets do", "suits me", "perfect", "good for me", "see you then"]},
+    {"class": "slot-picked", "action": "book", "regex": "\\b(?:mon|tues?|wed(?:nes)?|thur?s?|fri|sat|sun)[a-z]*\\b[^.?!]*\\b\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?", "note": "a day name near a time reads as a slot pick"},
+    {"class": "free-text", "action": "", "note": "no rule matched: the reply is true free text and takes the metered exception lane"}
+  ],
+  "order": "first class whose rule matches wins; declined always outranks the rest (safety)"
+}

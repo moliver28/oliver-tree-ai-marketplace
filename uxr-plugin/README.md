@@ -1,8 +1,8 @@
 # uxr-plugin
 
-UX research operations plugin for Claude Code, currently v0.1.0.
+UX research operations plugin for Claude Code, currently v0.3.0.
 
-One plugin for the research lifecycle: study tickets, specs, recruitment, interview scripts, reports, and decks. Code owns the rules (deterministic scripts, each with a `selftest`); the model owns judgment. Drafts, never sends. Hooks fail open; exclusions fail closed. See docs/ARCHITECTURE.md for the vocabulary and principles.
+One plugin for the research lifecycle: study tickets, specs, recruitment, interview scripts, reports, and decks. Code owns the rules (deterministic scripts; their offline selftests live in the repo's tests/uxr_selftests/); the model owns judgment. Drafts, never sends. Hooks fail open; exclusions fail closed. See docs/ARCHITECTURE.md for the vocabulary and principles.
 
 ## Install
 
@@ -28,7 +28,7 @@ claude plugin validate .          # manifest and component paths
 python3 scripts/smoke_test.py     # the authoritative all-local gate
 ```
 
-The smoke test makes no network call. It checks the version triple (manifest, README, CHANGELOG), command and skill minimums, every script's `selftest`, JSON schemas, front matter, the no-tracker-writes rule for `scripts/`, and dash-free recruitment templates. Exit 0 on pass.
+The smoke test makes no network call. It checks the version triple (manifest, README, CHANGELOG), command and skill minimums, the selftest suite (`tests/uxr_selftests/` in a checkout; skipped in a standalone install), JSON schemas, front matter, the no-tracker-writes rule for `scripts/`, and dash-free recruitment templates. Exit 0 on pass.
 
 ## Configure
 
@@ -38,13 +38,13 @@ The config contract ships placeholders for every key. Copy it once and fill in y
 cp config/org.example.yaml config/org.yaml
 ```
 
-Every command, script, and hook reads configuration through one loader, `lib/config.py:load_config()`. Environment overrides use `UXR_CONFIG__SECTION__KEY=value`.
+Fill the values by hand from the contract comments (there is no wizard); verify the result with `python3 lib/config.py --print`, which dumps the resolved configuration and fails loudly on a missing key. Every command, script, and hook reads configuration through that one loader, `lib/config.py:load_config()`; environment overrides use `UXR_CONFIG__SECTION__KEY=value`.
 
 ## Quick start
 
 1. Configure `config/org.yaml` (or export `UXR_RESEARCH_DIRS`, entries separated by the platform path separator).
 2. Open a Claude Code session inside a study folder -- any folder under a research root, or any folder (or a parent below your home directory) holding `00-overview.md`.
-3. The SessionStart hook injects a short context block: the commands, the tracker constants, and the routing note. Outside research folders the plugin stays silent.
+3. The SessionStart hook injects one routing-pointer line (router skill, command pattern, config location). Outside research folders the plugin stays silent.
 
 ## Commands
 
@@ -59,7 +59,7 @@ Every command, script, and hook reads configuration through one loader, `lib/con
 | `/uxr-recruit KEY` | Roster statuses, outreach drafts, calendar holds, fail-closed preflight |
 | `/uxr-debrief KEY` | File the transcript, insight recap, upload plan (dry-run first) |
 | `/uxr-notebook KEY` | NotebookLM stage prompts (browser skill; sign-in stop, never credentials) |
-| `/uxr-report KEY` | Tiered report, HTML render with citation checks, review loop, publish |
+| `/uxr-report KEY` | Tiered report, HTML render with citation checks, one HCD gate, publish |
 | `/uxr-deck KEY` | Persona-capped deck outline and pptx scaffold (`--dry-run` first) |
 | `/uxr-cheatsheet` | Cheat sheet rebuilt from sources; drift check with explicit `go` |
 | `/uxr-eod` | End-of-day draft from today's journal (dry-run; nothing posts automatically) |
@@ -102,6 +102,6 @@ Still Claude Code-only: the true `SessionEnd` final write of the workspace manif
 
 ## Development
 
-- Every script and hook answers `selftest` (or `--selftest`) and exits 0 on pass.
+- Every selftest module in `tests/uxr_selftests/` (repo checkout) passes offline; a standalone install ships no selftest code.
 - `python3 scripts/smoke_test.py` is the pre-commit and CI gate.
 - CI (`.github/workflows/plugin-ci.yml`) runs the smoke test plus a non-blocking `claude plugin validate` step (the CLI may require auth in CI; the smoke gate is authoritative). The workflow fires when this repo is used standalone; GitHub only reads workflows from a repository root's `.github/workflows/`, so when the plugin is vendored at a nested path the file is inert there and the local smoke gate is the authoritative check.

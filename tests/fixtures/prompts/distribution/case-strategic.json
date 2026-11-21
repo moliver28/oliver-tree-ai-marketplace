@@ -1,0 +1,20 @@
+{
+  "fields": {
+    "tier": "strategic",
+    "date": "2026-12-01",
+    "filename": "report-leadership-2026-12-01-uxr-101.md",
+    "headline": "the January planning review now has its missing evidence",
+    "next_line": "book the decision review",
+    "prelim": "",
+    "footer": "_Posted by Claude Code on behalf of Jordan Reyes._",
+    "channels": "#leadership",
+    "video": "requested"
+  },
+  "variant": "strategic.md",
+  "fragments": ["chat-dm", "mail-agenda", "video-script"],
+  "expect_lines": [
+    "[uxr-report 2026-12-01] Strategic report filed at deliverables/report-leadership-2026-12-01-uxr-101.md",
+    "Strategic tier extras (drafts only)",
+    "With --video: a short video script outline"
+  ]
+}

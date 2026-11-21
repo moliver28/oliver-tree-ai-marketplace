@@ -3,82 +3,46 @@ description: "Turn a finished study into a slide deck shaped for one audience: s
 argument-hint: "<KEY> [--audience=leadership|design|product|research|org] [--tier=lite|standard|strategic] [--dry-run] [--refresh-persona=<name>] [--altitude=brief|standard|deep] [--render-only]"
 ---
 
-Build the deck for one study. Scripts compute the slide cap, the story
-skeleton, the finding source counts, and the geometry lint, so the
-numbers never drift; you fill the text slots on top of that skeleton.
-Every deck is generated from an outline file by the deck generator --
-never hand-edit the ``.pptx``, and never generate a raster image.
+Build the deck for one study: scripts compute the slide cap, story
+skeleton, source counts, and geometry lint; you fill the text slots.
+Generated from an outline file, never hand-edited `.pptx`, never raster
+images.
 
-## Safety rules (read before any step; they override everything below)
+## Safety rules (they override everything below)
 
-1. **`--dry-run` writes no file and calls no write tool.** Show the
-   plan, the beats, and the outline under a `DRY RUN - nothing written`
-   heading and stop before phase 5.
-2. **The persona cache lives in `<state_dir>`, never the plugin source
-   tree.** Cached `pe_framing_prompt` values go to
-   `<state_dir>/deck-persona-cache.json` through
-   `deck_helpers.py write-persona-field --cache-dir`. Never write
-   persona fields into `references/` at runtime.
-3. **The gitignore gate passes before the deck is generated.** Run
-   `scripts/gitignore_gate.py assert-ignored` on the deliverable path
-   in the workspace plus one path per `workspace.gitignored_paths`
-   entry from the loaded configuration (config adds to the hardcoded
-   path); exit 3 stops the whole run before the generator writes
-   anything.
-4. **The deck is regenerated, never edited.** After the generator
-   writes the `.pptx`, no tool edits that file. A change means: edit
-   the outline, re-lint, regenerate.
-5. **The Critic panel member is mandatory.** When
-   `deck.critic_agent` (default `hcd-researcher`) has no agent file
-   under `agents/`, stop before the panel and say which agent is
-   missing.
-6. **Verdict labels and evidence numbers are copied verbatim** from
-   `report_helpers.py` output. Never reword, soften, or upgrade them.
-7. **An optional Drive upload happens only after an explicit `go`**,
-   under the finish rules.
+1. **`--dry-run` writes no file and calls no write tool.** Show plan, beats, outline under `DRY RUN - nothing written`; stop before phase 5.
+2. **The persona cache lives in `<state_dir>`, never the plugin source tree.** Cached `pe_framing_prompt` values go to `<state_dir>/deck-persona-cache.json` via `deck_helpers.py write-persona-field --cache-dir`; never write persona fields into `references/` at runtime.
+3. **The gitignore gate passes before generation.** `scripts/gitignore_gate.py assert-ignored` on the deliverable path plus one path per `workspace.gitignored_paths` entry; exit 3 stops the run before the generator writes anything.
+4. **The deck is regenerated, never edited.** A change means: edit the outline, re-lint, regenerate.
+5. **The Critic panel member is mandatory.** When `deck.critic_agent` (default `hcd-researcher`) has no agent file under `agents/`, stop before the panel and say which agent is missing.
+6. **Verdict labels and evidence numbers are copied verbatim** from `report_helpers.py` output.
+7. **An optional Drive upload happens only after an explicit `go`**, under the finish rules.
 
 ## Inputs
 
-`$ARGUMENTS` is `<KEY>` with any of:
-`--audience=leadership|design|product|research|org` (no flag: show a
-1 to 5 menu of the personas from `list-personas` and ask),
-`--tier=lite|standard|strategic` (default: computed by `scope-tier` in
-phase 1), `--dry-run`, `--refresh-persona=<name>` (drop that persona's
-cached `pe_framing_prompt` and regenerate it in phase 4),
-`--altitude=brief|standard|deep` (maps to the tier the way
-`altitude --level` does, used when `--tier` is absent),
-`--render-only` (skip phases 1 to 4; render
-`<workspace>/deck/deck-outline-<KEY>.json` as-is through phase 5).
+`$ARGUMENTS` is `<KEY>` with any of: `--audience=leadership|design|product|research|org` (no flag: show the 1-5 persona menu from `list-personas` and ask), `--tier=lite|standard|strategic` (default: computed in phase 1), `--dry-run`, `--refresh-persona=<name>` (drop that persona's cached `pe_framing_prompt`, regenerate in phase 4), `--altitude=brief|standard|deep` (maps through `altitude --level` when `--tier` absent), `--render-only` (skip phases 1-4; render the existing outline through phase 5).
 
-Every gate in this command uses the same words: `go`, `edit`,
-`cancel` -- except the phase 4 lens check, which uses `apply`, `edit`,
-`skip`.
+Every gate uses `go`, `edit`, `cancel` -- except the phase 4 lens check: `apply`, `edit`, `skip`.
 
 ## Setup (every run)
 
-Load configuration once (`python "${CLAUDE_PLUGIN_ROOT}/lib/config.py"
---print`). Note `paths.research_root`, `paths.state_dir`,
-`deck.personas_file`, `deck.generator_path`, `deck.critic_agent`,
-`report.verdict_threshold`, `comments.footer`, and
-`tracker.ticket_regex`. Hardcode nothing.
+Load config once (`python "${CLAUDE_PLUGIN_ROOT}/lib/config.py" --print`). Note `paths.research_root`, `paths.state_dir`, `deck.personas_file`, `deck.generator_path`, `deck.critic_agent`, `report.verdict_threshold`, `comments.footer`, `tracker.ticket_regex`. Hardcode nothing.
 
-Generator resolution: `deck.generator_path` empty means the shipped
-`scripts/deck_render.py`; a non-empty value is the user's own
-generator script (called with the same `render <outline.json>
-<out.pptx>` contract: outline JSON in, `.pptx` out, geometry lint that
-fails on overflow and overlap, no raster images).
+Generator resolution: `deck.generator_path` empty means the shipped `scripts/deck_render.py`; non-empty means the user's own generator (same contract: outline JSON in, `.pptx` out, geometry lint on overflow/overlap, no raster images).
 
 ## Phases
 
 | Phase | Steps |
 |---|---|
 | 0. Resolve | Find the workspace: `python "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold_workspace.py" lookup-workspace --ticket <KEY> --readme <research_root>/README.md`. Require at least one `interviews/*-summary.md` and a non-empty `analysis/codes.md` or `analysis/themes.md` (else stop and point to `debrief` - there is nothing to present yet). Load the persona: `python "${CLAUDE_PLUGIN_ROOT}/references/deck_helpers.py" load-persona --persona <name> --tier <tier> --cache-dir <state_dir>`. With `--refresh-persona=<name>`, first run `write-persona-field --persona <name> --field pe_framing_prompt --value null --cache-dir <state_dir>` to drop the stale prompt. |
-| 1. Synthesize | Compute the tier: `report_helpers.py scope-tier --type "<research type>" --investment "<investment>" --pod-names "<groups>"` (an explicit `--tier` flag wins and says so; `--altitude` maps through `altitude --level` when no `--tier`). Reuse `<workspace>/.sessions/gather-brief-<KEY>-<date>.md` when it exists; otherwise collect a brief from the workspace analysis files and summaries into `<workspace>/deck/deck-collect-brief-<KEY>-<date>.md`. Run `report_helpers.py evidence-weight --workspace <workspace>` and `verdict`. Run the rater panel in parallel (below): Support, Challenge, Critic (mandatory; stop if the agent file is missing), and Strategic (strategic tier only). Each returns the fixed JSON block. Merge the panel output into `/tmp/uxr-synthesis-<KEY>.md` with one `RQ{N}` block per research question. Run `report_helpers.py check-citations --draft-file <synthesis> --sources-dir <workspace>/sources` and dispatch `hcd-researcher` on the synthesis (fold in or record a one-line decline). A missing citation or an RQ block with zero evidence stops: `fix` (repair and re-check), `continue with gaps flagged` (mark each gap `GAP: <RQ>` in the synthesis and keep going), or `cancel`. Gate. |
+| 1. Synthesize | Compute the tier: `report_helpers.py scope-tier --type "<research type>" --investment "<investment>" --pod-names "<groups>"` (an explicit `--tier` flag wins and says so; `--altitude` maps through `altitude --level` when no `--tier`). Reuse `<workspace>/.sessions/gather-brief-<KEY>-<date>.md` when it exists; otherwise collect a brief from the workspace analysis files and summaries into `<workspace>/deck/deck-collect-brief-<KEY>-<date>.md`. Run `report_helpers.py evidence-weight --workspace <workspace>` — its JSON already carries `hypothesis_verdicts` and `assumption_verdicts`; read the verdicts from that output (a separate `verdict` run duplicates it). Run the rater panel in parallel (below): Support, Challenge, Critic (mandatory; stop if the agent file is missing), and Strategic (strategic tier only). Each returns the fixed JSON block. Merge the panel output into `/tmp/uxr-synthesis-<KEY>.md` with one `RQ{N}` block per research question. Run `report_helpers.py check-citations --draft-file <synthesis> --sources-dir <workspace>/sources` and dispatch `hcd-researcher` on the synthesis (fold in or record a one-line decline). A missing citation or an RQ block with zero evidence stops: `fix` (repair and re-check), `continue with gaps flagged` (mark each gap `GAP: <RQ>` in the synthesis and keep going), or `cancel`. Gate. |
 | 1.5 Arc | Write `<workspace>/deck/rqs.json` as `[{"id": "RQ1", "topic": ..., "question": ...}]` from the synthesis blocks. Run `deck_helpers.py beat-skeleton --rqs-file <workspace>/deck/rqs.json --persona <persona>`. Assign each RQ to exactly one beat (`setup`, `conflict`, `resolution`, `implication`) and write a declarative title and a one-line connector per assigned beat into `<workspace>/deck/beats.json`. Gate. `validate-beats --beats-file ... --rqs-file ...` must pass (exit 1: fix the assignments and re-run). |
-| 2. Story | Run `deck_helpers.py scaffold --beats-file <workspace>/deck/beats.json --rqs-file <workspace>/deck/rqs.json --persona <persona> --tier <tier> --key <KEY> --audience <audience> --title "<deck title>" --date <today>`, writing the printed outline to `<workspace>/deck/deck-outline-<KEY>.json`. Fill only the text slots: titles, connectors, bullets, quotes, stats, columns, captions, `sources: [<slug>]` per finding (as `[S:slug]` slugs), and optional `visual` specs (the 20 kinds in `deck_helpers.py`, validated shapes; a bad spec renders as a labeled placeholder). Never add or remove structural slides the scaffold defines without the user's edit note. Gate. |
+| 2. Story | Run `deck_helpers.py scaffold --beats-file <workspace>/deck/beats.json --rqs-file <workspace>/deck/rqs.json --persona <persona> --tier <tier> --key <KEY> --audience <audience> --title "<deck title>" --date <today>`, writing the printed outline to `<workspace>/deck/deck-outline-<KEY>.json`. Fill only the text slots: titles, connectors, bullets, quotes, stats, columns, captions, `sources: [<slug>]` per finding (as `[S:slug]` slugs), and optional `visual` specs (the 20 kinds in `deck_helpers.py`, validated shapes; a bad spec renders as a labeled placeholder). Quote text
+is copied verbatim from the session summaries' speaker-labeled quotes -
+never paraphrased. Never add or remove structural slides the scaffold defines without the user's edit note. Gate. |
 | 3. Iterate | Run `deck_helpers.py slide-plan --persona <persona> --tier <tier>` and order the outline slides by the persona `slide_priority_order` (the cover stays first, `end` stays last, each slide keeps its `category`). This is where the deck earns its cap: trim or merge slides that do not carry their category's point. Gate. |
 | 4. Lens check | Read the persona's cached `pe_framing_prompt` from `load-persona` output. When it is null, generate one - `role` (who critiques for this audience), `attack` (the one question this audience always asks), `checklist` (4 to 6 pass/fail items) - and cache it: `deck_helpers.py write-persona-field --persona <persona> --field pe_framing_prompt --value '<json>' --cache-dir <state_dir>`. Run `deck_helpers.py lint-outline --outline <workspace>/deck/deck-outline-<KEY>.json --persona <persona> --tier <tier>` and print the outline verbatim. Add only `[move]`, `[trim]`, `[add]`, `[flag]`, `[ok]` tags per slide, judged through the persona lens. PASS only when every tag is `[ok]`; otherwise gate with `apply` (make the moves and trims, re-lint), `edit` (the user dictates changes), or `skip` (proceed, recording each `[flag]`). |
-| 5. Generate | Run `deck_helpers.py deck-filename --audience <audience> --date <today> --key <KEY>`. Run the gitignore gate on `<workspace>/deliverables/<filename>`; exit 3 means offer to add `deck/` and `deliverables/*.pptx` to the workspace `.gitignore` and wait for `go`. Run `lint-outline` again; any FAIL line is fixed before generating. Strategic tier: run `deck_helpers.py finding-sources --synthesis /tmp/uxr-synthesis-<KEY>.md` and append exactly `single source; treat as preliminary` to every finding with fewer than 2 sources (set `note` on the finding slide). Generate: `python <generator> render <workspace>/deck/deck-outline-<KEY>.json <workspace>/deliverables/<filename>` (shipped generator: `scripts/deck_render.py`). Fix every geometry `FAIL` line by editing the outline and regenerating - at most 3 passes, then stop and show the failures. Optional visual pass: convert to PDF (only when a converter exists), one vision critic pass, at most 3 loops, never editing the `.pptx` directly. Optional Drive upload under the finish rules, on `go` only. `--render-only` starts here with the existing outline. |
+| 5. Generate | Run `deck_helpers.py deck-filename --audience <audience> --date <today> --key <KEY>`. Run the gitignore gate on `<workspace>/deliverables/<filename>`; exit 3 means offer to add `deck/` and `deliverables/*.pptx` to the workspace `.gitignore` and wait for `go`. Run `lint-outline` again; any FAIL line is fixed before generating. Strategic tier: run `deck_helpers.py finding-sources --synthesis /tmp/uxr-synthesis-<KEY>.md` and append exactly `single source; treat as preliminary` to every finding with fewer than 2 sources (set `note` on the finding slide). Generate: `python <generator> render <workspace>/deck/deck-outline-<KEY>.json <workspace>/deliverables/<filename>` (shipped generator: `scripts/deck_render.py`). Fix every geometry `FAIL` line by editing the outline and regenerating - at most 3 passes, then stop and show the failures. Optional visual pass: convert to PDF (only when a converter exists), one vision critic pass, at most 3 loops, never editing the `.pptx` directly. Optional Drive upload under the finish rules, on `go` only. Tell the user in one line that the optional visual pass (PDF plus one vision critic pass) is available and skipped on request, and that the Drive upload waits for an explicit `go`. `--render-only` starts here with the existing outline; when an outline from an earlier run already exists, say in one line that re-running with `--render-only` skips phases 1 to 4. |
 
 ## Rater panel (phase 1; one fixed JSON block each)
 

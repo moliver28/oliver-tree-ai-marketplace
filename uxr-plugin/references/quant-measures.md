@@ -1,12 +1,8 @@
 # Quant measures for interview scripts
 
-Verbatim survey items for `interview-script`. Copy the item wording exactly:
-every word matters because the item feeds a score that gets compared across
-studies. A labeled item in a saved script that differs from this file makes
-`scripts/review_checks.py check` exit 1 (survey wording warning).
-
-Pick by study type. Pure discovery gets none: a discovery chat has nothing
-to score yet, and scoring it invents precision.
+Verbatim survey items for `interview-script`. A labeled item in a saved
+script that differs from this file makes `scripts/review_checks.py check`
+exit 1 (survey wording warning). Pure discovery gets none.
 
 | Study type | Measures |
 |---|---|
@@ -25,7 +21,7 @@ written, then stop talking.
 
 ### `umux_lite_usability_7_point`
 
-Two items, 7-point agreement scale. Mean of 5 or above is acceptable.
+Two items, 7-point agreement scale.
 
 1. "This system's capabilities meet my requirements."
 2. "This system is easy to use."
@@ -34,7 +30,7 @@ Scale: 1 Strongly disagree to 7 Strongly agree.
 
 ### `adoption_intent_5_point_regular_use`
 
-One item, 5-point agreement scale. Mean of 4 or above is positive.
+One item, 5-point agreement scale.
 
 1. "If this were available today, I would use it regularly in my work."
 

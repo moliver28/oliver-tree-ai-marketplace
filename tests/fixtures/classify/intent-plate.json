@@ -1,0 +1,10 @@
+{
+  "subcommand": "intent",
+  "input": "what's on my plate",
+  "prefix": "UXR",
+  "expect": {
+    "command": "mine",
+    "args": "",
+    "signal": "my plate"
+  }
+}

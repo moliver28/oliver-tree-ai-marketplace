@@ -43,9 +43,7 @@ keeps the text exactly as given.
    writes nothing). **Nothing is created before `go`**: no file, no
    temp file, no gist, no `gh` call of any kind - not even a dry run.
 
-5. **Create on `go`.** Read `feedback.repo` and `feedback.label` from
-   the configuration (`python "${CLAUDE_PLUGIN_ROOT}/lib/config.py"
-   --print`). When `feedback.repo` is empty, stop with: `feedback.repo
+5. **Create on `go`.** Read `feedback.repo` and `feedback.label` from the configuration (render `prompt: config-setup@1` via `lib/prompts.py`). When `feedback.repo` is empty, stop with: `feedback.repo
    is not set; add it to config/org.yaml (for example:
    moliver28/uxr-plugin)` and offer the manual URL shape below. On
    `go`, run:

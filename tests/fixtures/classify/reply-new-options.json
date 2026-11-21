@@ -1,0 +1,10 @@
+{
+  "subcommand": "reply",
+  "input": "None of these work, I am out that whole week",
+  "expect": {
+    "class": "new-options",
+    "action": "edit",
+    "matched": "none of these",
+    "lane": "deterministic"
+  }
+}

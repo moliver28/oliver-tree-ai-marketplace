@@ -1,0 +1,10 @@
+{
+  "subcommand": "decision",
+  "input": "Users cannot find the timeline. We should decide what to do. Owner: Sam",
+  "expect": {
+    "shape": "two-sentences",
+    "good": false,
+    "has_owner": true,
+    "sentences": 2
+  }
+}

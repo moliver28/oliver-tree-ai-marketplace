@@ -29,7 +29,7 @@ This plugin turns Claude Code into a research operations assistant for UX resear
 
 ## Principle 2: code owns rules, the model owns judgment
 
-| Code (deterministic scripts, each with a `selftest`) | Model (prompt instructions) |
+| Code (deterministic scripts; selftests live at repo level) | Model (prompt instructions) |
 |---|---|
 | Spec validation, body rendering, shorthand parsing | Interview questions and drafts |
 | Field payload resolution and enum checks | Evidence reading and synthesis |
@@ -61,7 +61,7 @@ plugin root/
   agents/                    # reviewer agents (06, 11, 13)
   hooks/hooks.json + *.py    # issues 02, 09
   lib/                       # tracker adapter (03), spec and renderer (04), gates (07)
-  scripts/                   # deterministic CLIs, each with selftest
+  scripts/                   # deterministic CLIs (selftests at repo tests/)
   templates/workspace/       # study folder template (08)
   state/                     # per-user data, gitignored (specs, journal, events)
 ```

@@ -1,0 +1,6 @@
+| Key | Status | Type | Pri | Summary | Updated |
+|---|---|---|---|---|---|
+| [UXR-101](https://uxr-example.atlassian.net/browse/UXR-101) | Planned | Study | Medium | New user navigation study: timeline discoverability | just now |
+| [UXR-102](https://uxr-example.atlassian.net/browse/UXR-102) | In Progress | Study | High | Pricing page first-run study | 3d ago |
+| [UXR-103](https://uxr-example.atlassian.net/browse/UXR-103) | Collecting Data | Study | Low | Card sort: information architecture v2 | 5d ago |
+3 open

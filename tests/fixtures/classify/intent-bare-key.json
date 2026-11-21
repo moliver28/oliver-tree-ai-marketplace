@@ -1,0 +1,10 @@
+{
+  "subcommand": "intent",
+  "input": "UXR-101",
+  "prefix": "UXR",
+  "expect": {
+    "command": "show",
+    "args": "UXR-101",
+    "signal": "ticket key"
+  }
+}

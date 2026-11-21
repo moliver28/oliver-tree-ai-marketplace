@@ -1,6 +1,6 @@
 {
   "name": "uxr-plugin",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "UX research operations for Claude Code: study tickets, specs, recruitment, interview scripts, reports, and decks. Use when the user says: 'recruit participants for my study', 'draft the interview script', 'write the research report'.",
   "author": {
     "name": "moliver28"

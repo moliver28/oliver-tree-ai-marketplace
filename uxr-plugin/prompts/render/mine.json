@@ -1,0 +1,10 @@
+{
+  "id": "mine",
+  "version": 1,
+  "columns": ["Key", "Status", "Type", "Pri", "Summary", "Updated"],
+  "empty": {
+    "default": "No open {project_key} issues assigned to you.",
+    "all": "No {project_key} issues assigned to you."
+  },
+  "footer": {"default": "{n} open", "all": "{n} total"}
+}

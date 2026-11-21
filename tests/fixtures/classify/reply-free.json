@@ -1,0 +1,10 @@
+{
+  "subcommand": "reply",
+  "input": "Who else will be in the session? I love the product by the way",
+  "expect": {
+    "class": "free-text",
+    "action": "",
+    "matched": "",
+    "lane": "exception"
+  }
+}

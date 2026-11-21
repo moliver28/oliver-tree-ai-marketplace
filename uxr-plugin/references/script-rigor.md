@@ -1,61 +1,15 @@
-# Script format policy and the hcd-researcher rigor rider
+# The hcd-researcher rigor rider (interview scripts)
 
-Part 1 is the format policy every interview script follows; it condenses
-what `skills/interview-script/SKILL.md` and `scripts/review_checks.py`
-enforce, in one place for reviewers and dispatch prompts. Part 2 is the
-rider appended to an `hcd-researcher` dispatch when the researcher agent
-reviews an interview script.
+The format policy every interview script follows lives in
+`skills/interview-script/SKILL.md` (steps 5 to 8) and is enforced by
+`scripts/review_checks.py`; this file holds only the rider appended to an
+`hcd-researcher` dispatch when the researcher agent reviews an interview
+script.
 
-## Part 1: Format policy
-
-Structure (deterministic; the checker blocks on violations):
-
-- One H1: `# Interview Script: <Study Title>`.
-- Header lines in order: `<Tracker> Ticket:` (rename per tracker), optional
-  `Prototype Link:`, `UXR:`, `PD and-or PM:`. Then the metadata lines
-  `**Time budget**: N min`, `**Method**`, `**Date drafted**`,
-  `**Drafted from**`.
-- H2 sections in order: `## Research Questions`, `## Moderator Notes`,
-  `## Script` (with `### N. Title (M min)` sections), then
-  `## Research Question → Script Question Map` with columns
-  `| RQ | Phase | Technique | Script Qs | Stakeholder Value |`, then
-  `## Quality Check`, then when they apply `## Critical-to-Success`,
-  `## Quant Measures`, `## Tour Implementation Capture`, and finally
-  `## Leadership Read` (3 to 5 bullets).
-- Scripted minutes total at most budget minus buffer (defaults: 60 minus 8,
-  so 52). The checker blocks a total over that line.
-
-Question rules:
-
-- No yes or no openers; a main question never starts with do, does, did,
-  is, are, was, were, can, could, will, would, has, or have.
-- At most 20 words per main question; probes are exempt.
-- Reading grade 8 to 10 on spoken text and questions.
-- No leading, double-barreled, assumptive, or loaded wording; at most one
-  negation per main question.
-- Open broad question first in each section; the first design question is
-  an open reaction; probes sit under their main question; laddering at
-  most 3 rungs.
-- Moderator cues read `*[Moderator: ...]*`.
-
-Format grammar:
-
-- Spoken text: `**Read Aloud:**` then an italic block.
-- Unspoken notes: `- Note: ...`.
-- Main questions numbered `N.`; probes lettered and indented `   a.`.
-- Conditionals: `N. [criteria] Question?` (always ends in a question mark).
-- Survey items: `**[LABEL]. **` then the item text, copied verbatim from
-  `references/quant-measures.md`.
-- Navigation as a literal path: `Go to 'Settings' > Click 'Integrations'`.
-
-Never use an em dash or en dash anywhere in the script.
-
-## Part 2: hcd-researcher rider
-
-Append the following block verbatim to the `hcd-researcher` dispatch prompt
-when the researcher agent reviews an interview script. It applies only to
-concept testing, usability, and onboarding tour studies: for other study
-types the researcher agent is not dispatched on scripts at all.
+Append the following block verbatim to the `hcd-researcher` dispatch
+prompt. It applies only to concept testing, usability, and onboarding
+tour studies: for other study types the researcher agent is not
+dispatched on scripts at all.
 
 ```text
 Rider: interview script rigor (references/script-rigor.md)

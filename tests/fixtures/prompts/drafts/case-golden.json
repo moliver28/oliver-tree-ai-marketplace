@@ -1,0 +1,24 @@
+{
+  "fields": {
+    "ask": "New user navigation study: timeline discoverability (requester notes paragraph)",
+    "digest": "{\"sources\": {\"Tracker: your recent items (other projects)\": 0, \"Drive\": 0}, \"unavailable\": [], \"feedback_gap\": true, \"evidence_total\": 0}",
+    "group": "Onboarding",
+    "owner": "Product Leadership",
+    "evidence_total": 0,
+    "feedback_gap": true
+  },
+  "variant": "prompt.md",
+  "fragments": [
+    "craft-bars",
+    "sweep-empty",
+    "feedback-gap"
+  ],
+  "expect_lines": [
+    "object and nothing else - no prose outside the JSON:",
+    "\"decision_shape\": \"invest-a-or-b|ship-ga|standardize|other-good|topic-only|validate-only|two-sentences|no-owner\"",
+    "A hypothesis is falsifiable, single-mechanism, and tied to the decision",
+    "Every evidence source returned 0 hits this run",
+    "the background clause must also name that gap"
+  ],
+  "golden_ref": "baseline-artifacts uc-2 Phases 3-5 (background/decision/hypotheses shapes)"
+}

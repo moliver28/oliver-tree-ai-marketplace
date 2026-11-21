@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-18",
+  "footer": "_Posted by Claude Code on behalf of Jordan Reyes._",
+  "payload": {
+    "paragraph": "30-minute session on where first-week users look for planning features, with Participant A (internal, owns first-run funnel metrics). Transcript source: the local recorder folder capture; the committed summary sits at interviews/new-user-navigation-study-timeline-discoverability-q4-2026-2026-11-18-summary.md.",
+    "landing": [
+      "New users try the header toolbar before the left navigation, and our funnel data puts about two thirds of first meaningful clicks in the top bar.",
+      "The left rail reads as settings and admin rather than where work lives.",
+      "Discovery inside the first session predicts planning in that same session; users who never find the timeline build nothing in week one.",
+      "The guided tour gets clicked through rather than read, so a persistent navigation change looks stronger for the January decision."
+    ],
+    "not_covered": [
+      "mobile breakpoints under 900 pixels",
+      "the label wording for the timeline if it moves to the left navigation"
+    ]
+  },
+  "golden_ref": "baseline-artifacts uc-6 Phase 6 (W3 finding 1: the recap sentences render as inline prose, 146 words)"
+}

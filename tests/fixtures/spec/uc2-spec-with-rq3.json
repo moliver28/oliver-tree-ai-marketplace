@@ -1,0 +1,44 @@
+{
+  "history": "Support sees a steady trickle of 'where is my project plan?' tickets in each account's first week. Product wants to move the timeline entry point into the left navigation; design believes new users look in the header toolbar first. Leadership decides at the January planning review with no evidence in hand.",
+  "decision": "Do we ship the left-navigation timeline entry or invest in a guided tour? Owner: Product Leadership, January planning review.",
+  "hypotheses": [
+    {
+      "label": "H1",
+      "text": "First-week users look for planning features in the header toolbar before the left navigation."
+    },
+    {
+      "label": "H2",
+      "text": "New project managers who find the timeline in their first session build a plan in that session."
+    },
+    {
+      "label": "H3",
+      "text": "A navigation change increases first-session timeline discovery more than a guided tour."
+    }
+  ],
+  "assumptions": [
+    {
+      "label": "A1",
+      "text": "First-week users want to build a plan during their first session."
+    }
+  ],
+  "resources": [],
+  "research_questions": [
+    "Where do first-week users look for the timeline when they want to plan?",
+    "What does a first-session planning attempt look like for a new project manager?",
+    "What makes the timeline entry discoverable in the left navigation vs the header toolbar?"
+  ],
+  "sample_size": "5 internal participants",
+  "persona": "New project manager in their first week on a trial account",
+  "session_length": "30 minutes",
+  "results": null,
+  "study_title": "New user navigation study: timeline discoverability",
+  "method_key": "interview",
+  "channel": "internal",
+  "uxr": "Jordan Reyes",
+  "pm": "",
+  "pd": "",
+  "em": "",
+  "jtbd_refs": [],
+  "persona_refs": [],
+  "slack_channel": ""
+}

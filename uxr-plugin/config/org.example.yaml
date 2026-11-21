@@ -38,6 +38,11 @@ tracker:
   # Example shape: UX1
   project_key: ""
   # Regex that matches a ticket key in text; a key like UX1-237 must match.
+  # Used two ways: commands validate one whole key against it (anchor it,
+  # e.g. '^UX1-[0-9]+$', for a strict full-match check), and the journal
+  # hooks search free text with it (they strip one leading ^ and one
+  # trailing $ before compiling, so an anchored validator shape still
+  # matches keys mid-sentence).
   # Example shape: '\bUX1-\d+\b'
   ticket_regex: ""
   # Prefix that turns a bare number into a ticket key: '42' -> '<prefix>-42'.

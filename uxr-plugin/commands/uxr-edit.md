@@ -3,15 +3,12 @@ description: "Edit one study ticket with shorthand keys: template sections go th
 argument-hint: "<KEY> [key=value ...]"
 ---
 
-Edit a study ticket without breaking its template. Sections and the roster
-are patched in the spec (the source of truth), validated, and pushed as a
-full body; tracker fields are resolved with `lib/field_map.py` and pushed on
-their own. One run makes at most one `update_item` call, and it carries the
-section changes and the field changes together.
-
-It writes through the operations in `references/tracker.md`:
-`get_item`, `find_user`, `update_item`, `add_comment`, `item_url`. It never
-calls `create_item` or `set_state` -- `edit` never moves a ticket.
+Edit a study ticket without breaking its template: sections and the roster
+patch the spec (the source of truth), validate, and push as one full body;
+tracker fields resolve through `lib/field_map.py`. One run makes at most one
+`update_item` call. Writes only through the `references/tracker.md` ops
+`get_item`, `find_user`, `update_item`, `add_comment`, `item_url`; never
+`create_item` or `set_state` -- `edit` never moves a ticket.
 
 ## Inputs
 
@@ -31,11 +28,10 @@ calls `create_item` or `set_state` -- `edit` never moves a ticket.
 | Fields | every shorthand in the issue 03 field table (`lib/field_map.py`); multi-select fields accept `=A,B` (replace), `+=A` (add), `-=A` (remove) |
 | Standard | `summary=`, `assignee=me\|<name>`, `priority=`, `labels=a,b` or `labels=+x`, `duedate=`, `description=` (warn: replaces the full body; prefer sections) |
 
-The spec-path keys are `history`, `decision`, `results`, `sample`,
-`persona`, `length`, `artifact`, `questions`, and every list operation on
-`hypotheses`, `assumptions`, `resources`, `roster`. Everything else is a
-field-path key. A run with at least one spec-path key takes the spec path
-for the whole run; a run with only field-path keys takes the field path.
+Spec-path keys: the spec scalars and every list operation in the table
+above; everything else is a field-path key. Any spec-path key routes the
+whole run through the spec path; a field-only run skips steps 6 to 9 and
+go straight to step 10.
 
 Special rules:
 
@@ -52,14 +48,7 @@ Special rules:
 
 ## Steps
 
-1. Read configuration once: run `python "${CLAUDE_PLUGIN_ROOT}/lib/config.py" --print`
-   (when `CLAUDE_PLUGIN_ROOT` is not set, run it with the path of the plugin
-   directory that holds `lib/`, `config/`, and `scripts/`). Note
-   `tracker.kind`, `tracker.project_key`, `tracker.ticket_regex`,
-   `tracker.bare_number_prefix`, `paths.state_dir`, `paths.research_root`,
-   the `comments.footer`, `recruit.statuses`, and every entry under `fields`
-   (shorthand name, `id`, `kind`, `values`). Every `<placeholder>` below is
-   filled from that output; hardcode nothing.
+1. Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - and follow it. Note `tracker.kind`, `tracker.project_key`, `tracker.ticket_regex`, `tracker.bare_number_prefix`, `paths.state_dir`, `paths.research_root`, the `comments.footer`, `recruit.statuses`, and every entry under `fields` (shorthand name, `id`, `kind`, `values`).
 
 2. Parse `$ARGUMENTS`. The first token is the ticket key. The rest are
    `key=value` shorthands split on whitespace (a value may be quoted to
@@ -67,13 +56,11 @@ Special rules:
    with the `normalize_key` rule (`references/tracker.md`) and refuse a key
    outside the study project the way `show` does; never search for it.
 
-3. No shorthand and no free text: call `get_item` once, render the ticket
-   the way `show` renders it, then ask
+3. No shorthand and no free text: call `get_item` once and render it the way `show` renders it now - through `lib/render.py show` (the canonical item JSON, `commands/uxr-show.md` step 5). Then ask
    `What should change? For example: history=<text>, method+=Survey, roster+=Name|email|slack|reason|status|channel, priority=High`
    and stop. Continue at step 6 or 10 with whatever the user answers.
 
-4. Free text (step 2 input shape 3): decide what it is and say which you
-   picked.
+4. Free text (step 2 input shape 3): this is the command's exception lane (the one metered model call). Decide what it is and say which you picked.
    - It reads like a note for the team ("add a note ...", an aside, a
      status remark): treat it as a comment request.
    - It answers "what happened before this" or "what did we learn": propose
@@ -100,41 +87,35 @@ Special rules:
      this step entirely and continues at step 10.)
 
 7. Spec-path preparation, in order:
-   a. **Drift check.** Call `get_item` once and read the live `updated`
-      time. When it differs from the spec's `_meta.tracker_updated_at`
-      (including when `_meta.tracker_updated_at` is unset), print exactly
-      `<KEY> was edited in the tracker after the spec was last saved; recompiling will overwrite that change`
-      and wait for the user to say go or cancel. Keep the fields from this
-      same read; they feed steps 9 and 12.
+   a. **Drift check.** Call `get_item` once, read the live `updated` time.
+      When it differs from `_meta.tracker_updated_at` (including unset),
+      print exactly `<KEY> was edited in the tracker after the spec was last saved; recompiling will overwrite that change`
+      and wait for go or cancel. Keep the fields from this read; they feed
+      steps 9 and 12.
    b. **Patch the spec in memory.** Scalars assign (`sample=` lands in
       `sample_size`, `length=` in `session_length`, `artifact=` in
-      `artifact_link`); `questions=` splits on `|` characters or literal
-      newlines into trimmed, non-empty strings. List operations go through
+      `artifact_link`); `questions=` splits on `|` or literal newlines into
+      trimmed, non-empty strings. List operations go through
       `scripts/parse_shorthand.py`: pipe one JSON request per operation --
       `{"kind": "roster|hypotheses|assumptions|resources", "op": "+=|~=|-=", "arg": "<pipe string>"}`
-      -- and apply the printed delta. `+=` appends the row; `~=` finds rows
-      whose name or label contains the match string without case and patches
-      that one field; `-=` removes the row whose name or label is equal
-      without case. Zero or several matches: show what matched, ask, and
-      change nothing until the user picks.
-   c. **Drive permission check.** For every resources row this run added or
-      patched with a Drive URL: check the file's current sharing (Drive
-      read, never a permission change) and set `share_status` to what you
-      observe -- shared with the team domain, `private` otherwise, and
-      `unknown` when you cannot determine it. Say what you found in the
-      preview.
-   d. **Local path.** A resources row whose value is a local file path is
-      invalid and the validator would reject it. Stop before writing and
-      run the local-to-Drive flow from issue 06 instead: search Drive for a
-      matching file, propose candidates one at a time for yes/no, upload
-      only on an explicit yes, and put the Drive URL in the resource. Never
-      write a local path into the spec.
+      -- and apply the printed delta. `+=` appends; `~=` matches rows by
+      case-insensitive substring on name/label and patches that field; `-=`
+      removes the exact case-insensitive match. Zero or several matches:
+      show what matched, ask, change nothing until the user picks.
+   c. **Drive permission check.** For every resources row added or patched
+      with a Drive URL: read current sharing (never a permission change) and
+      set `share_status` to what you observe -- team domain, `private`, or
+      `unknown` when undeterminable. Say what you found in the preview.
+   d. **Local path.** A resources row holding a local path is invalid; stop
+      before writing and run the issue-06 local-to-Drive flow: search Drive
+      for a match, propose candidates one at a time for yes/no, upload only
+      on an explicit yes. Never write a local path into the spec.
    e. **Validate and render in one call.** Pipe the patched spec JSON into
-      `python scripts/build_body.py`. A non-zero exit writes nothing: exit
-      3 is a validation failure and exit 4 is an incomplete document; in
-      both cases print the `  - <error>` lines from stderr verbatim, save
-      no file, make no tracker call, and stop. (A bad roster status dies
-      here with exit 3 -- that is the "nothing is written" guarantee.)
+      `python scripts/build_body.py`. Non-zero exit writes nothing: exit 3
+      is a validation failure, exit 4 an incomplete document; print the
+      `  - <error>` lines from stderr verbatim, save no file, make no
+      tracker call, stop. (A bad roster status dies here with exit 3 -- the
+      "nothing is written" guarantee.)
 
 8. **Preview and gate.** Show a diff preview and wait for `yes`, `go`, or
    `apply` (anything else cancels and writes nothing):
@@ -148,15 +129,13 @@ Special rules:
    ```
 
    One line per change: `  <name>:<spaces> <old> → <new>`. Old is
-   `[placeholder]` when the previous value was the template placeholder
-   text, `[unset]` when it was empty or absent; quote string values. List
-   edits summarize rows before and after. Field changes show the resolved
-   payload (`method: + Survey`, `priority: → High`, `uxr: → <resolved name>`)
-   after you applied the `__op__` wrappers of `lib/field_map.py` payloads
-   against the live values read in step 7a (`+=` merges additions into the
-   current list, `-=` removes from it) and resolved every
-   `{"__resolve_user__": token}` with `find_user` (`me` is the cached
-   current user). Resolve shorthands with
+   `[placeholder]` for template placeholder text, `[unset]` when empty or
+   absent; quote string values; list edits summarize rows before and after.
+   Field changes show the resolved payload (`method: + Survey`,
+   `priority: → High`, `uxr: → <resolved name>`) after applying the
+   `__op__` wrappers of `lib/field_map.py` payloads against the step 7a
+   live values and resolving every `{"__resolve_user__": token}` with
+   `find_user` (`me` is the cached current user). Resolve shorthands with
    `python "${CLAUDE_PLUGIN_ROOT}/lib/field_map.py" resolve --shorthand "<shorthand>"`.
 
 9. **Save and push, in this order.** On `yes`, `go`, or `apply`:
@@ -174,14 +153,12 @@ Special rules:
    d. Never transition a status from `edit`, even when the ticket now
       qualifies.
 
-10. Field-only path: with only field-path shorthands there is no spec load
-    and no body push. Preview the resolved payloads (step 8 format), gate
-    on the same words, then make one `update_item` call with the fields
-    only. A field-only edit sends no body -- do not pass a description or
-    body parameter at all. (`summary=`, `priority=`, `labels=`, `duedate=`
-    resolve through `lib/field_map.py` like any field; `assignee=` and
-    `description=` are not configured fields -- assignee writes the
-    tracker's standard assignee, description follows its own warning rule.)
+10. Field-only path: no spec load, no body push. Preview the resolved
+    payloads (step 8 format), gate on the same words, then one
+    `update_item` call with the fields only -- no description or body
+    parameter at all. (`assignee=` and `description=` are not configured
+    fields: assignee writes the tracker's standard assignee, description
+    follows its own warning rule.)
 
 11. **Refresh the workspace overview.** Run
     `python "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold_workspace.py" lookup-workspace --ticket <KEY> --readme <research_root>/README.md`.

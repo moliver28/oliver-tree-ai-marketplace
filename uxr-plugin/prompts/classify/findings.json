@@ -1,0 +1,7 @@
+{
+  "id": "findings",
+  "version": 1,
+  "render": ["chart type", "contrast", "disclosure structure", "chart fit", "color", "legend", "visual encoding"],
+  "content": ["orientation", "first action", "terms", "steps", "dead ends", "narrative", "takeaway count", "next steps", "owners", "wording", "structure of the text"],
+  "note": "Route by the finding's stated category: render categories go to the renderer (a re-render from the fixed Markdown), content categories go to the Markdown. An unknown category routes to the Markdown with a note, never silently dropped."
+}

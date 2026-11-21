@@ -1,0 +1,12 @@
+{
+  "fields": {"pod_options": "Onboarding, Growth, or Core"},
+  "variant": "prompt.md",
+  "fragments": [],
+  "expect_lines": [
+    "Three quick things before I run the evidence sweep:",
+    "1. Working title for the study?",
+    "2. Which group or area does this belong to (Onboarding, Growth, or Core)?",
+    "3. Who is the decision owner?"
+  ],
+  "golden_ref": "baseline-artifacts uc-2 Phase 1 (verbatim)"
+}

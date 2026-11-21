@@ -1,0 +1,11 @@
+{
+  "fields": {},
+  "variant": "prompt.md",
+  "fragments": [],
+  "expect_lines": [
+    "Load configuration once: run `python \"${CLAUDE_PLUGIN_ROOT}/lib/config.py\" --print`",
+    "Cache the resolved values for the session.",
+    "hardcode nothing"
+  ],
+  "golden_ref": "the canonical setup block formerly duplicated in 11 command files"
+}

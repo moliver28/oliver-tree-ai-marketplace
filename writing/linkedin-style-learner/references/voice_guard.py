@@ -63,7 +63,7 @@ Init: --init (embeds classes + corpus once; ~1-2s warm). Check: --check FILE.
 Exit codes: 0 pass, 1 fail (anti-tell hit), 2 pass-with-warnings.
 Out: one JSON line {ok, errors, warnings, secs, arms, details}.
 """
-import argparse, difflib, hashlib, json, math, os, re, sys, time
+import argparse, difflib, hashlib, http.client, ipaddress, json, math, os, re, socket, sys, time, urllib.parse
 from pathlib import Path
 
 try:
@@ -218,10 +218,46 @@ def split_sentences(text):
     return [s.replace("<D>", ".").strip() for s in parts if s.strip()]
 
 
+def _post_json(url, body, timeout):
+    """POST JSON to the model server. http is allowed only for
+    loopback/link-local hosts (the local model server); https elsewhere.
+    No userinfo; redirects are never followed."""
+    parts = urllib.parse.urlsplit(url)
+    host = (parts.hostname or "").lower()
+    if parts.username or parts.password or not host:
+        raise ValueError("endpoint must have a plain hostname")
+    if parts.scheme == "https":
+        conn_cls = http.client.HTTPSConnection
+    elif parts.scheme == "http":
+        _require_local(host)
+        conn_cls = http.client.HTTPConnection
+    else:
+        raise ValueError("only https, or http to a local model server, is supported")
+    port = parts.port or (443 if parts.scheme == "https" else 80)
+    path = parts.path or "/"
+    if parts.query:
+        path += "?" + parts.query
+    conn = conn_cls(host, port, timeout=timeout)
+    try:
+        conn.request("POST", path, body=json.dumps(body).encode(),
+                     headers={"Content-Type": "application/json"})
+        payload = conn.getresponse().read()
+    finally:
+        conn.close()
+    return json.loads(payload)
+
+
+def _require_local(host):
+    """Every resolved address must be loopback/link-local."""
+    for _fam, _typ, _proto, _canon, sockaddr in socket.getaddrinfo(host, None):
+        ip = ipaddress.ip_address(sockaddr[0])
+        if not (ip.is_loopback or ip.is_link_local):
+            raise ValueError(f"{host} resolves outside loopback/link-local")
+
+
 def embed(texts, timeout=60):
     """Chunked with retry: Ollama's tokenizer subprocess crashes on large or
     unlucky batches; 64-item chunks with one retry keep coverage deterministic."""
-    import urllib.request, time
     texts = [t if isinstance(t, str) else str(t) for t in texts]
     texts = [t.strip() for t in texts if t and t.strip()]
     if not texts:
@@ -231,10 +267,8 @@ def embed(texts, timeout=60):
         chunk = texts[i:i + 64]
         for attempt in (1, 2):
             try:
-                body = json.dumps({"model": MODEL, "input": chunk, "keep_alive": "15m"}).encode()
-                req = urllib.request.Request(OLLAMA, data=body, headers={"Content-Type": "application/json"})
-                with urllib.request.urlopen(req, timeout=timeout) as r:
-                    out += json.loads(r.read())["embeddings"]
+                out += _post_json(str(OLLAMA), {"model": MODEL, "input": chunk,
+                                                "keep_alive": "15m"}, timeout)["embeddings"]
                 break
             except Exception:
                 if attempt == 2:

@@ -9,11 +9,7 @@ owns every tracker call and gate.
 
 ## Setup
 
-1. Read configuration once: run `python "${CLAUDE_PLUGIN_ROOT}/lib/config.py" --print`
-   (when `CLAUDE_PLUGIN_ROOT` is not set, run it with the path of the plugin
-   directory that holds `lib/`, `config/`, and `references/`). Note
-   `tracker.kind`, `tracker.project_key`, `tracker.bare_number_prefix`, and
-   `tracker.ticket_regex`. Hardcode nothing.
+1. Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - and follow it. Note `tracker.kind`, `tracker.project_key`, `tracker.bare_number_prefix`, and `tracker.ticket_regex`.
 2. Command names map to files: `mine` is `commands/uxr-mine.md`, `show` is
    `commands/uxr-show.md`, and so on for `new`, `edit`, `move`, `recruit`,
    `eod`. Check that the routed command file exists in this build. If it does
@@ -21,37 +17,35 @@ owns every tracker call and gate.
    `<name> is not in this build yet; mine and show are available.`
    and stop. Do not substitute a different command.
 
-## Routing table
+## Routing
 
-Pick from the user's words alone.
+The intent pick is a script, not a guess. Run:
 
-| Intent signal | Command |
-|---|---|
-| my tickets, my plate, assigned to me | `mine` |
-| show, read, look at, a bare key with read intent | `show <KEY>` |
-| create, new, log, open a ticket, "I need to track" | `new` |
-| update, edit, fill in, change priority | `edit <KEY>` |
-| move, transition, mark as, push to a column | `move <KEY>` |
-| recruit, recruiting status, who have we contacted, next wave | `recruit <KEY>` (`--status` for questions, `--external` for customers) |
-| end of day, EOD, log today's work | `eod` |
+```
+python "${CLAUDE_PLUGIN_ROOT}/scripts/classify.py" intent "<the user's message>" --prefix <tracker.bare_number_prefix>
+```
 
-A message that is only a ticket key, or a key with read intent, routes to
-`show <KEY>`. Two examples that must run without a clarifying question:
-"what's on my plate" runs `mine`; "show me ABC-237" runs `show ABC-237`.
+It prints `{"command", "args", "signal"}` using the keyword table in
+`prompts/classify/intents.json` (a bare key, or a key with read intent,
+routes to `show <KEY>`). Two examples that must run without a clarifying
+question, and their script outputs: "what's on my plate" routes to `mine`;
+"show me UXR-237" routes to `show UXR-237`. If the script reports no match
+(exit 2), pick the most likely command yourself and say one line why.
 
 ## Running the routed command
 
-Run it as the plugin slash command, `/uxr-plugin:uxr-<name>` with the routed
-name and arguments. When slash invocation is not available, read
-`commands/uxr-<name>.md` from this plugin and follow it exactly.
+Run it as the plugin slash command, `/uxr-plugin:uxr-<command>` with the
+routed command and the script's `args`. When slash invocation is not
+available, read `commands/uxr-<command>.md` from this plugin and follow it
+exactly.
 
 ## Rules
 
 1. Never ask which command. Pick the most likely one, run it, and offer the
    alternative in one line at the end.
 2. A study name or shorthand without a key: `search(filter)` the study project
-   by label or summary text, render the `mine` table shape, and let the user
-   pick.
+   by label or summary text, render through `lib/render.py mine`
+   (the `commands/uxr-mine.md` shape), and let the user pick.
 3. Do not search other projects. If the user names another project's key, say
    so and ask which `<project_key>` issue they meant.
 4. Never create a ticket without a preview. Never transition without showing

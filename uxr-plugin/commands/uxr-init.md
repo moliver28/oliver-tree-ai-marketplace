@@ -3,9 +3,8 @@ description: "Create the local research workspace for a study: overview that mir
 argument-hint: "<KEY> [--dir=<name>] [--no-ticket]"
 ---
 
-Give a study its local folder: `00-overview.md` that mirrors the ticket,
-folders for sources, scripts, interviews, analysis, recruitment, and
-deliverables, and git rules that keep participant data out of version
+Give a study its local folder: `00-overview.md` mirroring the ticket, the
+fixed folder set, and git rules that keep participant data out of version
 control. Every later command (`recruit`, `debrief`, `report`, `deck`,
 `trace`) finds its files here.
 
@@ -22,11 +21,7 @@ Neither `<KEY>` nor `--no-ticket`: ask which one applies and end the turn.
 
 Steps:
 
-1. Read configuration once: run
-   `python "${CLAUDE_PLUGIN_ROOT}/lib/config.py" --print` (when
-   `CLAUDE_PLUGIN_ROOT` is not set, run it with the path of the plugin
-   directory that holds `lib/` and `scripts/`). Note `paths.research_root`,
-   `paths.state_dir`, `workspace.remote`, and `workspace.slug_max_body`.
+1. Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - and follow it. Note `paths.research_root`, `paths.state_dir`, `workspace.remote`, and `workspace.slug_max_body`.
 2. Spec guard. The spec lives at
    `<state_dir>/specs/<KEY>.spec.json`.
    - Spec present: load it; it feeds the overview and the mapping below.

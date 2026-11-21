@@ -1,0 +1,14 @@
+{
+  "fields": {
+    "first_name": "P",
+    "study_title": "T",
+    "session_length": "30 minutes",
+    "why_this_recruit": "r",
+    "focus_clause": "",
+    "slots_block": "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15\nline16\nline17\nline18\nline19\nline20\nline21\nline22\nline23\nline24\nline25\nline26\nline27\nline28\nline29\nline30\nline31\nline32\nline33\nline34\nline35\nline36\nline37",
+    "sender_first_name": "J",
+    "has_slack": true,
+    "holds": "none"
+  },
+  "expect_error": true
+}

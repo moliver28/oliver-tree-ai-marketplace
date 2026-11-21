@@ -1,7 +1,7 @@
 # Outreach templates and the external send checks (recruit)
 
-Everything here is drafts only. The one exception in the whole plugin is the
-external self-test, which goes only to the user's own inbox.
+Everything here is drafts only; the one exception is the external
+self-test, which goes only to the user's own inbox.
 
 ## Internal chat DM (verbatim shape)
 

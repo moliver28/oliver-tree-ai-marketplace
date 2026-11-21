@@ -1,0 +1,96 @@
+{
+  "now": "2026-11-17T21:54:24Z",
+  "item": {
+    "key": "UXR-101",
+    "url": "https://uxr-example.atlassian.net/browse/UXR-101",
+    "summary": "New user navigation study: timeline discoverability",
+    "status": "Planned",
+    "type": "Study",
+    "priority": "Medium",
+    "assignee": "Jordan Reyes",
+    "reporter": "Sam Okafor",
+    "created": "2026-11-10T21:30:00Z",
+    "updated": "2026-11-17T21:54:00Z",
+    "labels": [
+      "new-user-timeline-discoverability",
+      "2026-q4"
+    ],
+    "description": "> **Directions:** Complete the Background & Context sections and relevant data fields **BEFORE** talking with your UX Researcher. Follow the checklist below for more details.\n>\n> > ## ✅ Results\n> >\n> > Once research is complete: What decision are you making and why? Try to keep it to 2-3 sentences max.\n>\n> # 📋 Background & Context\n>\n> |  |  |\n> | --- | --- |\n> | ⏱️ History | Support sees a steady trickle of 'where is my project plan?' tickets in each account's first week. Product wants to move the timeline entry point into the left navigation; design believes new users look in the header toolbar first. Leadership decides at the January planning review with no evidence in hand. |\n> | 🎯 Key Decision | Do we ship the left-navigation timeline entry or invest in a guided tour? Owner: Product Leadership, January planning review. |\n> | ❗ Assumptions & Hypotheses | **Hypotheses**<br>1. **H1.** First-week users look for planning features in the header toolbar before the left navigation.<br>2. **H2.** New project managers who find the timeline in their first session build a plan in that session.<br>**Assumptions**<br>1. **A1.** First-week users want to build a plan during their first session. |\n>\n> <details>\n> <summary>📦 Resources</summary>\n>\n> - Add links to relevant docs, decks, prior research, customer artifacts. Use Drive / Confluence / Jira URLs that are at least viewable by the team.\n>\n> </details>\n>\n> # ❓ Research Questions\n>\n> 1. Where do first-week users look for the timeline when they want to plan?\n> 2. What does a first-session planning attempt look like for a new project manager?\n> 3. Tertiary research question\n>\n> # 🧑‍🤝‍🧑 Recruitment Strategy\n>\n> |  |  |\n> | --- | --- |\n> | Target Sample Size | 5 internal participants |\n> | Persona / Customer | New project manager in their first week on a trial account |\n> | Length of Session / Survey | 30 minutes |\n> | Link to Artifact(s) | Link to script / survey / discussion guide once written |\n>\n> <details>\n> <summary>👥 Recruitment Roster</summary>\n>\n> | Name | Title | Company | Industry | ARR | Contact | Status | Reason |\n> | --- | --- | --- | --- | --- | --- | --- | --- |\n> |   |   |   |   |   |   |   |   |\n>\n> </details>\n>\n> <details>\n> <summary>✏️ Checklist</summary>\n>\n> - [ ] Scope and prioritize: set UXR Support Level and Assignee with the [prioritization calculator](https://example.com/research-calculator).\n> - [ ] Draft the study: write Research Questions, Recruitment Strategy, and the script or survey using the [templates folder](https://example.com/templates).\n> - [ ] Review and recruit: get it reviewed, then recruit and collect data.\n> - [ ] Synthesize and report: summarize, write the report, fill Results, move to Done.\n> - [ ] Manage this ticket with the [plugin commands](https://github.com/moliver28/oliver-tree-ai-marketplace).\n>\n> </details>",
+    "issuelinks": [
+      {
+        "type": "relates to",
+        "key": "UXR-102",
+        "url": "https://uxr-example.atlassian.net/browse/UXR-102",
+        "summary": "Pricing page first-run study",
+        "status": "In Progress"
+      }
+    ],
+    "comments": [
+      {
+        "author": "Riley Chen",
+        "created": "2026-11-17T09:54:00Z",
+        "body": "Support ticket volume for 'timeline' in week one is stable at about a dozen per week. :eyes:"
+      },
+      {
+        "author": "Sam Okafor",
+        "created": "2026-11-15T20:00:00Z",
+        "body": "January planning review is the hard deadline. :rocket:"
+      }
+    ],
+    "fields": {
+      "pod": {
+        "kind": "single_select",
+        "value": "Onboarding"
+      },
+      "research-type": {
+        "kind": "single_select",
+        "value": "Evaluative"
+      },
+      "method": {
+        "kind": "single_select",
+        "value": "Internal Interviews"
+      },
+      "support": {
+        "kind": "single_select",
+        "value": "UXR to Lead"
+      },
+      "investment": {
+        "kind": "single_select",
+        "value": "SM"
+      },
+      "outcome": {
+        "kind": "single_select",
+        "value": "Summary of findings"
+      },
+      "reviewed": {
+        "kind": "single_select",
+        "value": "Needs Review"
+      },
+      "start": {
+        "kind": "interval",
+        "start": "2026-11-17",
+        "end": "2026-12-01"
+      },
+      "target": {
+        "kind": "date",
+        "value": "2026-12-01"
+      },
+      "uxr": {
+        "kind": "user",
+        "name": "Jordan Reyes"
+      },
+      "pm": {
+        "kind": "user",
+        "name": "Sam Okafor"
+      },
+      "pd": {
+        "kind": "user",
+        "name": "Riley Chen"
+      },
+      "em": {
+        "kind": "user",
+        "name": "Morgan Diaz"
+      }
+    }
+  }
+}

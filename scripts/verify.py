@@ -359,7 +359,7 @@ ck("PROVENANCE.md" in readme, "README links provenance ledger")
 # change = explicit owner approval. Zero stubs / markers enforced below.
 TOP_GROUPS = {"business", "engineering", "hobby", "onboarding", "research", "voice", "writing"}
 TOP_PLUGINS = {"decision-advisor", "humanizer", "voice-gate", "uxr-plugin"}
-TOP_WHITELIST = TOP_GROUPS | TOP_PLUGINS | {"scripts"}
+TOP_WHITELIST = TOP_GROUPS | TOP_PLUGINS | {"scripts", "tests"}
 LEVEL2_WHITELIST = {
     "business": ["side-business-gtm"],
     "engineering": ["codebase-inspection", "deliberation", "iit-hci-integration", "llm-integration",
@@ -470,6 +470,20 @@ for doc in ("catalog.md", "PROVENANCE.md"):
         pm = re.search(r"Published at ([\w./-]+)", line)
         if pm:
             ck((ROOT / pm.group(1)).is_dir(), f"{doc}:{i} Published-at target exists: {pm.group(1)}")
+
+# --- uxr-plugin golden parity gates (W2 efficiency pass) -------------------
+# The plugin's tests/test_parity.py regenerates every deterministic artifact
+# from its fixture and compares it against the committed expected output, and
+# hash-pins the baseline goldens (tests/goldens/, with DIFFERS markers on the
+# four F1-F4 sections). A failure here means a UX-visible output drifted.
+uxr = ROOT / "uxr-plugin"
+#: parity harness at repo level; not in the installed plugin
+uxr_tests = ROOT / "tests"
+if uxr.is_dir() and uxr_tests.is_dir():
+    parity = subprocess.run([sys.executable, str(uxr_tests / "test_parity.py")],
+                            capture_output=True, text=True, cwd=str(uxr))
+    tail = ((parity.stdout or "") + (parity.stderr or "")).strip().splitlines()
+    ck(parity.returncode == 0, f"uxr-plugin golden parity tests (W2): {tail[-1] if tail else parity.returncode}")
 
 print(f"\n{len(fails)} failure(s)")
 sys.exit(1 if fails else 0)

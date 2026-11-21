@@ -34,16 +34,18 @@ Missing-item strings are exactly:
 - ``field '<key>' is not set``
 - ``spec check failed: <predicate>``
 
-CLI (exit codes: 0 pass / 1 not ready / 2 usage or config / 4 selftest)::
+CLI (exit codes: 0 pass / 1 not ready / 2 usage or config)::
 
     python lib/phase_gates.py check --status "Recruiting" --spec spec.json --fields fields.json
     python lib/phase_gates.py suggest --status "Recruiting" --spec spec.json --fields fields.json
-    python lib/phase_gates.py --selftest
+    python lib/phase_gates.py missing --json check-output.json --key UXR-101
 
 ``check`` prints one JSON object: ``{"target", "gated", "ok", "missing"}``
 where every ``missing`` entry is ``{"item", "fix"}`` and ``fix`` is the
 ``edit`` shorthand that closes the gap. ``suggest`` prints the suggested
-phase name, or nothing when there is no suggestion.
+phase name, or nothing when there is no suggestion. ``missing`` prints the
+blocked-move lines for a ``check`` output (one per missing item, golden
+format), which the command prints verbatim.
 """
 
 from __future__ import annotations
@@ -60,6 +62,11 @@ try:
     from . import spec_blocks  # package context
 except ImportError:  # direct execution: python lib/phase_gates.py
     import config as _config  # type: ignore
+
+try:
+    from .util import force_utf8_stdio as _force_utf8_stdio, read_json_arg as _read_json_arg_util, JsonReadError as _JsonReadError  # package context
+except ImportError:  # direct execution: python lib/phase_gates.py
+    from util import force_utf8_stdio as _force_utf8_stdio, read_json_arg as _read_json_arg_util, JsonReadError as _JsonReadError  # type: ignore
     import spec_blocks  # type: ignore
 
 ConfigError = _config.ConfigError
@@ -412,6 +419,30 @@ def edit_fix(item: str) -> str:
     return ""
 
 
+def missing_lines(items: Any, key: str) -> list[str]:
+    """The blocked-move lines, one per gate-JSON ``missing`` entry.
+
+    ``items`` is the ``check`` output itself (the ``{"target", "gated",
+    "ok", "missing"}`` object) or the bare ``missing`` list. A ``spec
+    check failed: <predicate>`` item renders its predicate in single
+    quotes (the golden format); every other item renders verbatim. The
+    ``-> run edit`` part drops when the entry carries no fix. Gate
+    semantics stay in ``check``: this only formats what ``check`` emitted.
+    """
+    if isinstance(items, dict):
+        items = items.get("missing")
+    lines: list[str] = []
+    for entry in items if isinstance(items, list) else []:
+        if isinstance(entry, dict):
+            item, fix = str(entry.get("item") or ""), str(entry.get("fix") or "")
+        else:
+            item, fix = str(entry), ""
+        if item.startswith("spec check failed: "):
+            item = "spec check failed: '" + item[len("spec check failed: "):].strip() + "'"
+        lines.append(f"missing: {item}" + (f" -> run edit {key} {fix}" if fix else ""))
+    return lines
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -419,33 +450,24 @@ def edit_fix(item: str) -> str:
 USAGE = """usage:
   python lib/phase_gates.py check --status "<status>" --spec <spec.json> [--fields <fields.json>]
   python lib/phase_gates.py suggest --status "<status>" --spec <spec.json> [--fields <fields.json>]
-  python lib/phase_gates.py --selftest
+  python lib/phase_gates.py missing --json <check-output.json|-> --key <KEY>
 
 Pass `--spec -` or `--fields -` to read that JSON from stdin (at most one
 of them per run). A missing spec file counts as an empty spec (spec checks
-fail closed). Exit codes: 0 pass, 1 not ready, 2 usage or config, 4
+fail closed). `missing` prints one blocked-move line per missing item of a
+`check` output (pass the JSON via a file or `--json -`), in the golden
+format. Exit codes: 0 pass, 1 not ready, 2 usage or config, 4
 self-test failed."""
-
-
-def _force_utf8_stdio() -> None:
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(encoding="utf-8")
-        except (AttributeError, ValueError):
-            pass
 
 
 def _read_json_arg(value: str | None, label: str) -> Any:
     """Read a JSON document from a path; a missing file counts as empty."""
-    if value is None:
-        return {}
-    path = Path(value)
-    if not path.is_file():
-        return {}
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except ValueError as exc:
-        raise ValueError(f"--{label} file {value} is not valid JSON: {exc}") from None
+        return _read_json_arg_util(value, f"--{label} file", missing="empty", expanduser=False)
+    except _JsonReadError as exc:
+        if exc.kind == "invalid":
+            raise ValueError(f"--{label} file {exc.path} is not valid JSON: {exc.exc}") from None
+        raise exc.exc
 
 
 def _cli_check(rest: list[str]) -> int:
@@ -567,11 +589,42 @@ def _cli_suggest(rest: list[str]) -> int:
     return 0
 
 
+def _cli_missing(rest: list[str]) -> int:
+    json_arg: str | None = None
+    key = ""
+    index = 0
+    while index < len(rest):
+        arg = rest[index]
+        if arg == "--json" and index + 1 < len(rest):
+            json_arg = rest[index + 1]
+            index += 2
+            continue
+        if arg == "--key" and index + 1 < len(rest):
+            key = rest[index + 1]
+            index += 2
+            continue
+        print(f"missing: unknown or incomplete argument {arg!r}\n\n{USAGE}", file=sys.stderr)
+        return 2
+    if not json_arg or not key:
+        print(f"missing: --json and --key are required\n\n{USAGE}", file=sys.stderr)
+        return 2
+    try:
+        data = (
+            json.loads(sys.stdin.read() or "{}")
+            if json_arg == "-"
+            else _read_json_arg(json_arg, "json")
+        )
+    except ValueError as exc:
+        print(f"missing: {exc}", file=sys.stderr)
+        return 2
+    for line in missing_lines(data, key):
+        print(line)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     _force_utf8_stdio()
     args = list(sys.argv[1:] if argv is None else argv)
-    if "--selftest" in args or args and args[0] == "selftest":
-        return _selftest()
     if args and args[0] in ("-h", "--help"):
         print(__doc__.strip())
         return 0
@@ -579,6 +632,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cli_check(args[1:])
     if args and args[0] == "suggest":
         return _cli_suggest(args[1:])
+    if args and args[0] == "missing":
+        return _cli_missing(args[1:])
     print(USAGE)
     return 2
 
@@ -588,285 +643,10 @@ def main(argv: list[str] | None = None) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _ready_spec() -> dict:
-    """A spec that passes every reference spec predicate."""
-    return {
-        "history": "Support tickets doubled after the billing rework shipped.",
-        "decision": "Should the redesigned invoice page ship to all tenants?",
-        "hypotheses": [{"label": "H1", "text": "Admins cannot find invoice export."}],
-        "research_questions": ["How do admins export invoices today?"],
-        "sample_size": "8-10 admins",
-        "persona": "Tenant admins",
-        "session_length": "45 min interviews",
-        "roster": [{"name": "Ada Example", "status": "Scheduled"}],
-        "results": "Ship it: admins completed exports faster with the new page.",
-    }
-
-
 def _fields(**overrides: bool) -> dict[str, bool]:
     state = {key: False for key in FIELD_SOURCES}
     state.update(overrides)
     return state
-
-
-def _selftest() -> int:
-    failures: list[str] = []
-
-    def check(name: str, condition: bool, detail: str = "") -> None:
-        print(f"  [{'ok' if condition else 'FAIL'}] {name}")
-        if not condition:
-            failures.append(f"{name}: {detail}")
-
-    print("lib/phase_gates.py --selftest")
-
-    spec = _ready_spec()
-    all_fields = _fields(
-        ux_researcher=True, pod=True, research_method=True, output_link=True
-    )
-
-    # --- every gated phase passes when everything is set ---------------------
-    for phase in (
-        "Planned",
-        "Writing Script / Survey",
-        "Recruiting",
-        "Collecting Data",
-        "Creating Report",
-        "Done",
-    ):
-        ok, missing = check_phase_readiness(phase, spec, all_fields)
-        check(f"ready ticket passes the gate for {phase}", ok and missing == [], str(missing))
-
-    # --- each phase blocks on its own gap -------------------------------------
-    cases = (
-        ("Planned", _fields(ux_researcher=True, pod=True), _ready_spec() | {"history": "", "decision": ""}, "background_filled"),
-        ("Planned", _fields(ux_researcher=True, pod=True), _ready_spec() | {"research_questions": []}, "research_questions_nonempty"),
-        ("Planned", _fields(pod=True), spec, "field 'ux_researcher' is not set"),
-        ("Planned", _fields(ux_researcher=True), spec, "field 'pod' is not set"),
-        ("Writing Script / Survey", _fields(), spec, "field 'research_method' is not set"),
-        ("Recruiting", _fields(research_method=True), _ready_spec() | {"roster": []}, "roster_nonempty"),
-        ("Recruiting", _fields(research_method=True), _ready_spec() | {"persona": ""}, "recruitment_strategy_filled"),
-        ("Recruiting", _fields(), spec, "field 'research_method' is not set"),
-        ("Collecting Data", _fields(), _ready_spec() | {"roster": [{"name": "Bo", "status": "Outreach Sent"}]}, "roster_has_scheduled"),
-        ("Creating Report", _fields(), spec, "field 'output_link' is not set"),
-        ("Done", _fields(output_link=True), _ready_spec() | {"results": None}, "results_filled"),
-        ("Done", _fields(), spec, "field 'output_link' is not set"),
-    )
-    for phase, fields, gated_spec, needle in cases:
-        ok, missing = check_phase_readiness(phase, gated_spec, fields)
-        check(
-            f"{phase} blocks when its bar is unmet ({needle})",
-            not ok and any(needle in item for item in missing),
-            f"ok={ok} missing={missing}",
-        )
-
-    # --- exact missing-item strings --------------------------------------------
-    ok, missing = check_phase_readiness("Done", spec, _fields())
-    check(
-        "field missing strings use the exact issue format",
-        not ok and missing == ["field 'output_link' is not set"],
-        str(missing),
-    )
-    ok, missing = check_phase_readiness(
-        "Done", _ready_spec() | {"results": None}, _fields(output_link=True)
-    )
-    check(
-        "spec missing strings use the exact issue format",
-        not ok and missing == ["spec check failed: results_filled"],
-        str(missing),
-    )
-
-    # --- slash variant and whitespace-insensitive matching ---------------------
-    ok, _ = check_phase_readiness("Writing Script/Survey", spec, _fields(research_method=True))
-    check("slash variant matches the phase key", ok)
-    check(
-        "match_phase is case- and whitespace-insensitive in both directions",
-        match_phase("writing script /survey", REFERENCE_REQUIREMENTS)
-        == "Writing Script / Survey"
-        and match_phase("collecting", REFERENCE_REQUIREMENTS) == "Collecting Data"
-        and match_phase("done", REFERENCE_REQUIREMENTS) == "Done",
-    )
-
-    # --- ungated statuses pass --------------------------------------------------
-    for status in ("Summarizing Data", "Blocked", "Somewhere Unheard Of"):
-        ok, missing = check_phase_readiness(status, {}, _fields())
-        check(f"ungated status {status!r} passes with no requirements", ok and missing == [])
-
-    # --- suggestion cases ---------------------------------------------------------
-    check(
-        "suggest returns the next phase when its bar is met",
-        suggest_next_phase("Planned", spec, _fields(research_method=True))
-        == "Writing Script / Survey",
-    )
-    check(
-        "suggest returns None when the next phase fails its bar",
-        suggest_next_phase("Planned", spec, _fields()) is None,
-    )
-    check(
-        "suggest crosses into Collecting Data on a scheduled roster",
-        suggest_next_phase("Recruiting", spec, _fields(research_method=True))
-        == "Collecting Data",
-    )
-    check(
-        "suggest returns None when no roster row is scheduled",
-        suggest_next_phase(
-            "Recruiting", _ready_spec() | {"roster": [{"name": "Bo", "status": "No Response"}]},
-            _fields(research_method=True),
-        )
-        is None,
-    )
-    check(
-        "suggest returns None when the next phase is ungated (Collecting Data -> Summarizing Data)",
-        suggest_next_phase("Collecting Data", spec, _fields()) is None,
-    )
-    check(
-        "suggest reaches Done only with output and results",
-        suggest_next_phase("Creating Report", spec, _fields(output_link=True)) == "Done"
-        and suggest_next_phase("Creating Report", spec, _fields()) is None,
-    )
-    check(
-        "suggest returns None at the last phase and off the phase_order",
-        suggest_next_phase("Done", spec, all_fields) is None
-        and suggest_next_phase("Blocked", spec, all_fields) is None,
-    )
-
-    # --- config overrides ------------------------------------------------------------
-    custom = {
-        "workflow": {
-            "phase_order": ["Drafting", "Fieldwork", "Wrapped"],
-            "requirements": {
-                "Fieldwork": ("spec:roster_nonempty",),
-                "Wrapped": ("spec:results_filled",),
-            },
-        }
-    }
-    check(
-        "config phase_order and requirements drive the gate",
-        check_phase_readiness("Fieldwork", _ready_spec() | {"roster": []}, _fields(), config=custom)
-        == (False, ["spec check failed: roster_nonempty"])
-        and check_phase_readiness("Drafting", {}, _fields(), config=custom) == (True, [])
-        and suggest_next_phase("Drafting", _ready_spec() | {"roster": []}, _fields(), config=custom)
-        is None
-        and suggest_next_phase("Drafting", _ready_spec(), _fields(), config=custom)
-        == "Fieldwork",
-    )
-    check(
-        "config phase_order replaces the reference order",
-        unknown_requirement_keys(custom) == [],
-    )
-    check(
-        "empty config requirements keep the reference table",
-        check_phase_readiness("Done", {}, _fields(output_link=True), config={"workflow": {"requirements": {}}})
-        == (False, ["spec check failed: results_filled"]),
-    )
-
-    # --- every requirements key matches a live status name ----------------------------
-    check(
-        "every reference requirements key matches a phase_order status",
-        unknown_requirement_keys() == [],
-        str(unknown_requirement_keys()),
-    )
-    check(
-        "every field fix hint covers a requirement field key",
-        set(FIELD_FIX_HINTS) == set(FIELD_SOURCES),
-    )
-    check(
-        "every spec predicate has a fix hint",
-        set(SPEC_FIX_HINTS) == set(SPEC_CHECKS),
-        f"predicates={sorted(SPEC_CHECKS)} hints={sorted(SPEC_FIX_HINTS)}",
-    )
-    check(
-        "edit_fix maps missing items to edit shorthands",
-        edit_fix("field 'research_method' is not set") == "method=<value>"
-        and edit_fix("spec check failed: results_filled") == "results=<text>"
-        and edit_fix("phase gate crashed on malformed input: x") == "",
-    )
-
-    # --- build_field_state --------------------------------------------------------------
-    check(
-        "field state reads shorthand-named values",
-        build_field_state({"uxr": "Ada", "pod": ["Platform"], "method": [], "output": ""})
-        == {"ux_researcher": True, "pod": True, "research_method": False, "output_link": False},
-    )
-    check(
-        "field state resolves tracker field ids through config",
-        build_field_state(
-            {"cf_uxr": "Ada", "cf_method": "Survey"},
-            config={"fields": {"uxr": {"id": "cf_uxr"}, "method": {"id": "cf_method"}}},
-        )
-        == {"ux_researcher": True, "pod": False, "research_method": True, "output_link": False},
-    )
-    check(
-        "boolean field state passes through",
-        build_field_state({"research_method": True})
-        == {"ux_researcher": False, "pod": False, "research_method": True, "output_link": False},
-    )
-    check(
-        "empty and whitespace values count as unset; non-dict input counts as nothing",
-        build_field_state({"pod": "   ", "method": {}})["pod"] is False
-        and build_field_state(None) == {key: False for key in FIELD_SOURCES},
-    )
-
-    # --- gates never raise ----------------------------------------------------------------
-    ok, missing = check_phase_readiness("Done", "not a spec", None)
-    check(
-        "non-dict spec and missing field state fail closed without raising",
-        ok is False and "results_filled" in " ".join(missing),
-        str(missing),
-    )
-    ok, _ = check_phase_readiness(None, None, None)
-    check("None target status matches nothing and passes", ok)
-
-    # --- the real CLI: a blocked check exits 1, a pass exits 0 ------------------------------
-    try:
-        import tempfile
-
-        with tempfile.TemporaryDirectory() as td:
-            tmp = Path(td)
-            spec_file = tmp / "spec.json"
-            spec_file.write_text(json.dumps(_ready_spec()), encoding="utf-8")
-            blocked = subprocess.run(
-                [sys.executable, str(PLUGIN_ROOT / "lib" / "phase_gates.py"),
-                 "check", "--status", "Recruiting", "--spec", str(spec_file)],
-                capture_output=True, text=True, encoding="utf-8", timeout=30,
-                cwd=str(PLUGIN_ROOT),
-            )
-            check(
-                "CLI check on an empty-fields ticket exits 1 with fix hints",
-                blocked.returncode == 1
-                and '"ok": false' in blocked.stdout
-                and "method=<value>" in blocked.stdout,
-                f"code={blocked.returncode} out={blocked.stdout[:200]!r}",
-            )
-            fields_file = tmp / "fields.json"
-            fields_file.write_text(
-                json.dumps({"output": "https://example.com/report"}), encoding="utf-8"
-            )
-            passing = subprocess.run(
-                [sys.executable, str(PLUGIN_ROOT / "lib" / "phase_gates.py"),
-                 "suggest", "--status", "Creating Report", "--spec", str(spec_file),
-                 "--fields", str(fields_file)],
-                capture_output=True, text=True, encoding="utf-8", timeout=30,
-                cwd=str(PLUGIN_ROOT),
-            )
-            check(
-                "CLI suggest on a ready ticket prints the phase and exits 0",
-                passing.returncode == 0 and passing.stdout.strip() == "Done",
-                f"code={passing.returncode} out={passing.stdout!r}",
-            )
-            usage = subprocess.run(
-                [sys.executable, str(PLUGIN_ROOT / "lib" / "phase_gates.py")],
-                capture_output=True, text=True, encoding="utf-8", timeout=30,
-                cwd=str(PLUGIN_ROOT),
-            )
-            check("CLI with no subcommand prints usage and exits 2", usage.returncode == 2)
-    except OSError as exc:
-        check("CLI subprocess checks ran", False, str(exc))
-
-    if failures:
-        print(f"selftest FAILED ({len(failures)} check(s))")
-        return 4
-    print("selftest: all checks passed")
-    return 0
 
 
 if __name__ == "__main__":

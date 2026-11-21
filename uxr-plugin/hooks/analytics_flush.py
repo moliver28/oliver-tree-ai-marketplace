@@ -20,16 +20,19 @@ A trailing partial line (no newline yet) is never read and never counted.
 
 Usage::
 
-    python hooks/analytics_flush.py selftest     # run the self-test
-    python hooks/analytics_flush.py --selftest   # same, flag form
 """
 
 from __future__ import annotations
 
 import contextlib
+import http.client
+import ipaddress
 import json
+import socket
+import ssl
 import sys
 import time
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -38,6 +41,7 @@ if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
 import analytics_common  # noqa: E402
+from lib.util import load_config as _load_config  # noqa: E402  (shared plumbing)
 
 BATCH_LINES = 100
 REQUEST_TIMEOUT = 2.5
@@ -46,19 +50,74 @@ OFFSET_FILE = "flush-offsets.json"
 NOTICE_FILE = "analytics-notice"
 
 
-def _load_config() -> dict | None:
-    """Load the plugin config through the one loader; None on any failure."""
-    try:
-        from lib.config import load_config
+class _Rejected(Exception):
+    """The endpoint failed the SSRF boundary checks."""
 
-        return load_config()
-    except Exception:
-        return None
+
+def _endpoint_allowed(url: str) -> bool:
+    """Syntax + IP-literal boundary check, no DNS (resolution happens once,
+    in ``_open``, at connection time)."""
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != "https" or parts.username or parts.password or not parts.hostname:
+        return False
+    host = parts.hostname.lower()
+    if host == "localhost":
+        return False
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return True  # a regular hostname; the resolved boundary is _open's check
+    return not (ip.is_loopback or ip.is_link_local or ip.is_multicast
+                or ip.is_unspecified or (ip.is_private and not ip.is_global))
+
+
+def _validated_target(url: str):
+    """``(host, ip, port, path)`` for an https endpoint that is not a
+    loopback/link-local/private/metadata host, resolved once at validation
+    time. Raises _Rejected otherwise."""
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != "https" or parts.username or parts.password or not parts.hostname:
+        raise _Rejected("endpoint must be https with a plain hostname")
+    host = parts.hostname
+    port = parts.port or 443
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        raise _Rejected(f"cannot resolve {host}: {exc}") from exc
+    ip = ipaddress.ip_address(infos[0][4][0])
+    if ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_unspecified \
+            or (ip.is_private and not ip.is_global):
+        raise _Rejected(f"{host} resolves into a refused range ({ip})")
+    path = parts.path or "/"
+    if parts.query:
+        path += "?" + parts.query
+    return host, str(ip), port, path
+
+
+class _BoundHTTPSConnection(http.client.HTTPSConnection):
+    """Connects to the validated address, speaks TLS for the hostname
+    (SNI + certificate check intact), so a later DNS answer cannot redirect
+    the request (rebinding-safe). ``http.client`` performs no redirects."""
+
+    def __init__(self, host: str, ip: str, port: int, timeout: float):
+        super().__init__(host, port, timeout=timeout)
+        self._validated_ip = ip
+
+    def connect(self):
+        self.sock = socket.create_connection((self._validated_ip, self.port),
+                                             timeout=self.timeout)
+        self.sock = ssl.create_default_context().wrap_socket(
+            self.sock, server_hostname=self.host)
 
 
 def _open(request, timeout):
-    """One network call, isolated so tests can mock it."""
-    return urllib.request.urlopen(request, timeout=timeout)
+    """One network call over a validated https connection, isolated so
+    tests can mock it."""
+    host, ip, port, path = _validated_target(request.full_url)
+    headers = {k: v for k, v in request.header_items() if k.lower() != "host"}
+    conn = _BoundHTTPSConnection(host, ip, port, timeout)
+    conn.request(request.get_method(), path, body=request.data, headers=headers)
+    return conn.getresponse()
 
 
 def load_offsets(state_dir) -> dict:
@@ -96,8 +155,8 @@ def flush(state_dir, endpoint: str, api_key: str = "", offsets: dict | None = No
     summary = {"sent": 0, "calls": 0, "advanced": [], "done": False}
     if not endpoint:
         return summary
-    if not endpoint.startswith("https://"):
-        return summary  # refuse plaintext-http endpoints
+    if not _endpoint_allowed(endpoint):
+        return summary  # refuse plaintext/loopback/link-local/private endpoints
     state_dir = Path(state_dir)
     if offsets is None:
         offsets = load_offsets(state_dir)
@@ -217,9 +276,6 @@ def handle_start(event=None, config=None, environ=None, home=None,
 
 
 def main(argv=None) -> int:
-    args = list(sys.argv[1:] if argv is None else argv)
-    if "selftest" in args or "--selftest" in args:
-        return _selftest()
     try:
         raw = sys.stdin.read()
         event = json.loads(raw) if raw.strip() else {}
@@ -229,163 +285,6 @@ def main(argv=None) -> int:
         output = handle_start(event, config=_load_config())
     if output:
         print(output)
-    return 0
-
-
-def _selftest() -> int:
-    """Cover the acceptance item - with analytics off no network call occurs
-    (the opener is mocked and counted) - plus offsets, budgets, batching,
-    partial lines, and the honest one-time notice."""
-    import tempfile
-
-    failures = []
-
-    def check(name, condition, detail=""):
-        print("  [%s] %s" % ("ok" if condition else "FAIL", name))
-        if not condition:
-            failures.append(name)
-
-    print("hooks/analytics_flush.py selftest")
-
-    class Reply:
-        def __init__(self, status):
-            self.status = status
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            return False
-
-    with tempfile.TemporaryDirectory() as td:
-        tmp = Path(td)
-        HOME = tmp / "home"
-        (HOME / ".claude").mkdir(parents=True)
-        state = tmp / "state"
-        endpoint = "https://telemetry.example.invalid/ingest"
-        enabled = {"analytics": {"enabled": True, "endpoint": endpoint, "api_key": "k"}}
-        no_endpoint = {"analytics": {"enabled": True, "endpoint": "", "api_key": ""}}
-        disabled = {"analytics": {"enabled": False, "endpoint": endpoint, "api_key": ""}}
-
-        calls = []
-
-        def mock_open(request, timeout):
-            calls.append((request.full_url, timeout))
-            return Reply(200)
-
-        # 1. Consent off: no network call, no notice.
-        out = handle_start({}, config=disabled, state_dir=state,
-                           environ={}, home=HOME, open_fn=mock_open)
-        check("consent off sends nothing", not calls, repr(calls))
-        check("consent off prints nothing", out == "", repr(out[:80]))
-
-        # 2. Consent on but no endpoint: still no network call.
-        calls.clear()
-        out = handle_start({}, config=no_endpoint, state_dir=state,
-                           environ={}, home=HOME, open_fn=mock_open)
-        check("no endpoint sends nothing", not calls, repr(calls))
-        check("the no-endpoint notice says data stays local",
-              "nothing is sent" in out and "locally" in out, repr(out[:120]))
-        check("the notice is SessionStart additionalContext",
-              json.loads(out).get("hookSpecificOutput", {}).get("hookEventName")
-              == "SessionStart", repr(out[:80]))
-        check("the notice shows once (marker written)",
-              handle_start({}, config=no_endpoint, state_dir=state,
-                           environ={}, home=HOME, open_fn=mock_open) == "")
-
-        # 3. A 200 flush advances the offset by exactly the sent lines.
-        calls.clear()
-        (state / NOTICE_FILE).unlink(missing_ok=True)
-        with open(analytics_common.buffer_path(state), "w", encoding="utf-8",
-                  newline="\n") as handle:
-            for index in range(3):
-                handle.write(json.dumps({"v": 1, "event": "e%d" % index}) + "\n")
-        summary = flush(state, endpoint, api_key="k", open_fn=mock_open)
-        check("all lines sent on HTTP 200", summary["sent"] == 3, repr(summary))
-        check("one request made", len(calls) == 1 and calls[0][1] == 2.5, repr(calls))
-        saved = load_offsets(state)
-        check("the offset advanced to 3", saved.get(analytics_common.buffer_path(state).name) == 3,
-              repr(saved))
-        calls.clear()
-        summary = flush(state, endpoint, api_key="k", open_fn=mock_open)
-        check("a second flush sends nothing new", summary["sent"] == 0 and not calls,
-              repr((summary, calls)))
-
-        # 4. A failed flush leaves the batch pending and the offset unchanged.
-        def failing_open(request, timeout):
-            calls.append(request.full_url)
-            return Reply(500)
-
-        with open(analytics_common.buffer_path(state), "a", encoding="utf-8",
-                  newline="\n") as handle:
-            for index in range(2):
-                handle.write(json.dumps({"v": 1, "event": "f%d" % index}) + "\n")
-        calls.clear()
-        summary = flush(state, endpoint, open_fn=failing_open)
-        check("a non-200 response sends nothing through and keeps the offset",
-              summary["sent"] == 0
-              and load_offsets(state).get(analytics_common.buffer_path(state).name) == 3,
-              repr((summary, load_offsets(state))))
-        calls.clear()
-        summary = flush(state, endpoint, open_fn=mock_open)
-        check("the pending batch is retried on the next flush",
-              summary["sent"] == 2
-              and load_offsets(state).get(analytics_common.buffer_path(state).name) == 5,
-              repr(summary))
-
-        # 5. Batching: at most 100 complete lines per request.
-        calls.clear()
-        (state / "events-2000-01.jsonl").write_text(
-            "".join(json.dumps({"v": 1, "event": "bulk%d" % index}) + "\n"
-                    for index in range(250)), encoding="utf-8")
-        summary = flush(state, endpoint, open_fn=mock_open)
-        check("the first batch stops at 100 lines", summary["sent"] == 100, repr(summary))
-        check("the offset counts only what was sent",
-              load_offsets(state).get("events-2000-01.jsonl") == 100, repr(load_offsets(state)))
-        summary = flush(state, endpoint, open_fn=mock_open)
-        check("the second batch takes the next 100", summary["sent"] == 100, repr(summary))
-
-        # 6. A trailing partial line is never read or counted.
-        (state / "events-2000-02.jsonl").write_text(
-            json.dumps({"v": 1, "event": "whole"}) + "\n" + '{"v":1,"event":"half',
-            encoding="utf-8")
-        calls.clear()
-        summary = flush(state, endpoint, open_fn=mock_open)
-        check("the partial trailing line is not sent",
-              summary["sent"] >= 1
-              and load_offsets(state).get("events-2000-02.jsonl") == 1,
-              repr(summary))
-        lines, next_offset = analytics_common.read_buffer_lines(
-            state / "events-2000-02.jsonl", 0)
-        check("the partial line stays pending in place",
-              len(lines) == 1 and next_offset == 1, repr((lines, next_offset)))
-
-        # 7. The budget stops the flush after the deadline.
-        calls.clear()
-        with open(analytics_common.buffer_path(state), "a", encoding="utf-8",
-                  newline="\n") as handle:
-            for index in range(30):
-                handle.write(json.dumps({"v": 1, "event": "budget%d" % index}) + "\n")
-
-        def slow_open(request, timeout):
-            calls.append(request.full_url)
-            time.sleep(0.05)
-            return Reply(200)
-
-        summary = flush(state, endpoint, open_fn=slow_open, budget=0.12)
-        check("the flush stops at the total budget",
-              summary["sent"] > 0 and len(calls) < 6, repr((summary, len(calls))))
-
-        # 8. The endpoint notice is honest about sending.
-        text = notice_text(endpoint)
-        check("the sending notice names the endpoint and the opt-outs",
-              endpoint in text and "analytics.enabled" in text
-              and "UXR_ANALYTICS" in text, repr(text[:120]))
-
-    if failures:
-        print("selftest FAILED (%d check(s))" % len(failures))
-        return 1
-    print("selftest: all checks passed")
     return 0
 
 

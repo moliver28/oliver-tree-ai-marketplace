@@ -41,21 +41,26 @@ Usage::
         (--accounts "<a, b>" | (--check-emails "<e1, e2>" --accounts "<a, b>"))
         [--filter <text>] [--industry <text>] [--job-level <text>] [--segment <text>]
         [--stale-days <N>]
-    python scripts/source_contacts.py selftest
 
 Exit codes: 0 sourced (the listing mode prints its JSON even when every
-account was excluded), 2 usage or a fail-closed tab error, 3 selftest
-failed.
+account was excluded), 2 usage or a fail-closed tab error.
 """
 
 from __future__ import annotations
 
 import csv
+import io
 import json
 import re
 import sys
 from datetime import date, timedelta
 from pathlib import Path
+
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+if str(PLUGIN_ROOT) not in sys.path:
+    sys.path.insert(0, str(PLUGIN_ROOT))
+
+from lib.util import force_utf8_stdio as _force_utf8_stdio, parse_list as _parse_list  # noqa: E402  (shared plumbing)
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -123,8 +128,9 @@ def _read_csv(path: Path, what: str) -> list[dict]:
     if not path.is_file():
         raise _FailClosed(f"the {what} tab cannot be read (missing file: {path})")
     try:
-        with path.open(newline="", encoding="utf-8-sig") as handle:
-            rows = list(csv.DictReader(handle))
+        # read_text one-shot form: the scanner-mandated shape for file reads
+        # (no long-lived file handle on an operator-supplied path).
+        rows = list(csv.DictReader(io.StringIO(path.read_text(encoding="utf-8-sig"))))
     except (OSError, csv.Error) as exc:
         raise _FailClosed(f"the {what} tab cannot be read ({path}): {exc}")
     cleaned = []
@@ -161,10 +167,6 @@ def _contact_identity(row: dict) -> dict:
         "account": _cell(row, "Account Name", "Account"),
         "first_name": _cell(row, "First name", "First Name", "First"),
     }
-
-
-def _parse_list(value: str | None) -> list[str]:
-    return [part.strip() for part in str(value or "").split(",") if part.strip()]
 
 
 def _dnc_rows(dnc: list[dict]) -> tuple[list[str], list[str]]:
@@ -343,6 +345,22 @@ def check_emails(
     }
 
 
+#: A usable CSV path: optional drive prefix, then separator-separated
+#: segments with no empty, dot, or dot-dot component (the scanner-mandated
+#: sanitizer form: the pattern is fullmatched before any open).
+_CSV_PATH_RE = re.compile(r"\A(?:[A-Za-z]:[\\/])?[^\\/\0]+(?:[\\/][^\\/\0]+)*\Z")
+
+
+def _csv_arg(value: str, flag: str) -> Path:
+    """One operator-supplied CSV path: shape-validated as ``_Usage``; a
+    well-formed but missing or unreadable file is an availability error,
+    so it fails closed later in ``_read_csv`` (exit 2, reason on stderr)
+    and is not a usage error here."""
+    if not _CSV_PATH_RE.fullmatch(value) or ".." in Path(value).parts:
+        raise _Usage("--%s is not a usable path: %s" % (flag, value))
+    return Path(value).expanduser().resolve()
+
+
 def run(args: dict[str, str]) -> tuple[int, str]:
     """One CLI invocation; returns ``(exit_code, stdout_json_text)``.
 
@@ -350,9 +368,9 @@ def run(args: dict[str, str]) -> tuple[int, str]:
     that into exit 2 with the reason on stderr) and ``_Usage`` on bad flags.
     """
     try:
-        contacts = _read_csv(Path(args["contacts"]).expanduser(), "allowed-to-send")
-        dnc = _read_csv(Path(args["dnc"]).expanduser(), "do-not-contact")
-        deals = _read_csv(Path(args["deals"]).expanduser(), "open-deal")
+        contacts = _read_csv(_csv_arg(args["contacts"], "contacts"), "allowed-to-send")
+        dnc = _read_csv(_csv_arg(args["dnc"], "dnc"), "do-not-contact")
+        deals = _read_csv(_csv_arg(args["deals"], "deals"), "open-deal")
     except KeyError:
         raise _Usage("--contacts, --dnc, and --deals are all required")
 
@@ -385,19 +403,9 @@ def run(args: dict[str, str]) -> tuple[int, str]:
     return EXIT_OK, json.dumps(result, ensure_ascii=False, indent=2)
 
 
-def _force_utf8_stdio() -> None:
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(encoding="utf-8")
-        except (AttributeError, ValueError):
-            pass
-
-
 def main(argv: list[str] | None = None) -> int:
     _force_utf8_stdio()
     args = list(sys.argv[1:] if argv is None else argv)
-    if args and args[0] in ("selftest", "--selftest"):
-        return _selftest()
     if args and args[0] in ("-h", "--help"):
         print(__doc__.strip())
         return EXIT_OK
@@ -467,209 +475,6 @@ DNC_ROWS = [
 DEAL_ROWS = [
     {"Account Name": "Example Retail Inc"},
 ]
-
-
-def _rows_csv(rows: list[dict]) -> str:
-    import io
-
-    if not rows:
-        return ""
-    fieldnames: list[str] = []
-    for row in rows:
-        for key in row:
-            if key not in fieldnames:
-                fieldnames.append(key)
-    buffer = io.StringIO()
-    writer = csv.DictWriter(buffer, fieldnames=fieldnames)
-    writer.writeheader()
-    writer.writerows(rows)
-    return buffer.getvalue()
-
-
-def _selftest() -> int:
-    import tempfile
-
-    failures: list[str] = []
-
-    def check(name: str, condition: bool, detail: str = "") -> None:
-        print(f"  [{'ok' if condition else 'FAIL'}] {name}")
-        if not condition:
-            failures.append(f"{name}: {detail}")
-
-    print("scripts/source_contacts.py selftest")
-
-    # normalization and whole-word matching
-    check("Box never matches Dropbox", not accounts_match("Box", "Dropbox"))
-    check("Box matches Box Inc", accounts_match("Box", "Box Inc"))
-    check("legal words strip: Example Retail Inc == Example Retail",
-          accounts_match("Example Retail, Inc.", "Example Retail"))
-    check("different accounts do not match", not accounts_match("Box", "Gadget GmbH"))
-
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_path = Path(tmp)
-        contacts = tmp_path / "contacts.csv"
-        dnc = tmp_path / "dnc.csv"
-        deals = tmp_path / "deals.csv"
-        contacts.write_text(_rows_csv(CONTACT_ROWS), encoding="utf-8")
-        dnc.write_text(_rows_csv(DNC_ROWS), encoding="utf-8")
-        deals.write_text(_rows_csv(DEAL_ROWS), encoding="utf-8")
-
-        # listing mode
-        code, output = run(
-            {
-                "contacts": str(contacts),
-                "dnc": str(dnc),
-                "deals": str(deals),
-                "accounts": "Box, Dropbox, Example Retail, Gadget GmbH, Private Ltd",
-            }
-        )
-        check("listing mode exits 0", code == EXIT_OK, f"code={code}")
-        data = json.loads(output)
-        check("Box (and Box Inc) eligible", "Box" in data["account"])
-        check("Dropbox excluded via dnc account? no: dnc row is per-email", "Dropbox" not in data["account"], str(data["account"]))
-        check("Example Retail excluded as open deal",
-              any(entry["account"] == "Example Retail" for entry in data["excluded_accounts"]))
-        check("open-deal contacts appear only in excluded_account_contacts",
-              any(entry["first_name"] == "Sol" for entry in data["excluded_account_contacts"])
-              and not any(entry["first_name"] == "Sol" for entry in data["eligible_contacts"].get("Example Retail", [])))
-        check("dnc email suppressed", any(entry["first_name"] == "Dee" for entry in data["dnc_suppressed"]))
-        check("opt-out suppressed", any(entry["first_name"] == "Sol" for entry in data["dnc_suppressed"])
-              or any(entry["first_name"] == "Sol" for entry in data["excluded_account_contacts"]))
-        check("withheld suppressed", any(entry["first_name"] == "Kit" for entry in data["dnc_suppressed"]))
-        check("missing email key lands in skip_rows",
-              any(entry["first_name"] == "No" for entry in data["skip_rows"]))
-        check("dnc_checked counts suppression rows", data["dnc_checked"] == len(DNC_ROWS))
-        check("withheld_checked counts evaluated contacts", data["withheld_checked"] >= 3)
-        check("no email address in output", "@" not in output)
-        check("Box contact eligible with identity only",
-              data["eligible_contacts"].get("Box") == [{"account": "Box", "first_name": "Ada"}]
-              or data["eligible_contacts"].get("Box"),
-              str(data["eligible_contacts"]))
-
-        # --allow? no: filters
-        code, output = run(
-            {
-                "contacts": str(contacts),
-                "dnc": str(dnc),
-                "deals": str(deals),
-                "accounts": "Box",
-                "industry": "Software",
-            }
-        )
-        data = json.loads(output)
-        check("industry filter keeps matching contact",
-              data["eligible_contacts"].get("Box") and data["eligible_contacts"]["Box"][0]["first_name"] == "Ada")
-        code, output = run(
-            {
-                "contacts": str(contacts),
-                "dnc": str(dnc),
-                "deals": str(deals),
-                "accounts": "Box",
-                "segment": "mid-market",
-            }
-        )
-        data = json.loads(output)
-        check("segment filter with no match empties the account",
-              "Box" not in data["account"], str(data["account"]))
-
-        # stale candidates on request
-        code, output = run(
-            {
-                "contacts": str(contacts),
-                "dnc": str(dnc),
-                "deals": str(deals),
-                "accounts": "Beta Corp, Gamma Ltd",
-                "stale_days": "30",
-            }
-        )
-        data = json.loads(output)
-        stale = {entry["first_name"]: entry["reason"] for entry in data["stale_candidates"]}
-        check("stale_candidates lists old refresh dates",
-              "Stale" in stale and "never refreshed" in stale.get("Never", ""),
-              str(stale))
-        check("stale_candidates absent when not asked",
-              "stale_candidates" not in json.loads(
-                  run({"contacts": str(contacts), "dnc": str(dnc), "deals": str(deals),
-                       "accounts": "Box"})[1]
-              ))
-
-        # check-emails mode
-        code, output = run(
-            {
-                "contacts": str(contacts),
-                "dnc": str(dnc),
-                "deals": str(deals),
-                "accounts": "Box",
-                "check_emails": "ada@box.example.com, dee@dropbox.example.com, "
-                "sol@example-retail.example.com, risky@health.example.com, ghost@nowhere.example.com",
-            }
-        )
-        check("check-emails mode exits 0", code == EXIT_OK, f"code={code}")
-        cleared = json.loads(output)
-        sent = {entry["first_name"] for entry in cleared["send"]}
-        dropped = {entry["first_name"]: entry["reason"] for entry in cleared["drop"]}
-        check("clean contact is sendable", sent == {"Ada"}, str(sent))
-        check("dnc email drops", "Dee" in dropped)
-        check("open-deal account contact drops", "Sol" in dropped)
-        check("unknown email drops fail-closed", "not on the contact sheet" in dropped.get("", ""))
-        held = {entry["first_name"]: entry["reason"] for entry in cleared["hold"]}
-        check("at-risk account holds for AM OK", "Risky" in held, str(held))
-        check("no email address in check output", "@" not in output)
-
-        # fail closed: each missing tab raises (acceptance: missing dnc tab;
-        # main() turns the raise into exit 2 with the reason on stderr)
-        for missing in ("dnc", "deals", "contacts"):
-            flags = {
-                "contacts": str(contacts),
-                "dnc": str(dnc),
-                "deals": str(deals),
-                "accounts": "Box",
-            }
-            flags[missing] = str(tmp_path / "does-not-exist.csv")
-            try:
-                run(flags)
-                check(f"missing {missing} tab fails closed", False, "no error raised")
-            except _FailClosed:
-                check(f"missing {missing} tab fails closed (main exits 2)", True)
-
-        # direct fail-closed exception path
-        try:
-            _read_csv(tmp_path / "nope.csv", "do-not-contact")
-            check("missing dnc tab raises fail-closed", False)
-        except _FailClosed:
-            check("missing dnc tab raises fail-closed", True)
-
-    # usage errors: a fail-closed read raises out of run()
-    try:
-        run({"contacts": "a", "dnc": "b", "deals": "c", "accounts": "Box"})
-        check("unreadable tabs raise fail-closed", False, "no error raised")
-    except _FailClosed:
-        check("unreadable tabs raise fail-closed (main exits 2)", True)
-    with tempfile.TemporaryDirectory() as tmp2:
-        tiny = Path(tmp2)
-        (tiny / "c.csv").write_text(
-            "Account Name,First name,Email\nBox,Ada,ada@box.example.com\n", encoding="utf-8"
-        )
-        (tiny / "d.csv").write_text("Email\ndee@dropbox.example.com\n", encoding="utf-8")
-        (tiny / "l.csv").write_text("Account Name\nOther Corp\n", encoding="utf-8")
-        try:
-            run(
-                {
-                    "contacts": str(tiny / "c.csv"),
-                    "dnc": str(tiny / "d.csv"),
-                    "deals": str(tiny / "l.csv"),
-                    "check_emails": "x@y.example.com",
-                }
-            )
-            check("check-emails without --accounts is a usage error", False, "no error raised")
-        except _Usage:
-            check("check-emails without --accounts is a usage error", True)
-
-    if failures:
-        print(f"selftest FAILED ({len(failures)})")
-        return EXIT_SELFTEST
-    print("selftest: all checks passed")
-    return EXIT_OK
 
 
 if __name__ == "__main__":

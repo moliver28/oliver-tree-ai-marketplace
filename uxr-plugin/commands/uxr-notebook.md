@@ -34,9 +34,7 @@ before any browser action.
 
 ## Steps
 
-1. **Resolve the workspace.** Load configuration once
-   (`python "${CLAUDE_PLUGIN_ROOT}/lib/config.py" --print`); note
-   `paths.research_root`. Then
+1. **Resolve the workspace.** Render the canonical block (`python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup`); note `paths.research_root`. Then
    `python "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold_workspace.py" lookup-workspace --ticket <KEY> --readme <research_root>/README.md`.
    `WORKSPACE_NOT_FOUND`: print that a workspace must exist first (offer
    `init`) and stop. Confirm `<workspace>/00-overview.md` exists;

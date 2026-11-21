@@ -1,0 +1,43 @@
+{
+  "now": "2026-11-17T21:54:24Z",
+  "mode": "all",
+  "project_key": "UXR",
+  "items": [
+    {
+      "key": "UXR-101",
+      "url": "https://uxr-example.atlassian.net/browse/UXR-101",
+      "status": "Planned",
+      "type": "Study",
+      "priority": "Medium",
+      "summary": "New user navigation study: timeline discoverability",
+      "updated": "2026-11-17T21:54:00Z"
+    },
+    {
+      "key": "UXR-102",
+      "url": "https://uxr-example.atlassian.net/browse/UXR-102",
+      "status": "In Progress",
+      "type": "Study",
+      "priority": "High",
+      "summary": "Pricing page first-run study",
+      "updated": "2026-11-14T12:00:00Z"
+    },
+    {
+      "key": "UXR-103",
+      "url": "https://uxr-example.atlassian.net/browse/UXR-103",
+      "status": "Collecting Data",
+      "type": "Study",
+      "priority": "Low",
+      "summary": "Card sort: information architecture v2",
+      "updated": "2026-11-12T00:00:00Z"
+    },
+    {
+      "key": "UXR-104",
+      "url": "https://uxr-example.atlassian.net/browse/UXR-104",
+      "status": "Done",
+      "type": "Study",
+      "priority": "Medium",
+      "summary": "Checkout flow usability benchmark",
+      "updated": "2026-10-17T21:00:00Z"
+    }
+  ]
+}

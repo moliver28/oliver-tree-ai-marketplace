@@ -30,9 +30,10 @@ Usage::
 
     python scripts/calendar_prep.py <events.json> [--manager <names or emails>]
         [--keep <id>] [--allow <id>]
-    python scripts/calendar_prep.py selftest
+    python scripts/calendar_prep.py <events.json> --pick [--level i|ii|iii]
+        [--session-minutes <N>] [--slots <3-5>]   (W2: the slot picker)
 
-Exit codes: 0 classified, 2 usage or unreadable input, 3 selftest failed.
+Exit codes: 0 classified, 2 usage or unreadable input.
 
 Output is JSON on stdout::
 
@@ -55,7 +56,7 @@ from __future__ import annotations
 import json
 import re
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
@@ -63,6 +64,7 @@ if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
 from lib import config as _config  # noqa: E402
+from lib.util import force_utf8_stdio as _force_utf8_stdio, parse_list as _parse_list  # noqa: E402  (shared plumbing)
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -346,23 +348,128 @@ def classify_events(
     return result
 
 
-def _force_utf8_stdio() -> None:
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(encoding="utf-8")
-        except (AttributeError, ValueError):
-            pass
+def _event_datetime(event: dict, key: str) -> datetime | None:
+    raw = str(event.get(key) or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00")).replace(tzinfo=None)
+    except ValueError:
+        return None
 
 
-def _parse_list(value: str | None) -> list[str]:
-    return [part.strip() for part in str(value or "").split(",") if part.strip()]
+def _h12(moment: datetime) -> str:
+    hour = moment.hour % 12 or 12
+    return f"{hour}:{moment.minute:02d}"
+
+
+def _slot_label(day: date, start: datetime, end: datetime) -> str:
+    """Golden slot-line format (R10 byte parity): ``Wed 11/18, 1:00-1:30 PM``
+    - the meridiem rides on the end time only."""
+    meridiem = "AM" if end.hour < 12 else "PM"
+    return f"{day.strftime('%a %m/%d')}, {_h12(start)}-{_h12(end)} {meridiem}"
+
+
+def pick_slots(
+    events: list[dict],
+    classes: dict,
+    level: str = "ii",
+    working_hours: str = "09:00-17:00",
+    session_minutes: int = 30,
+    slots_wanted: int = 3,
+) -> dict:
+    """Deterministic slot picking (W2): free gaps inside the working hours on
+    a 15-minute grid, first fit per day in window order, one slot per day,
+    3 to 5 slots across days. PTO blocks the whole day; weekend and declined
+    events are never busy and never offered. A day with no free gap offers
+    move candidates instead (movable events at level ii, movable plus other
+    at level iii) - every move still needs its own confirm."""
+    class_by_id: dict[str, str] = {}
+    for name in ("pto", "immovable", "movable", "other", "skipped"):
+        for entry in classes.get(name) or []:
+            class_by_id[str(entry.get("id"))] = name
+    try:
+        start_text, end_text = working_hours.split("-")
+        sh, sm = (int(part) for part in start_text.split(":"))
+        eh, em = (int(part) for part in end_text.split(":"))
+    except ValueError as exc:
+        raise SystemExit(f"calendar_prep: working_hours must look like 09:00-17:00 ({exc})")
+
+    pto_days: set[date] = set()
+    busy: dict[date, list[tuple[datetime, datetime]]] = {}
+    movable: dict[date, list[dict]] = {}
+    other: dict[date, list[dict]] = {}
+    seen_days: set[date] = set()
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        name = class_by_id.get(_event_id(event))
+        if name is None or name == "skipped":
+            continue
+        start = _event_datetime(event, "start")
+        end = _event_datetime(event, "end")
+        if start is None or end is None:
+            continue
+        day = start.date()
+        seen_days.add(day)
+        if name == "pto":
+            pto_days.add(day)
+            continue
+        if name in ("movable", "other"):
+            (movable if name == "movable" else other).setdefault(day, []).append(
+                {"id": _event_id(event), "title": str(event.get("title") or "")})
+        busy.setdefault(day, []).append((start, end))
+
+    slots: list[dict] = []
+    move_candidates: list[dict] = []
+    for day in sorted(seen_days):
+        if day.weekday() >= 5 or day in pto_days or len(slots) >= slots_wanted:
+            continue
+        work_start = datetime(day.year, day.month, day.day, sh, sm)
+        work_end = datetime(day.year, day.month, day.day, eh, em)
+        merged: list[tuple[datetime, datetime]] = []
+        for start, end in sorted(busy.get(day) or []):
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+            else:
+                merged.append((start, end))
+        gaps: list[tuple[datetime, datetime]] = []
+        cursor = work_start
+        for start, end in merged:
+            if start > cursor:
+                gaps.append((cursor, min(start, work_end)))
+            cursor = max(cursor, end)
+        if cursor < work_end:
+            gaps.append((cursor, work_end))
+        placed = False
+        for gap_start, gap_end in gaps:
+            minute = (15 - gap_start.minute % 15) % 15
+            slot_start = gap_start.replace(second=0, microsecond=0) + timedelta(
+                minutes=minute + (1 if minute == 0 and gap_start.second else 0))
+            slot_end = slot_start + timedelta(minutes=session_minutes)
+            if slot_end > gap_end:
+                continue
+            slots.append({"date": day.isoformat(),
+                          "label": _slot_label(day, slot_start, slot_end),
+                          "start": slot_start.strftime("%H:%M"),
+                          "end": slot_end.strftime("%H:%M"), "kind": "free"})
+            placed = True
+            break
+        if not placed and level != "i":
+            pool = list(movable.get(day) or [])
+            if level == "iii":
+                pool += other.get(day) or []
+            for source in pool:
+                if all(candidate["id"] != source["id"] for candidate in move_candidates):
+                    move_candidates.append(source)
+    return {"level": level, "session_minutes": session_minutes,
+            "slots": slots[:slots_wanted], "move_candidates": move_candidates,
+            "fewer_than_3": len(slots) < 3}
 
 
 def main(argv: list[str] | None = None) -> int:
     _force_utf8_stdio()
     args = list(sys.argv[1:] if argv is None else argv)
-    if args and args[0] in ("selftest", "--selftest"):
-        return _selftest()
     if args and args[0] in ("-h", "--help"):
         print(__doc__.strip())
         return EXIT_OK
@@ -370,11 +477,16 @@ def main(argv: list[str] | None = None) -> int:
     keep: list[str] = []
     allow: list[str] = []
     managers: list[str] = []
+    options: dict[str, str] = {}
     positional: list[str] = []
     index = 0
     while index < len(args):
         token = args[index]
-        if token in ("--manager", "--keep", "--allow"):
+        if token == "--pick":
+            options["--pick"] = "1"
+            index += 1
+            continue
+        if token in ("--manager", "--keep", "--allow", "--level", "--session-minutes", "--slots"):
             if index + 1 >= len(args):
                 print(f"calendar_prep: {token} needs a value", file=sys.stderr)
                 return EXIT_USAGE
@@ -383,8 +495,10 @@ def main(argv: list[str] | None = None) -> int:
                 managers.extend(values)
             elif token == "--keep":
                 keep.extend(values)
-            else:
+            elif token == "--allow":
                 allow.extend(values)
+            else:
+                options[token] = values[0] if values else ""
             index += 2
             continue
         positional.append(token)
@@ -393,7 +507,8 @@ def main(argv: list[str] | None = None) -> int:
     if len(positional) != 1:
         print(
             "usage: calendar_prep.py <events.json> [--manager <names or emails>] "
-            "[--keep <id>] [--allow <id>]",
+            "[--keep <id>] [--allow <id>] [--pick [--level i|ii|iii] "
+            "[--session-minutes <N>] [--slots <3-5>]]",
             file=sys.stderr,
         )
         return EXIT_USAGE
@@ -409,6 +524,20 @@ def main(argv: list[str] | None = None) -> int:
     except _config.ConfigError:
         config = {}
     result = classify_events(events, config=config, managers=managers, keep=keep, allow=allow)
+    if "--pick" in options:
+        try:
+            session_minutes = int(options.get("--session-minutes") or 30)
+            slots_wanted = max(3, min(5, int(options.get("--slots") or 3)))
+        except ValueError:
+            print("calendar_prep: --session-minutes and --slots take integers", file=sys.stderr)
+            return EXIT_USAGE
+        calendar = config.get("calendar") if isinstance(config.get("calendar"), dict) else {}
+        working_hours = str(calendar.get("working_hours") or "09:00-17:00")
+        pick = pick_slots(events, result, level=options.get("--level") or "ii",
+                          working_hours=working_hours,
+                          session_minutes=session_minutes, slots_wanted=slots_wanted)
+        print(json.dumps({"classes": result, "pick": pick}, ensure_ascii=False, indent=2))
+        return EXIT_OK
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return EXIT_OK
 
@@ -416,191 +545,6 @@ def main(argv: list[str] | None = None) -> int:
 # ---------------------------------------------------------------------------
 # self-test
 # ---------------------------------------------------------------------------
-
-
-def _selftest() -> int:
-    failures: list[str] = []
-
-    def check(name: str, condition: bool, detail: str = "") -> None:
-        print(f"  [{'ok' if condition else 'FAIL'}] {name}")
-        if not condition:
-            failures.append(f"{name}: {detail}")
-
-    print("scripts/calendar_prep.py selftest")
-
-    config = {
-        "org": {"internal_domains": ["example.com"]},
-        "calendar": {
-            "manager_names": ["Dana Lead"],
-            "immovable_keywords": ["release freeze"],
-            "movable_keywords": ["admin time"],
-        },
-    }
-    events = [
-        {
-            "id": "e-manager-1on1",
-            "title": "1:1 Dana / Sam",
-            "start": "2026-11-09T10:00:00",
-            "attendees": [
-                {"email": "sam@example.com", "display_name": "Sam Researcher", "self": True},
-                {"email": "dana@example.com", "display_name": "Dana Lead"},
-            ],
-        },
-        {
-            "id": "e-peer-1on1",
-            "title": "1:1 catchup",
-            "start": "2026-11-09T11:00:00",
-            "attendees": [
-                {"email": "sam@example.com", "self": True},
-                {"email": "pat@example.com", "display_name": "Pat Peer"},
-            ],
-        },
-        {
-            "id": "e-external",
-            "title": "Vendor sync",
-            "start": "2026-11-09T12:00:00",
-            "attendees": [
-                {"email": "sam@example.com", "self": True},
-                {"email": "rep@vendordomain.io", "display_name": "Vera Vendor"},
-            ],
-        },
-        {
-            "id": "e-external-allow",
-            "title": "Customer call",
-            "start": "2026-11-09T13:00:00",
-            "attendees": [{"email": "sam@example.com", "self": True}, {"email": "c@client.co"}],
-        },
-        {"id": "e-focus", "title": "Focus block", "start": "2026-11-10T09:00:00", "attendees": []},
-        {"id": "e-untitled", "title": "", "start": "2026-11-10T10:00:00", "attendees": []},
-        {"id": "e-hold", "title": "[HOLD] Interview", "start": "2026-11-10T11:00:00", "attendees": []},
-        {"id": "e-bare-hold", "title": "Hold for research", "start": "2026-11-10T14:00:00", "attendees": []},
-        {
-            "id": "e-dnm",
-            "title": "Team sync",
-            "description": "do not move this week",
-            "start": "2026-11-10T12:00:00",
-            "attendees": [],
-        },
-        {"id": "e-pto", "title": "OOO - family trip", "start": "2026-11-11T09:00:00", "attendees": []},
-        {"id": "e-qbr", "title": "QBR prep", "start": "2026-11-11T10:00:00", "attendees": []},
-        {"id": "e-hiring", "title": "Hiring panel - PM loop", "start": "2026-11-11T11:00:00", "attendees": []},
-        {"id": "e-weekend", "title": "Saturday work", "start": "2026-11-14T10:00:00", "attendees": []},
-        {
-            "id": "e-declined",
-            "title": "Optional all hands",
-            "start": "2026-11-12T10:00:00",
-            "status": "declined",
-            "attendees": [],
-        },
-        {
-            "id": "e-tentative",
-            "title": "Team standup",
-            "start": "2026-11-12T11:00:00",
-            "attendees": [{"email": "sam@example.com", "self": True, "response": "tentative"}],
-        },
-        {
-            "id": "e-optional",
-            "title": "Brown bag",
-            "start": "2026-11-12T12:00:00",
-            "attendees": [{"email": "sam@example.com", "self": True, "optional": True}],
-        },
-        {"id": "e-solo", "title": "Draft review", "start": "2026-11-12T13:00:00", "attendees": []},
-        {
-            "id": "e-other",
-            "title": "Design critique",
-            "start": "2026-11-13T10:00:00",
-            "attendees": [{"email": "sam@example.com", "self": True}, {"email": "pat@example.com"}],
-        },
-        {"id": "e-freeze", "title": "Release freeze", "start": "2026-11-13T11:00:00", "attendees": []},
-        {"id": "e-admin", "title": "Admin time", "start": "2026-11-13T12:00:00", "attendees": []},
-    ]
-
-    result = classify_events(events, config=config, managers=["Dana Lead"])
-
-    def ids(name: str) -> list[str]:
-        return [row["id"] for row in result[name]]
-
-    # Acceptance: a manager "1:1" is never offered as movable.
-    check("manager 1:1 is immovable", "e-manager-1on1" in ids("immovable"), str(ids("immovable")))
-    check("peer 1:1 (non-manager) is not immovable", "e-peer-1on1" not in ids("immovable"))
-    # Acceptance: an external attendee is immovable at every level.
-    check("external attendee is immovable", "e-external" in ids("immovable"))
-    check(
-        "allow override cannot move an external-attendee event",
-        "e-external-allow" in ids("immovable"),
-        str(ids("movable")),
-    )
-    check("focus block is movable", "e-focus" in ids("movable"))
-    check("untitled hold is movable", "e-untitled" in ids("movable"))
-    check("[hold] title is immovable", "e-hold" in ids("immovable"))
-    check("bare hold title is movable", "e-bare-hold" in ids("movable"))
-    check("do-not-move description is immovable", "e-dnm" in ids("immovable"))
-    check("PTO title lands in pto", "e-pto" in ids("pto"))
-    check("QBR is immovable", "e-qbr" in ids("immovable"))
-    check("hiring panel is immovable", "e-hiring" in ids("immovable"))
-    check("weekend is skipped", "e-weekend" in [s["id"] for s in result["skipped"]])
-    check("declined is skipped", "e-declined" in [s["id"] for s in result["skipped"]])
-    check("tentative response is movable", "e-tentative" in ids("movable"))
-    check("optional attendee is movable", "e-optional" in ids("movable"))
-    check("solo working session is movable", "e-solo" in ids("movable"))
-    check("ordinary event is other", "e-other" in ids("other"))
-    check("config immovable keyword applies", "e-freeze" in ids("immovable"))
-    check("config movable keyword applies", "e-admin" in ids("movable"))
-
-    # keep override: an ordinary event pinned for one run.
-    kept = classify_events(events, config=config, keep=["e-other"])
-    check(
-        "keep override forces immovable",
-        "e-other" in [row["id"] for row in kept["immovable"]],
-    )
-
-    # allow override on a non-external event works.
-    allowed = classify_events(events, config=config, allow=["e-peer-1on1"])
-    check(
-        "allow override makes a level-iii event movable",
-        "e-peer-1on1" in [row["id"] for row in allowed["movable"]],
-    )
-
-    # No config: only the explicit external flag proves externality.
-    noconfig = classify_events(
-        [
-            {
-                "id": "e-flag",
-                "title": "Sync",
-                "start": "2026-11-09T10:00:00",
-                "attendees": [{"email": "a@somewhere.io", "external": True}],
-            }
-        ],
-        config={},
-    )
-    check("explicit external flag works with empty config", "e-flag" in [r["id"] for r in noconfig["immovable"]])
-
-    # Every event lands in exactly one class (or is skipped), and counts add up.
-    seen = [row["id"] for key in ("pto", "immovable", "movable", "other") for row in result[key]]
-    skipped_ids = [row["id"] for row in result["skipped"]]
-    check(
-        "classification is total: no event in two classes",
-        len(seen) + len(skipped_ids) == len(events)
-        and len(set(seen)) == len(seen)
-        and not (set(seen) & set(skipped_ids)),
-        f"{len(seen)} classified + {len(skipped_ids)} skipped vs {len(events)} events",
-    )
-    check(
-        "counts match the lists",
-        result["counts"] == {
-            "pto": len(result["pto"]),
-            "immovable": len(result["immovable"]),
-            "movable": len(result["movable"]),
-            "other": len(result["other"]),
-            "skipped": len(result["skipped"]),
-        },
-    )
-
-    if failures:
-        print(f"selftest FAILED ({len(failures)})")
-        return EXIT_SELFTEST
-    print("selftest: all checks passed")
-    return EXIT_OK
 
 
 if __name__ == "__main__":

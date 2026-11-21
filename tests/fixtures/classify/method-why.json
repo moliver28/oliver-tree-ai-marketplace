@@ -1,0 +1,19 @@
+{
+  "subcommand": "method",
+  "input": [
+    "Where do first-week users look for the timeline when they want to plan?",
+    "What does a first-session planning attempt look like for a new project manager?"
+  ],
+  "expect": {
+    "shape": "How or why X happens",
+    "method": "External Interviews",
+    "sample": "8-12 per segment",
+    "length": "45-60 min",
+    "investment": "M",
+    "matched_on": [
+      "what does"
+    ],
+    "alternative": "",
+    "rules": "qualitative leads; never a survey for a why question; a tie picks the lighter method"
+  }
+}

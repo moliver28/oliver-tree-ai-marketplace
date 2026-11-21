@@ -1,0 +1,204 @@
+{
+  "id": "methods",
+  "version": 1,
+  "rules": [
+    {
+      "shape": "What proportion do or feel X",
+      "keywords": [
+        "proportion",
+        "percentage",
+        "how many",
+        "how often",
+        "what share"
+      ],
+      "method": "Survey",
+      "sample": "100+, 300+ cross-segment",
+      "length": "5-10 min",
+      "investment": "M"
+    },
+    {
+      "shape": "Performance on standard metrics",
+      "keywords": [
+        "performance",
+        "benchmark",
+        "standard metrics",
+        "task time",
+        "error rate"
+      ],
+      "method": "Usability Benchmark",
+      "sample": "15-25",
+      "length": "45-60 min",
+      "investment": "M"
+    },
+    {
+      "shape": "Can users find content in this structure",
+      "keywords": [
+        "find content",
+        "this structure",
+        "tree",
+        "navigation labels",
+        "information scent"
+      ],
+      "method": "Tree Test",
+      "sample": "30-50",
+      "length": "10-20 min",
+      "investment": "M"
+    },
+    {
+      "shape": "How users organize a domain",
+      "keywords": [
+        "organize",
+        "organise",
+        "categorize",
+        "categorise",
+        "group into",
+        "mental model of the domain"
+      ],
+      "method": "Card Sort",
+      "sample": "15-30",
+      "length": "20-30 min",
+      "investment": "M"
+    },
+    {
+      "shape": "Which concept resonates",
+      "keywords": [
+        "concept",
+        "resonate",
+        "resonates",
+        "which direction"
+      ],
+      "method": "Concept Testing",
+      "sample": "8-12",
+      "length": "30-45 min",
+      "investment": "M"
+    },
+    {
+      "shape": "Does design A or B work better for task T",
+      "keywords": [
+        "a or b",
+        "better for",
+        "versus",
+        " vs ",
+        "compare",
+        "two designs",
+        "entry-point designs"
+      ],
+      "method": "Usability Test or Rapid Design Testing",
+      "sample": "5-8 per design",
+      "length": "45-60 min",
+      "investment": "M"
+    },
+    {
+      "shape": "What the feedback corpus says",
+      "keywords": [
+        "feedback corpus",
+        "telemetry",
+        "analytics data",
+        "support tickets say"
+      ],
+      "method": "Data Analytics",
+      "sample": "full corpus",
+      "length": "varies",
+      "investment": "SM"
+    },
+    {
+      "shape": "What existing literature says",
+      "keywords": [
+        "literature",
+        "prior research",
+        "published studies",
+        "industry reports"
+      ],
+      "method": "Desk Research",
+      "sample": "N/A",
+      "length": "varies",
+      "investment": "SM"
+    },
+    {
+      "shape": "How internal stakeholders think about Y",
+      "keywords": [
+        "stakeholders think",
+        "internal teams think",
+        "how the team thinks",
+        "leadership believes"
+      ],
+      "method": "Internal Interviews",
+      "sample": "5-8 across roles",
+      "length": "30-45 min",
+      "investment": "SM"
+    },
+    {
+      "shape": "Research alongside iterative design",
+      "keywords": [
+        "alongside design",
+        "design sprint",
+        "embedded with the team",
+        "each design iteration"
+      ],
+      "method": "Design Partnership",
+      "sample": "embedded",
+      "length": "ongoing",
+      "investment": "XLG"
+    },
+    {
+      "shape": "Mixed strategic synthesis",
+      "keywords": [
+        "strategic synthesis",
+        "mixed methods",
+        "multi-quarter direction"
+      ],
+      "method": "Desk Research + External Interviews",
+      "sample": "8-12 + corpus",
+      "length": "4-8 weeks",
+      "investment": "LRG"
+    },
+    {
+      "shape": "How or why X happens",
+      "keywords": [
+        "how",
+        "why",
+        "what does",
+        "what makes",
+        "walk through"
+      ],
+      "method": "External Interviews",
+      "sample": "8-12 per segment",
+      "length": "45-60 min",
+      "investment": "M"
+    }
+  ],
+  "tie_rule": "a tie picks the lighter method: the earlier row in this list is lighter (this order is the craft table reversed for scoring; report the shape from the winning rule)",
+  "hard_rules": [
+    "qualitative leads, quantitative supplements",
+    "never default to a survey for a why question",
+    "on a tie between two rows, pick the lighter method"
+  ],
+  "investment_scale": [
+    {
+      "level": "0",
+      "size": "Holding ticket"
+    },
+    {
+      "level": "SM",
+      "size": "Desk research only, or up to 5 internal interviews"
+    },
+    {
+      "level": "M",
+      "size": "6 to 10 external interviews, 5 to 8 usability sessions, a card sort, or a survey up to 500"
+    },
+    {
+      "level": "LRG",
+      "size": "8 to 12 interviews plus desk research"
+    },
+    {
+      "level": "XLG",
+      "size": "Multi-method, or 3 or more segments"
+    },
+    {
+      "level": "XXLG",
+      "size": "Multi-team, multi-quarter"
+    }
+  ],
+  "research_type": "a shipping decision is Evaluative; a direction or opportunity question is Generative or Strategic",
+  "method_values_note": "Method names must match the fields.method values in the config contract; the two combination rows set method to both values."
+}

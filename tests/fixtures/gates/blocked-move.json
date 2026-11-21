@@ -1,0 +1,13 @@
+{
+  "key": "UXR-101",
+  "target": "Collecting Data",
+  "gated": true,
+  "ok": false,
+  "missing": [
+    {
+      "item": "spec check failed: roster_has_scheduled",
+      "fix": "roster~=Name|status=Scheduled"
+    }
+  ],
+  "golden_ref": "baseline-artifacts uc-5 Move 3 (W3 finding 3: the rendered line quotes the gate label); key is this fixture's move target, not part of the check output"
+}

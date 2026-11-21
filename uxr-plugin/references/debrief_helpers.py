@@ -34,6 +34,16 @@ Subcommands:
   ``What landed:`` and ``Not covered:`` present, footer last (when
   given). Exit 0 clean, 1 on any failure (one ``[FAIL]`` line each).
 
+- ``check-summary --file <summary.md>``
+  Gates the session summary's ``Insights -> Research Alignment`` block
+  at write time: every ``- H<n> (...)`` line must start with a
+  hypothesis stance (``Supports`` / ``Challenges`` / ``Mixed``) and
+  every ``- A<n> (...)`` line with an assumption stance (``Holds`` /
+  ``Breaks`` / ``Untested``) -- the frozen contract the report parser
+  reads; a missing block fails too. One ``WARN`` line per violation
+  (stderr), exit 0 clean, 1 on any violation (rewrite before
+  continuing), 2 usage.
+
 - ``upload-plan --workspace <dir> [--slug <slug>]``
   Builds the NotebookLM upload set as JSON: ``00-overview.md`` as
   ``Research-Plan-<slug>`` and each ``interviews/*-summary.md`` as
@@ -41,7 +51,6 @@ Subcommands:
   ``interviews/raw-transcripts/`` are listed as excluded reasons and can
   never appear in ``uploads``.
 
-- ``selftest`` (or ``--selftest``) runs the offline self-test.
 
 Exit codes: 0 ok, 1 a check failed or input unreadable, 2 usage, 4
 self-test failure.
@@ -72,6 +81,19 @@ SUMMARY_DATE_RE = re.compile(r"-(\d{4}-\d{2}-\d{2})-summary\.md$")
 
 #: Bare research codes are banned in the recap draft.
 BARE_CODE_RE = re.compile(r"\b(?:RQ|H)\d")
+
+#: The frozen alignment contract (commands/uxr-debrief.md, "Summary and
+#: alignment block"; the report-side parser is references/report_helpers.py).
+#: Change these vocabularies together with the parser, or not at all.
+HYPOTHESIS_STANCES = ("Supports", "Challenges", "Mixed")
+ASSUMPTION_STANCES = ("Holds", "Breaks", "Untested")
+
+#: The alignment block starts under a heading carrying both tokens and ends
+#: at the next heading, the same enter and leave rules the report parser uses.
+ALIGN_ENTER_TOKENS = ("insights", "research alignment")
+
+#: ``- H1 (label): stance - why`` / ``- A1 (label): stance this session - why``.
+STANCE_LINE_RE = re.compile(r"^-\s+((?:H|A)\d+)\s*\(([^)]*)\)\s*:\s*(.*)$", re.IGNORECASE)
 
 TRANSCRIPT_RANKS = (
     ("speaker-labeled with a summary", 0),
@@ -487,6 +509,179 @@ def cmd_check_recap(args: dict[str, str]) -> int:
 
 
 # ---------------------------------------------------------------------------
+# check-summary
+# ---------------------------------------------------------------------------
+
+
+def check_summary_stances(text: str) -> list[str]:
+    """One ``WARN`` line per off-contract stance; empty means clean.
+
+    The report parser drops any alignment line whose stance is not one
+    of the frozen vocabulary words, which let an off-contract stance
+    flow through ``evidence-weight`` as silently empty verdicts (F2).
+    This check runs at write time so the block is rewritten instead.
+    """
+    lines = text.splitlines()
+    start = None
+    for index, line in enumerate(lines):
+        lowered = line.lower()
+        if ALIGN_ENTER_TOKENS[0] in lowered and ALIGN_ENTER_TOKENS[1] in lowered:
+            start = index + 1
+            break
+    if start is None:
+        return [
+            "WARN no Insights -> Research Alignment block found; write the "
+            "alignment block so the report can compute verdicts"
+        ]
+    warnings: list[str] = []
+    for line in lines[start:]:
+        stripped = line.strip()
+        if stripped.startswith("## ") and "insights" not in stripped.lower():
+            break
+        match = STANCE_LINE_RE.match(stripped)
+        if not match:
+            continue
+        entry_id = match.group(1).upper()
+        label = match.group(2).strip() or entry_id
+        stance_text = match.group(3).strip()
+        allowed = ASSUMPTION_STANCES if entry_id.startswith("A") else HYPOTHESIS_STANCES
+        if any(stance_text.upper().startswith(stance.upper()) for stance in allowed):
+            continue
+        warnings.append(
+            f"WARN stance on {entry_id} ({label}) is outside the contract "
+            f"({' / '.join(allowed)}); rewrite the alignment block in the summary"
+        )
+    return warnings
+
+
+def cmd_check_summary(args: dict[str, str]) -> int:
+    file_value = args.get("--file") or ""
+    if not file_value:
+        print("debrief_helpers: check-summary needs --file <summary.md>", file=sys.stderr)
+        return EXIT_USAGE
+    summary_path = Path(file_value).expanduser()
+    try:
+        text = summary_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        print(f"debrief_helpers: cannot read summary: {exc}", file=sys.stderr)
+        return EXIT_FAIL
+    warnings = check_summary_stances(text)
+    if warnings:
+        for line in warnings:
+            print(line, file=sys.stderr)
+        print(
+            f"summary FAILED ({len(warnings)} stance warning(s)); "
+            "rewrite the alignment block before continuing"
+        )
+        return EXIT_FAIL
+    print("summary ok: alignment block stances within the contract")
+    return EXIT_OK
+
+
+# ---------------------------------------------------------------------------
+# assemble-summary / render-recap (W2: the debrief call is ONE structured
+# JSON; the frozen block and the recap shape are assembled mechanically)
+# ---------------------------------------------------------------------------
+
+_ALIGN_HEADING = "## Insights → Research Alignment"
+
+
+def assemble_summary_text(payload: dict) -> str:
+    """The committed summary markdown from the debrief call's JSON: a
+    one-paragraph session summary, speaker-labeled quotes, then the frozen
+    alignment block (every spec entry gets a line; unanswered items keep
+    the exact contract wording)."""
+    session = payload.get("session") or {}
+    alignment = payload.get("alignment") or {}
+    parts: list[str] = [str(session.get("paragraph") or "").strip(), "",
+                        "Notable quotes"]
+    for quote in payload.get("quotes") or []:
+        parts.append(f"- **{quote.get('speaker', '')}**: {quote.get('text', '')}")
+    parts += ["", _ALIGN_HEADING, "**Research Questions**"]
+    for entry in alignment.get("rq") or []:
+        finding = str(entry.get("finding") or "").strip()
+        parts.append(f"- {entry.get('id', '')} ({entry.get('short') or entry.get('id', '')}): "
+                     + (finding or "No direct evidence this session."))
+    for heading, group, suffix in (("**Hypotheses**", "hypotheses", ""),
+                                   ("**Assumptions**", "assumptions", " this session")):
+        parts.append(heading)
+        for entry in alignment.get(group) or []:
+            parts.append(f"- {entry.get('id', '')} ({entry.get('label', '')}): "
+                         f"{entry.get('stance', '')}{suffix} - {entry.get('why', '')}")
+    return "\n".join(parts).rstrip() + "\n"
+
+
+def _write_payload_doc(args: dict[str, str], required: tuple[str, ...], usage: str,
+                       render_fn) -> int:
+    """Shared writer for the payload-driven commands: check the required
+    flags, load the payload JSON, render, write (parents created), print the
+    path. Exit: 0 ok, 2 usage, 1 unreadable payload."""
+    values = {flag: (args.get(flag) or "") for flag in set(required) | {"--file", "--payload"}}
+    if any(not values[flag] for flag in required):
+        print(f"debrief_helpers: {usage}", file=sys.stderr)
+        return EXIT_USAGE
+    try:
+        payload = json.loads(Path(values["--payload"]).expanduser().read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        print(f"debrief_helpers: unreadable payload: {exc}", file=sys.stderr)
+        return EXIT_FAIL
+    path = Path(values["--file"]).expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_fn(payload if isinstance(payload, dict) else {}, args),
+                    encoding="utf-8")
+    print(path)
+    return EXIT_OK
+
+
+def cmd_assemble_summary(args: dict[str, str]) -> int:
+    return _write_payload_doc(
+        args, ("--file", "--payload"),
+        "assemble-summary needs --file <summary.md> --payload <json>",
+        lambda payload, _args: assemble_summary_text(payload))
+
+
+def _prose_clause(topics: list[str]) -> str:
+    """The ``Not covered:`` topics as one prose clause: comma-and joined,
+    one closing period. A topic's own trailing period never doubles."""
+    trimmed = [topic[:-1] if topic.endswith(".") else topic for topic in topics]
+    if not trimmed:
+        return ""
+    if len(trimmed) == 1:
+        return trimmed[0] + "."
+    return ", ".join(trimmed[:-1]) + ", and " + trimmed[-1] + "."
+
+
+def render_recap_text(payload: dict, expected_date: str, footer: str) -> str:
+    """The recap comment from the debrief call's JSON: the fixed heading,
+    the one-paragraph session intro, the transcript link and the summary's
+    relative path, ``What landed:`` with its sentences joined as one prose
+    line, ``Not covered:`` with the topics as one prose clause, blank line,
+    footer."""
+    lines = [f"[uxr-debrief {expected_date}]", "",
+             str(payload.get("paragraph") or "").strip()]
+    if payload.get("link"):
+        lines.append(str(payload["link"]))
+    if payload.get("summary_path"):
+        lines.append(str(payload["summary_path"]))
+    landing = " ".join(str(s).strip() for s in payload.get("landing") or []
+                       if str(s).strip())
+    lines += ["", ("What landed: " + landing) if landing else "What landed:"]
+    covered = _prose_clause([str(t).strip() for t in payload.get("not_covered") or []
+                             if str(t).strip()])
+    lines += ["", ("Not covered: " + covered) if covered else "Not covered:"]
+    if footer.strip():
+        lines.extend(["", footer.strip()])
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def cmd_render_recap(args: dict[str, str]) -> int:
+    return _write_payload_doc(
+        args, ("--file", "--payload", "--date"),
+        "render-recap needs --file <draft.md> --payload <json> --date <YYYY-MM-DD> [--footer <md>]",
+        lambda payload, a: render_recap_text(payload, a.get("--date") or "", a.get("--footer") or ""))
+
+
+# ---------------------------------------------------------------------------
 # upload-plan
 # ---------------------------------------------------------------------------
 
@@ -550,285 +745,23 @@ def cmd_upload_plan(args: dict[str, str]) -> int:
     return EXIT_OK
 
 
-# ---------------------------------------------------------------------------
-# selftest
-# ---------------------------------------------------------------------------
-
-
-def _selftest() -> int:
-    """Offline checks for every subcommand's logic."""
-    import tempfile
-
-    failures: list[str] = []
-
-    def check(name: str, condition: bool, detail: str = "") -> None:
-        print(f"  [{'ok' if condition else 'FAIL'}] {name}")
-        if not condition:
-            failures.append(f"{name}: {detail}")
-
-    print("references/debrief_helpers.py selftest")
-
-    with tempfile.TemporaryDirectory() as td:
-        tmp = Path(td)
-
-        # --- is_interview_shaped -------------------------------------------
-        check(
-            "Weekly sync is never interview-shaped",
-            not is_interview_shaped(
-                {"title": "Weekly sync", "attendees": ["a@partner.example"]}
-            ),
-        )
-        check(
-            "1:1 in the title is excluded even with an external attendee",
-            not is_interview_shaped({"title": "1:1 with Pat", "attendees": ["p@vendor.example"]}),
-        )
-        check(
-            "stand-up style titles are excluded",
-            not is_interview_shaped({"title": "Team stand-up", "attendees": ["a@x.example", "b@x.example"]}),
-        )
-        check(
-            "an external attendee shapes an interview",
-            is_interview_shaped(
-                {"title": "User interview: Ada", "attendees": ["ada@acme.example"]}
-            ),
-        )
-        check(
-            "a known internal domain is not external",
-            not is_interview_shaped(
-                {"title": "User interview: Ada", "attendees": ["me@corp.example"]},
-                internal_domains=("corp.example",),
-            ),
-        )
-        check(
-            "two internal attendees still shape an interview",
-            is_interview_shaped(
-                {"title": "Usability session", "attendees": ["me@corp.example", "you@corp.example"]},
-                internal_domains=("corp.example",),
-            ),
-        )
-        check(
-            "four internal attendees are not interview-shaped",
-            not is_interview_shaped(
-                {
-                    "title": "Design review",
-                    "attendees": ["a@corp.example", "b@corp.example", "c@corp.example", "d@corp.example"],
-                },
-                internal_domains=("corp.example",),
-            ),
-        )
-        check(
-            "a dict attendee list with an external email shapes an interview",
-            is_interview_shaped(
-                {
-                    "title": "Customer call",
-                    "attendees": [{"email": "buyer@bigco.example"}, {"email": "me@corp.example"}],
-                },
-                internal_domains=("corp.example",),
-            ),
-        )
-
-        # --- check_stale_transcripts + cache --------------------------------
-        root = tmp / "research"
-        workspace = root / "atlas-onboarding"
-        (workspace / "interviews").mkdir(parents=True)
-        (workspace / "interviews" / "atlas-onboarding-2026-11-02-summary.md").write_text(
-            "summary", encoding="utf-8"
-        )
-        events = [
-            {"title": "Interview with Ada", "start": "2026-11-02T10:00:00",
-             "attendees": ["ada@acme.example"]},
-            {"title": "Interview with Bob", "start": "2026-11-05T14:00:00",
-             "attendees": ["bob@bigco.example"]},
-            {"title": "Weekly sync", "start": "2026-11-06T09:00:00",
-             "attendees": ["a@corp.example", "b@corp.example"]},
-            {"title": "Old session", "start": "2026-10-01T10:00:00",
-             "attendees": ["x@acme.example"]},
-        ]
-        stale = check_stale_transcripts(
-            events, [root], 7, date.fromisoformat("2026-11-09")
-        )
-        check(
-            "only the summary-less in-window interview is stale",
-            stale == [{"title": "Interview with Bob", "date": "2026-11-05"}],
-            repr(stale),
-        )
-        cache_path = tmp / "state" / "stale-transcript-cache.json"
-        _write_cache(cache_path, stale)
-        cache = json.loads(cache_path.read_text(encoding="utf-8"))
-        check(
-            "cache holds checked_at and the stale list",
-            cache.get("checked_at")
-            and cache.get("stale") == [{"title": "Interview with Bob", "date": "2026-11-05"}],
-            repr(cache),
-        )
-
-        # --- render-appendix -------------------------------------------------
-        key_path = tmp / "participant-key.md"
-        key_path.write_text(
-            "# Participant key\n\n"
-            "| Name | Role | Account | ARR | Email |\n"
-            "|---|---|---|---|---|\n"
-            "| Ada Lovelace | Platform PM | Acme | $1.2M | ada@acme.example |\n"
-            "| Grace Hopper | Staff EM | BigCo |  | grace@bigco.example |\n"
-            "|  | Role Only |  |  |  |\n",
-            encoding="utf-8",
-        )
-        headers, rows = read_participant_key(key_path)
-        lines = render_appendix_lines(headers, rows, {"BigCo": "$800K"})
-        check(
-            "appendix prints Name, Role (Account, ARR) with arr-file fill",
-            lines == ["Ada Lovelace, Platform PM (Acme, $1.2M)", "Grace Hopper, Staff EM (BigCo, $800K)"],
-            repr(lines),
-        )
-        lines_no_arr = render_appendix_lines(headers, rows, {})
-        check(
-            "absent ARR stays out when no arr-file fills it",
-            lines_no_arr[1] == "Grace Hopper, Staff EM (BigCo)",
-            repr(lines_no_arr),
-        )
-
-        # --- pick_transcript --------------------------------------------------
-        candidates = [
-            {"source": "recorder-raw", "kind": "raw text", "path": "C:/recordings/raw.txt"},
-            {"source": "otter-recap", "kind": "speaker-labeled with a summary", "url": "https://otter.example/recap"},
-            {"source": "zoom-audio", "kind": "speaker-labeled", "url": "https://zoom.example/x"},
-        ]
-        picked = pick_transcript(candidates)
-        check(
-            "priority picks the speaker-labeled candidate with a summary",
-            picked["chosen"]["source"] == "otter-recap",
-            repr(picked),
-        )
-        check(
-            "the two losing candidates are named, not copied",
-            [item["source"] for item in picked["named_not_copied"]] == ["zoom-audio", "recorder-raw"],
-            repr(picked["named_not_copied"]),
-        )
-        picked_raw_only = pick_transcript(
-            [{"source": "raw-a", "kind": "raw text"}, {"source": "raw-b", "kind": "raw text"}]
-        )
-        check(
-            "equal ranks keep the first candidate",
-            picked_raw_only["chosen"]["source"] == "raw-a"
-            and [item["source"] for item in picked_raw_only["named_not_copied"]] == ["raw-b"],
-            repr(picked_raw_only),
-        )
-        check("no candidates choose nothing", pick_transcript([])["chosen"] is None)
-
-        # --- check_recap -------------------------------------------------------
-        footer = "_Posted by Claude Code on behalf of Ada._"
-        good = (
-            "[uxr-debrief 2026-11-05]\n\n"
-            "The session ran 42 minutes with Ada, a platform PM at Acme, from the "
-            "Otter recap. Transcript link: https://otter.example/recap; filed at "
-            "interviews/atlas-onboarding-2026-11-05-summary.md.\n\n"
-            "What landed: onboarding feels long, and she gave up on the second step. "
-            "She wants the summary screen first. The import flow confused her.\n\n"
-            "Not covered: billing permissions.\n\n" + footer
-        )
-        check("a well-formed recap passes", check_recap(good, "2026-11-05", footer) == [],
-              repr(check_recap(good, "2026-11-05", footer)))
-        bad_code = good.replace("the second step", "RQ2 stayed open and H1 held")
-        failures_code = check_recap(bad_code, "2026-11-05", footer)
-        check(
-            "a bare RQ/H token fails the recap",
-            any("RQ2" in line for line in failures_code),
-            repr(failures_code),
-        )
-        long_text = "[uxr-debrief 2026-11-05]\n" + ("word " * 210)
-        check(
-            "a recap over the word cap fails",
-            any("200" in line for line in check_recap(long_text, "2026-11-05", "")),
-            repr(check_recap(long_text, "2026-11-05", "")),
-        )
-        missing_sections = "[uxr-debrief 2026-11-05]\n\nShort note.\n"
-        check(
-            "missing What landed / Not covered sections fail",
-            len(check_recap(missing_sections, "2026-11-05", "")) == 2,
-            repr(check_recap(missing_sections, "2026-11-05", "")),
-        )
-        check(
-            "a wrong heading date fails",
-            any("exactly" in line for line in check_recap(good, "2026-11-06", footer)),
-            repr(check_recap(good, "2026-11-06", footer)),
-        )
-        check(
-            "a missing or wrong footer fails",
-            any("footer" in line for line in check_recap(good, "2026-11-05", "_Signed otherwise._")),
-            repr(check_recap(good, "2026-11-05", "_Signed otherwise._")),
-        )
-
-        # --- upload_plan ---------------------------------------------------------
-        nb = tmp / "notebook-study"
-        (nb / "interviews" / "raw-transcripts").mkdir(parents=True)
-        (nb / OVERVIEW_MARKER).write_text("# plan", encoding="utf-8")
-        (nb / "interviews" / "notebook-study-2026-11-02-summary.md").write_text("s", encoding="utf-8")
-        (nb / "interviews" / "notebook-study-2026-11-05-summary.md").write_text("s", encoding="utf-8")
-        (nb / "interviews" / "participant-key.md").write_text("key", encoding="utf-8")
-        (nb / "interviews" / "raw-transcripts" / "raw.txt").write_text("raw", encoding="utf-8")
-        plan = upload_plan(nb)
-        names = [item["source_name"] for item in plan["uploads"]]
-        check(
-            "upload plan names the plan and session sources",
-            names == ["Research-Plan-notebook-study", "T-notebook-study-2026-11-02",
-                      "T-notebook-study-2026-11-05"],
-            repr(names),
-        )
-        upload_paths = " ".join(item["path"] for item in plan["uploads"])
-        check(
-            "no participant-key or raw-transcripts path is uploadable",
-            "participant-key" not in upload_paths and "raw-transcripts" not in upload_paths,
-            repr(upload_paths),
-        )
-        excluded_text = " ".join(item["path"] for item in plan["excluded"])
-        check(
-            "forbidden paths are reported as excluded",
-            "participant-key.md" in excluded_text and "raw-transcripts/raw.txt" in excluded_text,
-            repr(excluded_text),
-        )
-
-    # --- usage errors ------------------------------------------------------
-    check(
-        "missing --events-json is a usage error",
-        main(["check-stale-transcripts", "--research-dirs", "."]) == EXIT_USAGE,
-    )
-    check(
-        "missing --key is a usage error",
-        main(["render-appendix"]) == EXIT_USAGE,
-    )
-    check(
-        "missing --candidates is a usage error",
-        main(["pick-transcript"]) == EXIT_USAGE,
-    )
-    check(
-        "missing --file is a usage error",
-        main(["check-recap"]) == EXIT_USAGE,
-    )
-    check(
-        "missing --workspace is a usage error",
-        main(["upload-plan"]) == EXIT_USAGE,
-    )
-
-    if failures:
-        print(f"selftest FAILED ({len(failures)} check(s))")
-        return EXIT_SELFTEST
-    print("selftest: all checks passed")
-    return EXIT_OK
-
-
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    if not args or args[0] in ("-h", "--help"):
+    if not args:
+        print(__doc__.strip().splitlines()[0])  # terse bare-run pointer; -h prints the full doc
+        return EXIT_OK
+    if args[0] in ("-h", "--help"):
         print(__doc__.strip())
-        return EXIT_OK if not args else EXIT_USAGE
-    if args[0] in ("--selftest", "selftest"):
-        return _selftest()
+        return EXIT_USAGE
     command = args[0]
     if command not in (
         "render-appendix",
         "check-stale-transcripts",
         "pick-transcript",
         "check-recap",
+        "check-summary",
+        "assemble-summary",
+        "render-recap",
         "upload-plan",
     ):
         print(f"debrief_helpers: unknown subcommand {command!r}", file=sys.stderr)
@@ -855,6 +788,9 @@ def main(argv: list[str] | None = None) -> int:
         "check-stale-transcripts": cmd_check_stale,
         "pick-transcript": cmd_pick_transcript,
         "check-recap": cmd_check_recap,
+        "check-summary": cmd_check_summary,
+        "assemble-summary": cmd_assemble_summary,
+        "render-recap": cmd_render_recap,
         "upload-plan": cmd_upload_plan,
     }
     return handlers[command](parsed)
