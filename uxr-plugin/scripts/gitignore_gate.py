@@ -152,9 +152,12 @@ def cmd_assert_ignored(args: list[str]) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    if not args or args[0] in ("-h", "--help"):
+    if not args:
+        print(__doc__.strip().splitlines()[0])  # terse bare-run pointer; -h prints the full doc
+        return EXIT_OK
+    if args[0] in ("-h", "--help"):
         print(__doc__.strip())
-        return EXIT_OK if not args else EXIT_USAGE
+        return EXIT_USAGE
     if args[0] == "assert-ignored":
         return cmd_assert_ignored(args[1:])
     print(f"gitignore_gate: unknown subcommand {args[0]!r}", file=sys.stderr)
