@@ -32,7 +32,9 @@ gate, preview, create. Three model calls on the golden path (phases 2, 3–5,
 ## Phases (full interview)
 
 One phase at a time. **Wait** phases end with a question and stop; do not
-pre-fill the next phase while waiting.
+pre-fill the next phase while waiting. Record the user's answers verbatim,
+in their own words; never paraphrase an answer, and never fill one the
+user did not give - record the gap.
 
 ### Phase 1. Topic and scope (**Wait**)
 
