@@ -12,8 +12,11 @@ Checks, in order:
 2. The command count and skill count meet the minimum. Placeholder
    ``.gitkeep`` files count until real commands and skills land; raise
    ``MIN_COMMANDS`` / ``MIN_SKILLS`` as components ship.
-3. Every script and hook runs ``selftest`` (subcommand) or ``--selftest``
-   (flag) with a 10 second timeout and exits 0.
+3. Every selftest target runs with a 10 second timeout and exits 0.
+   Targets: shipped lib/references/hooks/scripts files still carrying the
+   ``selftest`` token (residual), plus the repo-level
+   ``tests/uxr_selftests/*.py`` modules when present. A standalone install
+   (no repo tests/, no residual selftests) records one SKIP.
 4. Every JSON schema in ``references/`` passes ``check_schema``
    (skipped when ``jsonschema`` is not installed).
 5. Every agent and skill file has YAML front matter that parses, and
@@ -163,38 +166,45 @@ def _run_selftest(path: Path) -> tuple[bool, str]:
 
 
 def check_selftests() -> None:
-    """Check 3: every script and hook passes its self-test within 10 seconds."""
-    hooks = sorted((PLUGIN_ROOT / "hooks").glob("*.py")) if (PLUGIN_ROOT / "hooks").is_dir() else []
-    scripts_dir = PLUGIN_ROOT / "scripts"
-    scripts = (
-        [p for p in scripts_dir.glob("*.py") if p.name != "smoke_test.py"]
-        if scripts_dir.is_dir()
+    """Check 3: every selftest target passes within 10 seconds.
+
+    Targets are (a) shipped lib/references/hooks/scripts files still
+    carrying the ``selftest`` token (residual), plus (b) the repo-level
+    ``tests/uxr_selftests/*.py`` modules when present. A standalone install
+    (no repo tests/, no residual selftests) records one SKIP, not a FAIL.
+    """
+    residual = []
+    for sub in ("lib", "scripts", "hooks", "references"):
+        directory = PLUGIN_ROOT / sub
+        if not directory.is_dir():
+            continue
+        residual.extend(
+            p
+            for p in sorted(directory.glob("*.py"))
+            if p.name != "smoke_test.py"
+            and "selftest" in p.read_text(encoding="utf-8", errors="replace")
+        )
+    extracted_dir = PLUGIN_ROOT.parent / "tests" / "uxr_selftests"
+    extracted = (
+        [p for p in sorted(extracted_dir.glob("*.py")) if p.name != "_harness.py"]
+        if extracted_dir.is_dir()
         else []
     )
-    extras = []
-    for sub in ("lib", "references"):
-        directory = PLUGIN_ROOT / sub
-        if directory.is_dir():
-            extras.extend(
-                p
-                for p in sorted(directory.glob("*.py"))
-                if "selftest" in p.read_text(encoding="utf-8", errors="replace")
-            )
-    targets = hooks + scripts + extras
+    targets = [(p, p.relative_to(PLUGIN_ROOT).as_posix()) for p in residual]
+    targets += [(p, p.relative_to(PLUGIN_ROOT.parent).as_posix()) for p in extracted]
     if not targets:
-        record("SKIP", "every script and hook passes its self-test", "no scripts found")
+        record("SKIP", "every selftest target passes its self-test", "no selftest targets")
         return
     failures = []
-    for path in targets:
+    for path, label in targets:
         ok, detail = _run_selftest(path)
-        paths = path.relative_to(PLUGIN_ROOT).as_posix()
         if ok:
-            record("ok", f"{paths} selftest")
+            record("ok", f"{label} selftest")
         else:
-            record("FAIL", f"{paths} selftest", detail)
-            failures.append(path.name)
+            record("FAIL", f"{label} selftest", detail)
+            failures.append(label)
     if failures:
-        record("FAIL", "all script and hook self-tests pass", ", ".join(failures))
+        record("FAIL", "all selftest targets pass", ", ".join(failures))
 
 
 def check_schemas() -> None:
