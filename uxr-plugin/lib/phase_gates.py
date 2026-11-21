@@ -462,15 +462,12 @@ self-test failed."""
 
 def _read_json_arg(value: str | None, label: str) -> Any:
     """Read a JSON document from a path; a missing file counts as empty."""
-    if value is None:
-        return {}
-    path = Path(value)
-    if not path.is_file():
-        return {}
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except ValueError as exc:
-        raise ValueError(f"--{label} file {value} is not valid JSON: {exc}") from None
+        return _read_json_arg_util(value, f"--{label} file", missing="empty", expanduser=False)
+    except _JsonReadError as exc:
+        if exc.kind == "invalid":
+            raise ValueError(f"--{label} file {exc.path} is not valid JSON: {exc.exc}") from None
+        raise exc.exc
 
 
 def _cli_check(rest: list[str]) -> int:

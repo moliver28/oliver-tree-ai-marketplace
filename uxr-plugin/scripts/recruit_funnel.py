@@ -56,6 +56,7 @@ if str(PLUGIN_ROOT / "scripts") not in sys.path:
 
 from scripts import source_contacts as _source  # noqa: E402
 from lib.util import force_utf8_stdio as _force_utf8_stdio  # noqa: E402  (shared plumbing)
+from lib import util as _util  # noqa: E402
 
 EXIT_OK = 0
 EXIT_V1 = 1
@@ -118,13 +119,12 @@ def scrub(text: str) -> str:
 
 
 def _load_json(path_value: str, what: str) -> object:
-    path = Path(path_value).expanduser()
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError as exc:
-        raise _Usage(f"{what} not found: {path}") from exc
-    except (ValueError, OSError) as exc:
-        raise _Usage(f"{what} cannot be read ({path}): {exc}") from exc
+        return _util.read_json_arg(path_value, what)
+    except _util.JsonReadError as exc:
+        if exc.kind == "notfound":
+            raise _Usage(f"{what} not found: {exc.path}") from exc.exc
+        raise _Usage(f"{what} cannot be read ({exc.path}): {exc.exc}") from exc.exc
 
 
 class _Usage(Exception):

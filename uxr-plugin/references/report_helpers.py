@@ -123,6 +123,8 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
+from lib import util  # noqa: E402  (shared plumbing)
+
 EXIT_OK = 0
 EXIT_FAIL = 1
 EXIT_USAGE = 2
@@ -1042,7 +1044,7 @@ def cross_study(current_text: str, prior_texts: list[str]) -> dict[str, list[str
 
 def _load_json_arg(value: str):
     if value:
-        return json.loads(Path(value).expanduser().read_text(encoding="utf-8"))
+        return util.read_json_document(value)
     return json.loads(sys.stdin.read())
 
 

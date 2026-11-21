@@ -64,6 +64,7 @@ if str(PLUGIN_ROOT) not in sys.path:
 from lib import config as _config  # noqa: E402
 from lib import spec_blocks as _spec  # noqa: E402
 from lib.util import force_utf8_stdio as _force_utf8_stdio  # noqa: E402  (shared plumbing)
+from lib import util as _util  # noqa: E402
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -109,13 +110,9 @@ class _Validation(Exception):
 
 def _read_json(path: Path, what: str) -> object:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError as exc:
-        raise _Usage(f"{what} not found: {path}") from exc
-    except ValueError as exc:
-        raise _Usage(f"{what} is not valid JSON ({path}): {exc}") from exc
-    except OSError as exc:
-        raise _Usage(f"{what} cannot be read ({path}): {exc}") from exc
+        return _util.read_json_arg(path, what, expanduser=False)
+    except _util.JsonReadError as exc:
+        raise _Usage(_util.json_error_message(exc, what)) from exc.exc
 
 
 def _ops_from_arg(value: str) -> dict:
