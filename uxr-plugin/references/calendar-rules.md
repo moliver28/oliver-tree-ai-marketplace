@@ -1,9 +1,8 @@
 # Calendar rules for recruit
 
-These rules decide which events the `recruit` command may offer as session
-slots and which it may propose moving. The deterministic parts are enforced
-by `scripts/calendar_prep.py`; the command follows the same lists when it
-picks slots and drafts move proposals. Config: `calendar.working_hours`,
+These rules decide which events `recruit` may offer as session slots and
+which it may propose moving; `scripts/calendar_prep.py` enforces the
+deterministic parts and the command follows the same lists. Config: `calendar.working_hours`,
 `calendar.default_level`, `calendar.max_moves_per_recruit`,
 `calendar.manager_names`, `calendar.movable_keywords`,
 `calendar.immovable_keywords`, and `org.internal_domains`.
