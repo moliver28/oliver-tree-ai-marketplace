@@ -394,9 +394,12 @@ def cmd_render(source_value: str, target_value: str) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    if not args or args[0] in ("-h", "--help"):
+    if not args:
+        print(__doc__.strip().splitlines()[0])  # terse bare-run pointer; -h prints the full doc
+        return EXIT_OK
+    if args[0] in ("-h", "--help"):
         print(__doc__.strip())
-        return EXIT_OK if not args else EXIT_USAGE
+        return EXIT_USAGE
     if args[0] == "render":
         positional = [arg for arg in args[1:] if not arg.startswith("--")]
         if len(positional) != 2:
