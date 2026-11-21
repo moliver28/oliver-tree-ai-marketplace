@@ -121,7 +121,6 @@ ITALIC_RE = re.compile(r"^\*([^*].*)\*\s*$")
 SURVEY_RE = re.compile(r"^\*\*\[([^\]]+)\]\.\s?\*\*\s*(.*)$")
 SURVEY_NEAR_MISS_RE = re.compile(r"^\*\*\[[^\]]+\]\.")
 TIME_BUDGET_RE = re.compile(r"^\*\*Time budget\*\*:\s*(\d+)\s*min\.?\s*$", re.IGNORECASE)
-TIME_BUDGET_PREFIX = "**Time budget**"
 TICKET_RE = re.compile(r"^[A-Z][A-Za-z ]{0,30}(?:Ticket|Issue|Item|Task):\s*\S")
 PROTOTYPE_RE = re.compile(r"^Prototype Link:\s*\S")
 UXR_RE = re.compile(r"^UXR:\s*\S")

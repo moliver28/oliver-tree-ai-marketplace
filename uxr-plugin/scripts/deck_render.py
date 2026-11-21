@@ -78,7 +78,6 @@ MARGIN = 0.5
 TITLE_BOX = (MARGIN, 0.4, SLIDE_W - 2 * MARGIN, 1.0)
 BODY_TOP = 1.7
 BODY_BOTTOM = 6.9
-FOOTER_BOX = (MARGIN, 7.05, SLIDE_W - 2 * MARGIN, 0.35)
 
 #: Text estimation constants (inches, points).
 CHAR_WIDTH_FACTOR = 0.48   # average glyph width as a share of font size

@@ -61,14 +61,12 @@ except ImportError as exc:  # pragma: no cover - exercised on hosts without it
 EXIT_OK = 0
 EXIT_MISMATCH = 1
 EXIT_USAGE = 2
-EXIT_ASSERTION = 3
 
 INSTALL_HINT = (
     "python-docx is not installed. Install it with: pip install python-docx"
 )
 
 LINE_SPACING = 1.15
-GREY_HEX = 0x666666
 GREY = "666666"
 
 HEADING_RE = re.compile(r"^(#{1,3})\s+(.*)$")
