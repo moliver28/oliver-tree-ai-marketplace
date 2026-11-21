@@ -2,6 +2,15 @@
 
 All notable changes to uxr-plugin. One `## X.Y.Z` heading per release, newest first.
 
+## [0.3.0] - 2026-11-20
+
+### Changed
+
+- Hook dispatch: one interpreter spawn per multi-hook event (hooks.json rewired through `hooks/dispatch.py`; Stop went from 4 spawns to 1, measured 0.733s to 0.262s per turn).
+- Selftest extraction: every `_selftest()` body, selftest-only helper, and fixture constant moved verbatim from the shipped payload to repo-level `tests/uxr_selftests/` (bound to the shipped modules via `tests/uxr_selftests/_harness.py`); the end-user install ships no QA code (~7,700 lines out of the payload). `scripts/smoke_test.py` check 3 discovers selftest targets by residual token plus the repo-level modules; standalone installs record one SKIP.
+- Duplicate helpers unified into `lib/util.py` (fail-open config load, UTF-8 stdio forcing, UTC now, path resolve, research roots, workspace find, list parsing, JSON-argument loader family); each site is now an import with unchanged behavior and messages.
+- Doc tail: script-rigor.md Part 1 (an unconsumed restatement) removed; intro and recap restatements trimmed in the interview-script skill and four references. All rules, gates, and verbatim strings kept.
+
 ## [0.2.0] - 2026-11-18
 
 ### Changed
