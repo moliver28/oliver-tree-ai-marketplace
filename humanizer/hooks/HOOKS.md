@@ -8,6 +8,7 @@ The gate runs between generation and delivery. It is deterministic code; it neve
 | Chat nudge (STE on chat output) | <= ~60 | One STE fix line to the assistant before it sends; the user never sees it unless they ask why. Fail-open on scan error. |
 | Fail | <= ~200 | Gate emits the hit JSON: distinct patterns (max 5), one span each, one fix line each, plus one instruction block: "REPAIR, DO NOT REWRITE." The model patches the named spans only; the pass is not regenerated and the whole output is not re-emitted. |
 | Scan error | 0 | Fail-open: the gate logs and delivers (designed posture; availability misses must not block delivery). |
+| Advisory signals (v1.1.0: `voice_fit`, `source_fidelity` via `--source`, classifier `p_ai`/`voice_delta`) | 0 | Computed inside the gate process (embedding pass + dot products, no model call); appear as extra fields in the pass/fail JSON only when their learned artifacts exist. Fidelity/voice-fit cost zero model tokens; the pass stays silent toward the model. Advisory only in 1.1.0: they NEVER change pass/fail. |
 
 Surfaces: `--surface chat` = STE layer only, always on (Discord/Slack/agent replies); `--surface public` = tell scan + STE (or the onboarding STE-mode choice). Same token economy per outcome below.
 
@@ -17,7 +18,8 @@ Conditional design rules:
 - Feedback names spans, so the model re-reads at most the flagged region; on a patch-capable surface it edits in place instead of writing the full text again.
 - Distinct-pattern dedup (one fix line per pattern, not per hit) keeps dense drafts' feedback short.
 - Max 5 patterns per pass; anything further waits for the next pass so the repair contract stays small.
-- The user still sees only the copy plus `voice: pass` or `voice: N fixes applied`; the JSON and instruction are hook-facing.
+- The user still sees only the copy plus `voice: pass` or `voice: N fixes applied` (with `(fidelity 0.91)` / `(voice-fit 0.72)` appended when the advisory JSON carried those numbers); the JSON and instruction are hook-facing.
+- Advisory signals fail open and stay out of the way: absent learned artifacts (centroid, classifier, embed cache) mean absent JSON fields and zero added latency; a missing embedder is logged (`vec_skip`) and never blocks. `--source FILE` embeds the source once into the bounded, hash-keyed disk cache `learned/embed-cache.json` (max 64 entries, oldest dropped, atomic write; key `<backend>:<sha256(text)[:16]>`) so a repeated /voice run on the same draft does not re-embed the source (ruling 1, issue #127).
 
 ## Runtime hook adapters (config-driven surfaces)
 
