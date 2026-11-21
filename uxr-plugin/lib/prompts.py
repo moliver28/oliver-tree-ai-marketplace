@@ -210,7 +210,7 @@ def main(argv: list[str] | None = None) -> int:
         except (PromptError, IndexError, OSError) as exc:
             print(f"prompts: {exc}", file=sys.stderr)
             return 3
-    print(__doc__.strip())
+    print(__doc__.strip().splitlines()[0])  # terse bare-run pointer; full doc in this file
     return 0
 
 

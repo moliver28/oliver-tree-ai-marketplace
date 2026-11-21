@@ -307,7 +307,7 @@ def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if "--print" in args:
         return _print_config()
-    print(__doc__.strip())
+    print(__doc__.strip().splitlines()[0])  # terse bare-run pointer; full doc in this file
     return 0
 
 
