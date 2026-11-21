@@ -173,10 +173,11 @@ def _markdown_to_html(markdown: str) -> str:
                                  + "</tr>" for row in rows)
                        + "</tbody></table>")
             continue
-        if stripped.startswith("> "):
+        if stripped.startswith(">"):
             quote: list[str] = []
-            while index < len(lines) and lines[index].strip().startswith("> "):
-                quote.append(lines[index].strip()[2:])
+            while index < len(lines) and lines[index].strip().startswith(">"):
+                body = lines[index].strip()[1:]
+                quote.append(body[1:] if body.startswith(" ") else body)
                 index += 1
             out.append("<blockquote>" + _inline(" ".join(quote)) + "</blockquote>")
             continue
