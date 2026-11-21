@@ -130,7 +130,6 @@ def handle_event(
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = list(sys.argv[1:] if argv is None else argv)
     try:
         raw = sys.stdin.read()
         event = json.loads(raw) if raw.strip() else {}

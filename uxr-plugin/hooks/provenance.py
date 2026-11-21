@@ -742,7 +742,6 @@ def stdin_names_hook_event(stream) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = list(sys.argv[1:] if argv is None else argv)
     if stdin_names_hook_event(sys.stdin):
         return 0  # wired on Stop (hooks/hooks.json): the walk lives in session_logger.py
     print(__doc__.strip().splitlines()[0])  # terse CLI pointer; full doc in this file

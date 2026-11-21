@@ -249,7 +249,6 @@ def extract_takeaways(body_markdown: str) -> list[str]:
     """
     sections = split_sections(body_markdown)
     source = ""
-    lowered_titles = [title.lower() for title, _ in sections]
     for wanted in TAKEAWAY_SECTIONS:
         for title, text in sections:
             if wanted in title.lower():

@@ -608,7 +608,6 @@ def _load_sheet(path: Path) -> str:
 
 def _print_lines(drifts: list[dict], fixed: list[str], verbose: bool) -> None:
     if verbose:
-        sources = collect_sources()
         for section in GENERATED_SECTIONS:
             if not any(d["section"] == section for d in drifts):
                 print(f"[ok] {section}")

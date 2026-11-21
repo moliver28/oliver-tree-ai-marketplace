@@ -41,7 +41,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -949,7 +948,6 @@ def _adf_list(block: dict) -> dict:
             # verify-allow: stub-marker
             items.append({"type": "taskItem", "attrs": {"state": "TODO"}, "content": [paragraph]})
         return {"type": "taskList", "content": items}
-    list_type = "bulletList" if kind == "bullets" else "orderedList"
     items = [
         {"type": "listItem", "content": [{"type": "paragraph", "content": _adf_runs(runs)}]}
         for runs in block.get("items", [])
@@ -1085,7 +1083,7 @@ def _html_cell(cell: dict) -> str:
 def _html_table(block: dict) -> str:
     rows = block.get("rows", [])
     body = []
-    for index, row in enumerate(rows):
+    for row in rows:
         cells = "".join(f"<td>{_html_cell(cell)}</td>" for cell in row)
         body.append(f"<tr>{cells}</tr>")
     return "<table>\n" + "\n".join(body) + "\n</table>"
@@ -1326,7 +1324,6 @@ def _counts_from_markdown(text: str) -> dict:
     lines = text.splitlines()
     quote_groups = _md_blocks_of_lines(lines, lambda line: line.startswith(">"))
     table_groups = _md_blocks_of_lines(lines, lambda line: line.lstrip().startswith("|"))
-    details_count = sum(1 for line in lines if line.strip() == "<details>")
     numbered_groups = _md_blocks_of_lines(lines, lambda line: bool(_MD_NUMBERED_RE.match(line)))
     task_lines = [line for line in lines if line.lstrip().startswith("- [ ]")]
 
@@ -1897,7 +1894,6 @@ def _remap_url_or_text(row: dict, fields: tuple[str, ...]) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = list(sys.argv[1:] if argv is None else argv)
     print(__doc__.strip().splitlines()[0])  # terse bare-run pointer; full doc in this file
     return 0
 

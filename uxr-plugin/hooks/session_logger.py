@@ -94,7 +94,7 @@ def normalize_commands(text: str, commands_dir=None, plugin_root=None) -> list[s
             found.append(name)
 
     if COMMAND_TAG_START in text:
-        head, remainder = text, True
+        head = text
         while head and COMMAND_TAG_START in head:
             head = head.split(COMMAND_TAG_START, 1)[1]
             tag = head.split(COMMAND_TAG_END, 1)[0] if COMMAND_TAG_END in head else ""
@@ -378,7 +378,6 @@ def _sync_workspace(workspace, config) -> dict:
 
 
 def main(argv=None) -> int:
-    args = list(sys.argv[1:] if argv is None else argv)
     try:
         raw = sys.stdin.read()
         event = json.loads(raw) if raw.strip() else {}

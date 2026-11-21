@@ -295,7 +295,6 @@ def _reading_level_texts(lines: list[str]) -> list[str]:
         return texts
     in_read_aloud = False
     for line in lines[start:end]:
-        stripped = line.strip()
         if READ_ALOUD_RE.match(line):
             in_read_aloud = True
             continue
