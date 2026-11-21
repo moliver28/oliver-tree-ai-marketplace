@@ -1898,7 +1898,7 @@ def _remap_url_or_text(row: dict, fields: tuple[str, ...]) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    print(__doc__.strip())
+    print(__doc__.strip().splitlines()[0])  # terse bare-run pointer; full doc in this file
     return 0
 
 
