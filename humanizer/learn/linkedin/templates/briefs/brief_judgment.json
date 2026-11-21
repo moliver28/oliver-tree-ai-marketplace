@@ -1,0 +1,31 @@
+{
+ "title": "Change Windows Are a Design Choice",
+ "primary_keyword": "change windows",
+ "tags": [
+  "change windows",
+  "release audits"
+ ],
+ "link": "https://example.org/posts/change-windows-are-a-design-choice",
+ "stat": "69 percent of platform teams now automate at least some release steps, a 19-point jump from last year",
+ "source": "A published industry survey of platform engineers this year",
+ "topic_claim": "the practice of treating change windows as fixed is now the default answer",
+ "story_examples": [
+  "One deploy pipeline merged eight services and paged no one when the second one failed.",
+  "Another team approved a change in a ticket and shipped the opposite change an hour later.",
+  "A third rebuilt the same dashboard three times because the source query lived in three places."
+ ],
+ "thesis": "Change windows work when the review question becomes a design question: which decisions stay human, which get automated, and who verifies both. The pipeline's choices need to be on the record. Expose the decisions, and the boundary moves by design",
+ "design_moves": [
+  "keep the review step human",
+  "expose the pipeline's decisions",
+  "log what got filtered before you looked"
+ ],
+ "counter": "Teams lean on the fixed window when they configure their pipelines. The framing reads as prudence, and prudence calms stakeholders more than it protects the review",
+ "definition": "Decision surface is the set of calls an automated pipeline makes before a reviewer reads a word",
+ "gap_stat_a": "61 percent of engineers trust automation to find patterns",
+ "gap_stat_b": "only 47.6 percent trust it to turn patterns into recommendations",
+ "takeaway": "Build for traceability: keep the review human, expose the decisions, log every filter.",
+ "question_tail": "Where in your pipeline does a decision still happen that you never see?",
+ "person_context": "I run change windows for a platform team",
+ "consensus_holder": "practitioner voices across the field"
+}

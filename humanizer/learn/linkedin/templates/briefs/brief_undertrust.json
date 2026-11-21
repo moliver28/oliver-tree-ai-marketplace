@@ -1,0 +1,32 @@
+{
+ "title": "Why Teams Undertrust Automated Reports",
+ "primary_keyword": "automated reports",
+ "tags": [
+  "automated reports",
+  "traceability",
+  "release audits"
+ ],
+ "link": "https://example.org/posts/why-teams-undertrust-automated-reports",
+ "stat": "88 percent of surveyed platform engineers call automated reporting the top change this year, and 77 percent already run one somewhere in their pipeline",
+ "source": "A published survey of platform engineers this year",
+ "topic_claim": "the distrust of automated reports is the field's stated position",
+ "story_examples": [
+  "One pipeline summarized two hundred tickets and cited the twelve that counted as evidence.",
+  "Another ranked a quarter of support threads by severity against a scoring sheet nobody had reviewed.",
+  "A third drafted the weekly report before anyone opened the raw log."
+ ],
+ "thesis": "That gap is why teams distrust automated reports even when the output reads well: refusing to ship unverifiable claims is professional, not stubborn. The teams that keep trust build differently, with traceable claims and counter-evidence on the record. Traceability gates, inspectable rationales, and a record of what got filtered before anyone looked are the specification",
+ "design_moves": [
+  "put traceability gates in front of every summarized claim",
+  "keep inspectable rationales on the record",
+  "surface counter-evidence by default"
+ ],
+ "counter": "Reviewers who refuse to hide the work keep the process honest, and refusing to automate guards nothing on its own",
+ "definition": "Evidence access is a reviewer's ability to walk backward from a claim to the log that holds it up",
+ "gap_stat_a": "61 percent of engineers trust automation to find patterns",
+ "gap_stat_b": "only 47.6 percent trust it to turn patterns into recommendations",
+ "takeaway": "Keep evidence access inspectable: traceable claims, rationales on the record, counter-evidence surfaced by default.",
+ "question_tail": "What would it take for your pipeline to pass that test?",
+ "person_context": "I run automated reports for a platform team every week",
+ "consensus_holder": "practitioner voices across the field"
+}
