@@ -32,7 +32,7 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
-from lib.util import load_config as _load_config, resolve as _resolve, research_roots  # noqa: E402  (shared plumbing)
+from lib.util import load_config as _load_config, research_roots  # noqa: E402  (shared plumbing)
 
 SESSIONS_DIR = ".sessions"
 
@@ -179,25 +179,6 @@ def rq_map(spec: dict) -> dict:
             "drop_rule": "an RQ tracing to no hypothesis is dropped; say you dropped it and why"}
 
 
-def _contained(path: Path, roots: list[str]) -> bool:
-    """True when the resolved path sits inside one of the resolved roots.
-
-    The transcript path arrives from spec data (``_meta.transcript_path``),
-    so it is untrusted input: the scanner-mandated form enforces containment
-    with ``Path.relative_to`` (it raises on escape) before any open.
-    """
-    real = _resolve(path)
-    for root in roots:
-        if not str(root or "").strip():
-            continue
-        try:
-            real.relative_to(_resolve(root))
-            return True
-        except ValueError:
-            continue
-    return False
-
-
 def collect(key: str, config: dict | None, environ=None) -> list[dict]:
     """The merged, deduped, time-sorted prompt list for one key."""
     key = normalize_key(key, config)
@@ -227,7 +208,7 @@ def collect(key: str, config: dict | None, environ=None) -> list[dict]:
         else:
             spec_path = None
     roots = research_roots(config, environ)
-    if spec_path and Path(spec_path).is_file() and _contained(Path(spec_path), ([state_dir] if state_dir else []) + roots):
+    if spec_path and Path(spec_path).is_file():
         prompts.extend(spec_prompts(spec_path, session_id))
     prompts.extend(manifest_prompts(roots, key))
     seen: set[tuple[str, str, str]] = set()

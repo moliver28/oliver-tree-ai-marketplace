@@ -48,13 +48,14 @@ def _selftest() -> int:
     check("adf body leaves stdout as a JSON ADF document", adf_ok, f"code={code}")
 
     # incomplete document exits 4
+    from lib import spec_blocks as _shipped  # patch the module object build_body binds; the local spec_blocks is a bind-copy dict, not that object
     patched = spec_blocks.selftest_config()
-    original = spec_blocks.assert_full_document
+    original = _shipped.assert_full_document
     try:
-        spec_blocks.assert_full_document = lambda body: (False, ["injected: missing checklist"])
+        _shipped.assert_full_document = lambda body: (False, ["injected: missing checklist"])
         code, stdout, stderr = run(spec_text, config=patched)
     finally:
-        spec_blocks.assert_full_document = original
+        _shipped.assert_full_document = original
     check(
         "failed document check exits 4 with empty stdout",
         code == 4 and stdout == "" and "injected" in stderr,

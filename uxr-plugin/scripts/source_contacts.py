@@ -352,14 +352,13 @@ _CSV_PATH_RE = re.compile(r"\A(?:[A-Za-z]:[\\/])?[^\\/\0]+(?:[\\/][^\\/\0]+)*\Z"
 
 
 def _csv_arg(value: str, flag: str) -> Path:
-    """One operator-supplied CSV path. Traversal components and empty or
-    dot segments are rejected before the path reaches the CSV reader."""
+    """One operator-supplied CSV path: shape-validated as ``_Usage``; a
+    well-formed but missing or unreadable file is an availability error,
+    so it fails closed later in ``_read_csv`` (exit 2, reason on stderr)
+    and is not a usage error here."""
     if not _CSV_PATH_RE.fullmatch(value) or ".." in Path(value).parts:
         raise _Usage("--%s is not a usable path: %s" % (flag, value))
-    path = Path(value).expanduser().resolve()
-    if not path.is_file():
-        raise _Usage("--%s is not a file: %s" % (flag, value))
-    return path
+    return Path(value).expanduser().resolve()
 
 
 def run(args: dict[str, str]) -> tuple[int, str]:
