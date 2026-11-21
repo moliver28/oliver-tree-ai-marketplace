@@ -9,5 +9,11 @@ jobs:
         with: {python-version: "3.11"}
       - name: Install PyYAML (documented plugin dependency, uxr-plugin/lib/config.py)
         run: python3 -m pip install --disable-pip-version-check pyyaml
+      # Efficiency gate (W1): armed ONLY on develop -> main release PRs, via a
+      # paths-safe env var (no paths: filter, so the job never skips). Ordinary
+      # pushes and feature-PRs run the base checks unchanged.
+      - name: Arm efficiency gate (develop -> main release PRs only)
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'develop'
+        run: echo "VERIFY_EFFICIENCY=1" >> "$GITHUB_ENV"
       - name: Verify marketplace integrity
         run: python3 scripts/verify.py
