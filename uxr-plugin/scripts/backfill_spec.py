@@ -33,6 +33,7 @@ if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
 from lib import spec_blocks  # noqa: E402
+from lib.util import force_utf8_stdio as _force_utf8_stdio  # noqa: E402  (shared plumbing)
 
 
 def run(body_text: str) -> tuple[int, str, str]:
@@ -82,14 +83,6 @@ def check_readback(body_path: Path) -> int:
     print(json.dumps(spec_blocks.document_counts(body)))
     print("counts OK" if ok else "\n".join(problems))
     return 0 if ok else 4
-
-
-def _force_utf8_stdio() -> None:
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(encoding="utf-8")
-        except (AttributeError, ValueError):
-            pass
 
 
 def main(argv: list[str] | None = None) -> int:

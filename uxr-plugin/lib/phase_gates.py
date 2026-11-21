@@ -62,6 +62,11 @@ try:
     from . import spec_blocks  # package context
 except ImportError:  # direct execution: python lib/phase_gates.py
     import config as _config  # type: ignore
+
+try:
+    from .util import force_utf8_stdio as _force_utf8_stdio, read_json_arg as _read_json_arg_util, JsonReadError as _JsonReadError  # package context
+except ImportError:  # direct execution: python lib/phase_gates.py
+    from util import force_utf8_stdio as _force_utf8_stdio, read_json_arg as _read_json_arg_util, JsonReadError as _JsonReadError  # type: ignore
     import spec_blocks  # type: ignore
 
 ConfigError = _config.ConfigError
@@ -453,14 +458,6 @@ fail closed). `missing` prints one blocked-move line per missing item of a
 `check` output (pass the JSON via a file or `--json -`), in the golden
 format. Exit codes: 0 pass, 1 not ready, 2 usage or config, 4
 self-test failed."""
-
-
-def _force_utf8_stdio() -> None:
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(encoding="utf-8")
-        except (AttributeError, ValueError):
-            pass
 
 
 def _read_json_arg(value: str | None, label: str) -> Any:

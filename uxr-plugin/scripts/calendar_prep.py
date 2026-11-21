@@ -64,6 +64,7 @@ if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
 from lib import config as _config  # noqa: E402
+from lib.util import force_utf8_stdio as _force_utf8_stdio, parse_list as _parse_list  # noqa: E402  (shared plumbing)
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -464,18 +465,6 @@ def pick_slots(
     return {"level": level, "session_minutes": session_minutes,
             "slots": slots[:slots_wanted], "move_candidates": move_candidates,
             "fewer_than_3": len(slots) < 3}
-
-
-def _force_utf8_stdio() -> None:
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(encoding="utf-8")
-        except (AttributeError, ValueError):
-            pass
-
-
-def _parse_list(value: str | None) -> list[str]:
-    return [part.strip() for part in str(value or "").split(",") if part.strip()]
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -44,6 +44,7 @@ if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
 from lib import spec_blocks  # noqa: E402
+from lib.util import force_utf8_stdio as _force_utf8_stdio  # noqa: E402  (shared plumbing)
 
 OPERATORS = ("+=", "~=", "-=")
 
@@ -76,14 +77,6 @@ def run(request_text: str) -> tuple[int, str, str]:
         return 3, "", f"parse_shorthand: {exc}\n"
     stdout = json.dumps(delta, ensure_ascii=False, separators=(",", ":")) + "\n"
     return 0, stdout, ""
-
-
-def _force_utf8_stdio() -> None:
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(encoding="utf-8")
-        except (AttributeError, ValueError):
-            pass
 
 
 def main(argv: list[str] | None = None) -> int:

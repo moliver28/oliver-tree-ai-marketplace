@@ -55,6 +55,7 @@ if str(PLUGIN_ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT / "scripts"))
 
 from scripts import source_contacts as _source  # noqa: E402
+from lib.util import force_utf8_stdio as _force_utf8_stdio  # noqa: E402  (shared plumbing)
 
 EXIT_OK = 0
 EXIT_V1 = 1
@@ -565,14 +566,6 @@ def run(args: dict[str, str], config: dict | None = None) -> tuple[int, str]:
             + (", ".join(tabs) if tabs else "none yet")
         )
     return code, scrub("\n".join(out_lines)) + "\n"
-
-
-def _force_utf8_stdio() -> None:
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(encoding="utf-8")
-        except (AttributeError, ValueError):
-            pass
 
 
 def main(argv: list[str] | None = None) -> int:

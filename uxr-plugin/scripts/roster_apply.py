@@ -63,6 +63,7 @@ if str(PLUGIN_ROOT) not in sys.path:
 
 from lib import config as _config  # noqa: E402
 from lib import spec_blocks as _spec  # noqa: E402
+from lib.util import force_utf8_stdio as _force_utf8_stdio  # noqa: E402  (shared plumbing)
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -358,14 +359,6 @@ def run(
     report.append(f"  wrote spec: {spec_path_value}")
     report.append(f"  wrote body: {out_path}")
     return EXIT_OK, "\n".join(report) + "\n"
-
-
-def _force_utf8_stdio() -> None:
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(encoding="utf-8")
-        except (AttributeError, ValueError):
-            pass
 
 
 def main(argv: list[str] | None = None) -> int:

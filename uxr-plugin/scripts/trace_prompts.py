@@ -32,18 +32,9 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
+from lib.util import load_config as _load_config, research_roots  # noqa: E402  (shared plumbing)
+
 SESSIONS_DIR = ".sessions"
-ENV_RESEARCH_DIRS = "UXR_RESEARCH_DIRS"
-
-
-def _load_config() -> dict | None:
-    """Load the plugin config through the one loader; None on any failure."""
-    try:
-        from lib.config import load_config
-
-        return load_config()
-    except Exception:
-        return None
 
 
 def normalize_key(key: str, config: dict | None) -> str:
@@ -133,22 +124,6 @@ def manifest_prompts(research_roots: list[str], key: str) -> list[dict]:
                 "origin": "manifest",
             })
     return prompts
-
-
-def research_roots(config: dict | None, environ=None) -> list[str]:
-    """UXR_RESEARCH_DIRS entries, then ``paths.research_root`` from the config."""
-    environ = os.environ if environ is None else environ
-    roots: list[str] = []
-    for part in str(environ.get(ENV_RESEARCH_DIRS) or "").split(os.pathsep):
-        if part.strip():
-            roots.append(part.strip())
-    if isinstance(config, dict):
-        paths = config.get("paths", {})
-        if isinstance(paths, dict):
-            root = paths.get("research_root")
-            if isinstance(root, str) and root.strip():
-                roots.append(root)
-    return roots
 
 
 # --- W2: the RQ-to-hypothesis map + the drop rule (new phase 6) ---

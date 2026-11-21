@@ -38,18 +38,10 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
+from lib.util import load_config as _load_config  # noqa: E402  (shared plumbing)
+
 JOURNAL_RE = re.compile(r"^work-log-(\d{4}-\d{2}-\d{2})\.jsonl$")
 EVENTS_RE = re.compile(r"^events-(\d{4}-\d{2})\.jsonl$")
-
-
-def _load_config() -> dict | None:
-    """Load the plugin config through the one loader; None on any failure."""
-    try:
-        from lib.config import load_config
-
-        return load_config()
-    except Exception:
-        return None
 
 
 def resolve_state_dir(config: dict | None, environ=None) -> Path | None:

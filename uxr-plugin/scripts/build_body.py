@@ -36,6 +36,7 @@ if str(PLUGIN_ROOT) not in sys.path:
 
 from lib import config as _config  # noqa: E402
 from lib import spec_blocks  # noqa: E402
+from lib.util import force_utf8_stdio as _force_utf8_stdio  # noqa: E402  (shared plumbing)
 
 
 def _dump(body: dict | str) -> str:
@@ -67,15 +68,6 @@ def run(spec_text: str, config: dict | None = None) -> tuple[int, str, str]:
     if not complete:
         return 4, "", "".join(f"  - {problem}\n" for problem in problems)
     return 0, _dump(body), ""
-
-
-def _force_utf8_stdio() -> None:
-    """Keep emoji and unicode content intact on every platform pipe."""
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(encoding="utf-8")
-        except (AttributeError, ValueError):
-            pass
 
 
 def main(argv: list[str] | None = None) -> int:

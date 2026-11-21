@@ -55,6 +55,12 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+if str(PLUGIN_ROOT) not in sys.path:
+    sys.path.insert(0, str(PLUGIN_ROOT))
+
+from lib.util import force_utf8_stdio as _force_utf8_stdio, parse_list as _parse_list  # noqa: E402  (shared plumbing)
+
 EXIT_OK = 0
 EXIT_USAGE = 2
 EXIT_SELFTEST = 3
@@ -159,10 +165,6 @@ def _contact_identity(row: dict) -> dict:
         "account": _cell(row, "Account Name", "Account"),
         "first_name": _cell(row, "First name", "First Name", "First"),
     }
-
-
-def _parse_list(value: str | None) -> list[str]:
-    return [part.strip() for part in str(value or "").split(",") if part.strip()]
 
 
 def _dnc_rows(dnc: list[dict]) -> tuple[list[str], list[str]]:
@@ -381,14 +383,6 @@ def run(args: dict[str, str]) -> tuple[int, str]:
             stale_days=stale_days,
         )
     return EXIT_OK, json.dumps(result, ensure_ascii=False, indent=2)
-
-
-def _force_utf8_stdio() -> None:
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(encoding="utf-8")
-        except (AttributeError, ValueError):
-            pass
 
 
 def main(argv: list[str] | None = None) -> int:
