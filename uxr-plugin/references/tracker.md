@@ -1,14 +1,11 @@
 # Tracker adapter
 
-Commands never call a tracker directly. They use the generic operations in
-this table, with the tool name and parameters for the configured tracker:
-look up `tracker.kind` in config (`jira`, `linear`, `github`, or `asana`)
-and read that column. Every per-organization value (base URL, project key,
-field ids, priority values, footers) comes from `config/org.yaml` through
-`lib/config.py`. The deterministic half of the adapter is
-`lib/field_map.py`: it resolves a field shorthand (`method=Survey`) into
-the payload and implements the routing helpers. Linear/GitHub/Asana
-parameter detail and the field-kind mapping for those trackers live in
+Commands never call a tracker directly: they use the generic operations
+table, reading the column for the configured `tracker.kind` (`jira`,
+`linear`, `github`, or `asana`). Every per-organization value comes from
+`config/org.yaml` through `lib/config.py`; `lib/field_map.py` resolves a
+field shorthand (`method=Survey`) into the payload and implements the
+routing helpers. Linear/GitHub/Asana detail lives in
 `references/trackers-other.md` — read it when `tracker.kind` is not `jira`.
 
 ## Session rules (every command)
