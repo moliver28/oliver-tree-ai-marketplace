@@ -93,7 +93,8 @@ on a wave tab.
    "<accounts>"`. Drop do-not-contact, withheld, open-deal, and opt-out
    contacts; hold an at-risk account for the account manager's OK (with
    `--coordinate`, draft the chat notes asking for those OKs and the warm
-   intro; never send them).
+   intro; never send them; without `--coordinate`, say in one line that
+   re-running with `--coordinate` drafts those chat notes).
 7. **Booking page.** Reuse a verified page or build one to the settings in
    `references/recruit-outreach.md`. Verify the public link shows bookable
    slots.
