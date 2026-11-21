@@ -1054,9 +1054,12 @@ def _parse_args(argv: list[str]) -> tuple[str, dict[str, object]]:
 
 def main(argv: list[str] | None = None) -> int:
     args_list = list(sys.argv[1:] if argv is None else argv)
-    if not args_list or args_list[0] in ("-h", "--help"):
+    if not args_list:
+        print(__doc__.strip().splitlines()[0])  # terse bare-run pointer; -h prints the full doc
+        return EXIT_OK
+    if args_list[0] in ("-h", "--help"):
         print(__doc__.strip())
-        return EXIT_OK if not args_list else EXIT_USAGE
+        return EXIT_USAGE
     subcommand, args = _parse_args(args_list)
     handlers = {
         "slug": cmd_slug,

@@ -894,12 +894,12 @@ PD and-or PM: Sam Chen and-or Dana Patel
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if not args:
-        print(__doc__.strip())
+        print(__doc__.strip().splitlines()[0])  # terse bare-run pointer; full doc in this file
         return EXIT_UNPARSEABLE
     command = args[0]
     if command == "check" and len(args) == 2:
         return cmd_check(args[1])
-    print(__doc__.strip())
+    print(__doc__.strip().splitlines()[0])  # terse usage pointer; full doc in this file
     return EXIT_UNPARSEABLE
 
 

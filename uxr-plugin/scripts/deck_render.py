@@ -510,9 +510,12 @@ def _parse_args(argv: list[str]) -> tuple[str, dict[str, str]] | None:
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    if not args or args[0] in ("-h", "--help"):
+    if not args:
+        print(__doc__.strip().splitlines()[0])  # terse bare-run pointer; -h prints the full doc
+        return EXIT_OK
+    if args[0] in ("-h", "--help"):
         print(__doc__.strip())
-        return EXIT_OK if not args else EXIT_USAGE
+        return EXIT_USAGE
     parsed = _parse_args(args)
     if parsed is None:
         print("deck_render: usage: lint <outline.json> | render <outline.json> <out.pptx>", file=sys.stderr)

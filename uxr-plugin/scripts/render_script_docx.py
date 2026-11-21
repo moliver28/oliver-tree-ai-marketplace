@@ -480,14 +480,14 @@ MINIMAL_FIXTURE = """# Interview Script: Tiny
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if not args:
-        print(__doc__.strip())
+        print(__doc__.strip().splitlines()[0])  # terse bare-run pointer; full doc in this file
         return EXIT_USAGE
     command = args[0]
     if command == "render" and len(args) == 3:
         return cmd_render(args[1], args[2])
     if command == "verify" and len(args) == 2:
         return cmd_verify(args[1])
-    print(__doc__.strip())
+    print(__doc__.strip().splitlines()[0])  # terse usage pointer; full doc in this file
     return EXIT_USAGE
 
 
