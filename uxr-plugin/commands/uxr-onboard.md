@@ -32,7 +32,9 @@ config exists. No argument uses the saved path when it exists.
    - Issue system: `Which issue system holds your study tickets? (jira / linear / github / asana / other)`.
      `other`: ask its name; record it as a declared adapter entry with an
      empty module (absent-sync: the harness works, tracker operations wait
-     for the adapter).
+     for the adapter). Leave `tracker.kind` empty for `other` — config
+     validation accepts only the shipped kinds, so the recorded entry stays
+     declared-unreachable until the adapter module and its kind ship.
      Ask the connection values the system's reference names
      (`references/tracker.md` for jira, `references/trackers-other.md` for
      the rest): base URL, workspace id, project key, ticket regex, bare

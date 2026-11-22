@@ -40,13 +40,13 @@
       {
         "wave": "W3",
         "issue": 114,
-        "delta_lines": 205,
+        "delta_lines": 203,
         "files": [
           "uxr-plugin/commands/uxr-onboard.md",
           "uxr-plugin/references/onboarding.md",
           "uxr-plugin/scripts/validate_cheatsheet.py"
         ],
-        "reason": "One-shot interactive onboarding (#114): the onboard command (ask law, saved-path probe, adapter and KB selection, field mapping, calculator override, privacy, workspace push, org-chart asks, walkthrough) and the onboarding flow-rules reference the adapter registry points at; one generator purpose-dict line gives the command its cheat-sheet row summary. Net-new 205 payload lines; command and reference md are new surfaces only, no existing command or reference bytes change.",
+        "reason": "One-shot interactive onboarding (#114): the onboard command (ask law, saved-path probe, adapter and KB selection, field mapping, calculator override, privacy, workspace push, org-chart asks, walkthrough) and the onboarding flow-rules reference the adapter registry points at; one generator purpose-dict line gives the command its cheat-sheet row summary. Net-new 203 payload lines under the gate suffix convention (.py/.md/.yaml); this commit's remaining 2 net rows are the regenerated docs/cheat-sheet.html table rows, which that convention excludes (they stay inside the wave total of 347). Command and reference md are new surfaces only, no existing command or reference bytes change.",
         "date": "2026-11-21"
       },
       {
@@ -111,12 +111,12 @@
       {
         "wave": "W3",
         "issue": 114,
-        "delta_lines": 14,
+        "delta_lines": 16,
         "files": [
           "uxr-plugin/config/org.example.yaml",
           "uxr-plugin/lib/config.py"
         ],
-        "reason": "Prioritization calculator override keys (#114): priority.weights and priority.formula in the key contract (empty = the built-in formula and weights documented in references/onboarding.md, so zero-configuration installs keep a working calculator) plus their REQUIRED_KEYS entries. Net-new 14 payload lines. The deterministic scorer module ships in a later wave; W3 saves the inputs and the walkthrough scores one real request with the documented formula.",
+        "reason": "Prioritization calculator override keys (#114): priority.weights and priority.formula in the key contract (empty = the built-in formula and weights documented in references/onboarding.md, so zero-configuration installs keep a working calculator) plus their REQUIRED_KEYS entries. Net-new 16 payload lines (org.example.yaml +14, lib/config.py +2). The deterministic scorer module ships in a later wave; W3 saves the inputs and the walkthrough scores one real request with the documented formula.",
         "date": "2026-11-21"
       },
       {

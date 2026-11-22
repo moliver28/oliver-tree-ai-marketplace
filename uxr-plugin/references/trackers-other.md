@@ -2,7 +2,9 @@
 
 Parameter detail for the Linear, GitHub Issues, and Asana columns of the
 generic operations table in `tracker.md`, plus the field-kind mapping for
-trackers without a configured kind. None of it has been live-verified in
+trackers without a configured kind. The listed parameter sets are examples:
+an operator-named kind (`other` in onboarding) asks the same six connection
+keys. None of it has been live-verified in
 this build; treat every parameter as `verify-live` before first use.
 
 ## Linear, GitHub, Asana parameters
