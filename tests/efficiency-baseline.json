@@ -62,6 +62,18 @@
         "date": "2026-11-21"
       },
       {
+        "wave": "W3",
+        "issue": 57,
+        "delta_lines": 69,
+        "files": [
+          "uxr-plugin/commands/uxr-init.md",
+          "uxr-plugin/config/org.example.yaml",
+          "uxr-plugin/lib/config.py"
+        ],
+        "reason": "Init ignore set becomes onboarding config (#57): the privacy.init_ignore key (default empty = the ignore set covers ALL interview data, the interviews/ tree, flipping the earlier narrow default), the init_ignore_set resolver with the --init-ignore-set CLI, and the additive uxr-init paragraph that passes the effective set to the gitignore gate and appends it to the workspace .gitignore so config and file can never disagree. Net-new 69 payload lines; the participant-identity floor stays hardcoded and never replaceable.",
+        "date": "2026-11-21"
+      },
+      {
         "wave": "pre-baseline",
         "issue": 122,
         "guard": "report_html.py blockquote parser fix (#123) added 1 net line in uxr-plugin/scripts before the baseline file existed; recorded here when first measured (develop = main + W2), because the release gate needs every line accounted for",

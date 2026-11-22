@@ -105,6 +105,16 @@ Steps:
    any `git add`. Print the blocked paths, tell
    the user to fix `<workspace>/.gitignore`, and end. Never write
    participant data while the gate fails.
+
+   Interview-data set (issue 57): also pass one path argument per entry
+   of the effective privacy set, and append every one of those entries
+   to `<workspace>/.gitignore` before the gate runs, so the config and
+   the file can never disagree. Read the effective set with
+   `python "${CLAUDE_PLUGIN_ROOT}/lib/config.py" --init-ignore-set` (one
+   path per line): when `privacy.init_ignore` is empty (the default) it
+   prints `interviews/`, which covers all interview data; when non-empty
+   it prints exactly the listed paths. The hardcoded floor entries stay
+   and are never replaceable.
 9. If `workspace.remote` is set: run
    `git -C "<target>" remote add origin <remote>` (ignore an
    already-exists error), then `git -C "<target>" push -u origin HEAD`.

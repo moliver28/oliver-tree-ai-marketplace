@@ -239,6 +239,22 @@ workspace:
   gitignored_paths: ["interviews/participant-key.md", "interviews/raw-transcripts/"]
 
 # -----------------------------------------------------------------------------
+# privacy: participant-data rules for the init gate (issue 57)
+# -----------------------------------------------------------------------------
+privacy:
+  # Interview-data paths the uxr-init gitignore gate asserts are ignored,
+  # saved by onboarding (/uxr-onboard). DEFAULT (empty list): the set
+  # covers ALL interview data, so the whole interviews/ tree must be
+  # gitignored. This FLIPS the shipped default of earlier releases, which
+  # ignored only the participant key and the raw transcripts. Those two
+  # stay enforced as the participant-identity floor and are never
+  # replaceable by this list. A non-empty list forms the interview-data
+  # set exactly as listed; init passes the effective set to the gate and
+  # appends its entries to the workspace .gitignore before the gate runs,
+  # so the config and the file can never disagree.
+  init_ignore: []
+
+# -----------------------------------------------------------------------------
 # evidence: where supporting material is read from (issue 06)
 # -----------------------------------------------------------------------------
 evidence:
