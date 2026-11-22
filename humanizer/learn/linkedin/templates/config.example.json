@@ -1,0 +1,11 @@
+{
+  "_readme": "Config template for the LinkedIn post pipeline. Place config.json inside the directory you point LINKEDIN_TEMPLATES_DIR at, or name it linkedin_config.json next to the scripts. With no live config file anywhere, the three scripts (linkedin_render.py, linkedin_voicebook_check.py, linkedin_lever_check.py) behave byte-identically to their built-in defaults.",
+  "template_dir": "/absolute/path/to/your/linkedin/templates",
+  "url_allowlist": [
+    "example\\.org"
+  ],
+  "_notes": {
+    "url_allowlist": "Regex list; any match marks a URL public (used by the LINK slot gate, the checker link-line gate, and selection viability). app.notion.com is always rejected in code, regardless of config. The factory default when no config exists is the substring rule example.org.",
+    "template_dir": "Only consulted when LINKEDIN_TEMPLATES_DIR is not set; the env var wins."
+  }
+}

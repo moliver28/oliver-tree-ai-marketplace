@@ -1,0 +1,21 @@
+{
+ "ok": true,
+ "errors": [],
+ "warnings": [],
+ "stats": {
+  "variant": null,
+  "rotation_expected": "V1",
+  "words": 189,
+  "paragraphs": 4,
+  "url_present": true,
+  "open_sha256": "9d3daa87d17f8756820f9b4fc3f81b076e598fbc93888dc658cd749af802839b",
+  "sha256": "865277419cf0193ad338bd6cca9ab70a9bd964d9bf6cc812d7cc92a617f24ed5",
+  "seo": {
+   "hook_210": "pass",
+   "keyword": "skip",
+   "engagement_close": "pass",
+   "og": "skip",
+   "consistency": "warn"
+  }
+ }
+}

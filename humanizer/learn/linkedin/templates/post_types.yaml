@@ -1,0 +1,130 @@
+# post_types.yaml - evidence-driven catalog of post kinds for
+# linkedin_render.py --select. Each entry cites its evidence anchor in the
+# comment block above it. Selection lists kinds; rendering and gating stay in
+# the existing pipeline (a kind with a variant renders through its skeleton;
+# selection never bypasses the render/checker/lever/guard gates).
+#
+# Field reference:
+#   variant         skeleton backing the kind (null = shape guidance only,
+#                   drafted by hand; still scored + ranked)
+#   requires        all must be filled from the brief for the kind to be viable
+#   requires_alt    at least one must be filled (optional extra rule)
+#   recommended     slots that score when filled (weights.yaml decides)
+#   link_required   kind needs the article link (default true); commentary
+#                   kinds run without a link and, when one is present, it is
+#                   written as the last line by the same render contract
+#   commentary_type true for native-commentary kinds (link_penalty applies
+#                   only to these, and only when has_link)
+#   situations      situation flags this kind is applicable under (soft
+#                   applicability for weights + documentation; hard viability
+#                   is requires/requires_alt)
+#   refuse_unless + refuse_reason   render refuses (exit 1, no file) with this
+#                   data-sourced message until the named slots are filled
+#
+# Purpose of every entry is engagement now; none assumes editorial or SEO
+# purposes downstream.
+
+post_types:
+  announcement-receipt:
+    # anchor: V1 skeleton, the flat receipt (the 12-cell all-green battery path):
+    # opens on a verified digit (scroll-stop / saves), carries the
+    # DESIGN_MOVES + TAKEAWAY utility close (Berger & Milkman practical
+    # utility) and the experience question close.
+    variant: V1
+    requires: [STAT, TOPIC_CLAIM, STORY_EXAMPLES, THESIS, DESIGN_MOVES, TAKEAWAY, QUESTION_TAIL, LINK, PERSON_CONTEXT]
+    recommended: [STAT, TOPIC_CLAIM, STORY_EXAMPLES, THESIS, DESIGN_MOVES, TAKEAWAY, QUESTION_TAIL, PERSON_CONTEXT]
+    purpose: "engagement now: saves plus discussion from the imperative utility close; the structure must not assume editorial or SEO purposes"
+    situations: [has_link, has_definition, has_gap_pair]
+    commentary_type: false
+    link_required: true
+
+  named-source:
+    # anchor: V2 named-source claim: sentence one reads 'SOURCE found STAT.'
+    # (single-sentence credibility hook; the checker's seo-hook rule is the
+    # mechanical form of the digit-or-source requirement).
+    variant: V2
+    requires: [SOURCE, STAT, TOPIC_CLAIM, COUNTER, STORY_EXAMPLES, THESIS, QUESTION_TAIL, LINK]
+    recommended: [SOURCE, STAT, TOPIC_CLAIM, COUNTER, STORY_EXAMPLES, THESIS, QUESTION_TAIL]
+    purpose: "engagement now: credibility hook in one sentence, boundary examples, discussion close"
+    situations: [has_link, has_definition, has_gap_pair]
+    commentary_type: false
+    link_required: true
+
+  steelman-pivot:
+    # anchor: V3 steelman-then-pivot: consensus stated at full strength, then
+    # COUNTER opens the information gap (curiosity is a high comment driver)
+    # before the reframe; STORY_EXAMPLES rides the |clauses semicolon move.
+    variant: V3
+    requires: [TOPIC_CLAIM, STORY_EXAMPLES, THESIS, QUESTION_TAIL, LINK, CONSENSUS_HOLDER, PERSON_CONTEXT]
+    recommended: [TOPIC_CLAIM, STORY_EXAMPLES, THESIS, QUESTION_TAIL, CONSENSUS_HOLDER, PERSON_CONTEXT]
+    purpose: "engagement now: curiosity gap via COUNTER, then the reframe; discussion close"
+    situations: [has_link, debate_active]
+    commentary_type: false
+    link_required: true
+
+  definition:
+    # anchor: V5 definition-in-passing: a coined term (social currency, idea
+    # association) plus GAP_STAT_PAIR contrast evidence holding dwell.
+    variant: V5
+    requires: [DEFINITION, GAP_STAT_PAIR, STORY_EXAMPLES, THESIS, TAKEAWAY, QUESTION_TAIL, LINK]
+    recommended: [DEFINITION, GAP_STAT_PAIR, STORY_EXAMPLES, THESIS, TAKEAWAY, QUESTION_TAIL]
+    purpose: "engagement now: the term gives people something to quote; the gap pair gives them a number to argue with"
+    situations: [has_link, has_definition, has_gap_pair]
+    commentary_type: false
+    link_required: true
+
+  failure-receipt:
+    # anchor: V4 failure receipt: first-person receipt with a time anchor,
+    # drafted by hand from a verified receipt row; the verified FAILURE_ROW is
+    # the structural precondition (narrative transportation from a concrete
+    # miss, then what catches it now).
+    variant: V4
+    requires: [FAILURE_ROW]
+    recommended: [FAILURE_ROW, TOPIC_CLAIM, STORY_EXAMPLES, THESIS, TAKEAWAY, QUESTION_TAIL]
+    purpose: "engagement now: the concrete miss earns trust and the what-now line earns replies; never assumes editorial framing"
+    situations: [has_failure_row]
+    commentary_type: false
+    link_required: true
+    # part of the fail-loud contract: without a verified row the kind cannot
+    # exist; message text is sourced here, not in code
+    refuse_unless: [FAILURE_ROW]
+    refuse_reason: "V4 is shape-only; draft by hand from a verified failure receipt"
+
+  practical-tips:
+    # anchor: Berger & Milkman (2012) virality study: practical utility is the
+    # strongest predictor of shares (coefficient .31); the kind is
+    # DESIGN_MOVES-forward (imperative practices) with TAKEAWAY imperative and
+    # targets saves first.
+    variant: null
+    requires: [STAT, DESIGN_MOVES, TAKEAWAY]
+    recommended: [STAT, SOURCE, TOPIC_CLAIM, STORY_EXAMPLES, DESIGN_MOVES, TAKEAWAY, QUESTION_TAIL, PERSON_CONTEXT]
+    purpose: "engagement now: saves; a tips post must stay practical and imperative from the first line"
+    situations: [has_link]
+    commentary_type: false
+    link_required: true
+
+  news-reaction:
+    # anchor: information-gap curiosity (Loewenstein 1994) as a comment
+    # driver; COUNTER-forward ("what the coverage misses"). Link optional for
+    # this kind: native commentary holds dwell on-platform, and when a link
+    # is used it is written as the last line by the render contract.
+    variant: null
+    requires: [COUNTER]
+    recommended: [COUNTER, SOURCE, TOPIC_CLAIM, STORY_EXAMPLES, THESIS, QUESTION_TAIL, DEFINITION]
+    purpose: "engagement now: comments; the reaction must open the gap, not summarize the news"
+    situations: [news_hook, debate_active]
+    commentary_type: true
+    link_required: false
+
+  pure-question:
+    # anchor: voicebook QUESTION_TAIL rule (the single experience-shaped
+    # close) is the comment-velocity lever; the seo-hook rule still requires
+    # a digit or a named source inside the first 210 characters.
+    variant: null
+    requires: [QUESTION_TAIL]
+    requires_alt: [STAT, SOURCE]
+    recommended: [QUESTION_TAIL, STAT, SOURCE, TOPIC_CLAIM]
+    purpose: "engagement now: comments from a specific experience question the reader can answer in one line"
+    situations: [debate_active, news_hook]
+    commentary_type: true
+    link_required: false
