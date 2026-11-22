@@ -46,6 +46,30 @@ days).
    <workspace>/recruitment/participants.md --method <method_key> --channel
    <channel>`; its warnings are advisory; never block on them.
 
+## Status gates (workspace participants table)
+
+The workspace `recruitment/participants.md` status column uses the
+locked vocabulary: identified, screened, invited, scheduled,
+completed, incentive-sent, withdrawn. A status may not advance while
+its gate columns are empty on the row; check the gates mechanically
+from the row before every status change (no model call):
+
+- `screened` needs a recorded `screener result`.
+- `invited` needs `contact` filled (external flow) or
+  `source (org-chart path)` filled (internal flow).
+- `scheduled` needs an outreach/contact action recorded: `DM sent
+  (date)` holds the date of the DM, chat note, or merged send that
+  reached the participant.
+- `completed` needs `consent-to-record` set to yes.
+- `incentive-sent` needs the row already `completed`.
+- `withdrawn` needs nothing; it is allowed from any status at any
+  time.
+
+A blocked advance is one line: name the row and the empty gate column,
+then stop and ask for the value. The spec roster keeps its own status
+vocabulary (Outreach Sent, Scheduled, and the rest); these gates gate
+the workspace table only.
+
 ## Internal flow (default)
 
 | Phase | What you do |

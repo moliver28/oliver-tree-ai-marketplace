@@ -216,6 +216,16 @@
         ],
         "reason": "Recruitment participants template reworked to the approved column sets (issue 51, MO column law 2026-11-22): one table per flow, internal ten columns, external eleven columns, the locked seven-value status vocabulary, the approved external screener field list, and the PII ruling. The method-dependent table placeholder goes away because the approved sets are fixed lists, so the scaffold fills no tokens in this file; validate-recruitment stays advisory per the recruit command. Net-new 20 payload lines in templates.",
         "date": "2026-11-22"
+      },
+      {
+        "wave": "W4b",
+        "issue": 51,
+        "delta_lines": 24,
+        "files": [
+          "uxr-plugin/commands/uxr-recruit.md"
+        ],
+        "reason": "Recruit status-gate law (issue 51, enforcement shape approved by MO 2026-11-22): one additive section between Setup and the flows stating that a workspace participants-table status may not advance while its gate columns are empty, the six gate rules (screened, invited, scheduled, completed, incentive-sent, withdrawn), the one-line blocked-advance behavior, and the scope note that the spec roster keeps its own vocabulary. No model call; existing wording untouched. Net-new 24 payload lines in commands.",
+        "date": "2026-11-22"
       }
     ],
     "golden_path_growth": null
