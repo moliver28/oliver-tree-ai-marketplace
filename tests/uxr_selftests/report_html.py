@@ -101,6 +101,21 @@ def _selftest() -> int:
             plain_html.startswith("<!DOCTYPE html>")
             and '<div class="takeaway">' not in plain_html,
         )
+        # issue 122 regression: a bare > line stalled the paragraph fallback forever
+        bare = render_html("# Body\n\n>\n")
+        check(
+            "a lone bare > line terminates and renders an empty blockquote",
+            "<blockquote></blockquote>" in bare,
+        )
+        quoted = render_html("# Body\n\n> \n> quoted line\n\nAfter.\n")
+        check(
+            "bare > then a quote line merge into one blockquote and terminate",
+            quoted.split("</blockquote>", 1)[1].startswith("\n<p>After.</p>"),
+        )
+        check(
+            "a > line with no space still renders and terminates",
+            "<blockquote>text</blockquote>" in render_html("# Body\n\n>text\n"),
+        )
 
     check("render without args is usage", main(["render"]) == EXIT_USAGE)
     check(
