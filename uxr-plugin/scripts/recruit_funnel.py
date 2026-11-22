@@ -598,9 +598,9 @@ def participant_header_issues(header: list, variant: str) -> list[str]:
     ``header`` holds the header row's cell values (raw; compared
     stripped and case-insensitively) and ``variant`` is ``internal`` or
     ``external``. Returns one line per problem: a missing approved
-    column, an approved column out of order, an unrecognized extra
-    column, or an unknown variant. An empty list means the header
-    matches the approved set.
+    column, a duplicated approved column, an approved column out of
+    order, an unrecognized extra column, or an unknown variant. An
+    empty list means the header matches the approved set.
     """
     approved = PARTICIPANT_COLUMNS.get(str(variant).strip().lower())
     if approved is None:
@@ -611,8 +611,18 @@ def participant_header_issues(header: list, variant: str) -> list[str]:
     for name, low in zip(approved, approved_lower):
         if low not in cells:
             problems.append(f"participant columns: missing {name!r} ({variant})")
+    counts: dict[str, int] = {}
+    for cell in cells:
+        if cell in approved_lower:
+            counts[cell] = counts.get(cell, 0) + 1
+    for name in sorted(name for name, count in counts.items() if count > 1):
+        problems.append(f"participant columns: duplicate column {name!r} ({variant})")
     present = [low for low in approved_lower if low in cells]
-    if present != [cell for cell in cells if cell in approved_lower]:
+    deduped = []
+    for cell in cells:
+        if cell in approved_lower and cell not in deduped:
+            deduped.append(cell)
+    if present != deduped:
         problems.append(f"participant columns: approved columns out of order ({variant})")
     for name in (cell for cell in cells if cell not in approved_lower):
         problems.append(f"participant columns: unrecognized extra column {name!r} ({variant})")
@@ -634,11 +644,13 @@ def participant_gate_lines(row: dict, target_status: str, variant: str) -> list[
     ``variant`` is ``internal`` or ``external``. A status may not
     advance while its gate columns are empty on the row;
     ``completed`` needs ``consent-to-record`` = yes and
-    ``incentive-sent`` needs the row already ``completed``;
-    ``withdrawn`` and statuses outside the vocabulary pass through
-    unchecked; an unknown variant is reported, never silently passed.
-    Returns one ``GATE`` line per violated gate; an empty list means
-    the advance is allowed.
+    ``incentive-sent`` needs the row already ``completed``.
+    Withdrawn is checked first: it returns an empty list before the
+    variant check, and the variant is checked for gated statuses;
+    statuses outside the vocabulary pass through unchecked, and an
+    unknown variant is reported for gated statuses, never silently
+    passed. Returns one ``GATE`` line per violated gate; an empty list
+    means the advance is allowed.
     """
     target = str(target_status).strip().lower()
     if target == "withdrawn" or target not in PARTICIPANT_STATUSES:

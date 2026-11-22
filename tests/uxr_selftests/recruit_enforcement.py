@@ -86,6 +86,11 @@ def _selftest() -> int:
         list(PARTICIPANT_COLUMNS["external"]) + ["boss name"], "external")
     check("unrecognized extra column is reported",
           any("extra column 'boss name'" in line for line in extra), str(extra))
+    duplicated = list(PARTICIPANT_COLUMNS["external"]) + ["status"]
+    dup_issues = participant_header_issues(duplicated, "external")
+    check("duplicated approved column is named as a duplicate",
+          any("duplicate column 'status'" in line for line in dup_issues)
+          and not any("out of order" in line for line in dup_issues), str(dup_issues))
     check("unknown variant is reported",
           participant_header_issues([], "panel") == [
               "participant columns: unknown variant 'panel' (use internal or external)"])

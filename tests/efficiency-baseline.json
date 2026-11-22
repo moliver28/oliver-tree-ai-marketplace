@@ -258,6 +258,17 @@
         ],
         "reason": "Email send (MVP) command-doc section and the recruit.email config keys (issue 51): one additive section after the external flow (the command, the dry-run default, the gate-law recap with the invited-only sendable state machine, the one-recipient law with contact masking, the SMTP account placement in the gitignored config or env vars, the synthetic example template path and the token rule) plus the optional DM paragraph (context plus the prep note, or nothing), the recruit_send.py Scripts-table row, and the sanctioned issue-135 item-3 list edit naming the email send in the scheduled-gate outreach list (2 lines swapped, net zero). The config example gains the recruit.email section with placeholder values only. Net-new 56 payload lines (34 command + 2-row table line, 20 config example); no existing wording rewritten beyond the sanctioned list edit, and the draft-only safety rule is untouched (the researcher runs the real send).",
         "date": "2026-11-22"
+      },
+      {
+        "wave": "W5",
+        "issue": 135,
+        "delta_lines": 12,
+        "files": [
+          "uxr-plugin/scripts/recruit_funnel.py",
+          "uxr-plugin/templates/workspace/scripts/README.md"
+        ],
+        "reason": "Issue-135 item-4 fixes and the issue-53 terminology-law leftover, as folded one-liners: participant_header_issues now counts cells per column and names a duplicated approved column as 'duplicate column <name>' (detection stays fail-closed; the order check compares first occurrences, so a duplicate no longer reports as 'approved columns out of order'), its docstring names the new problem kind, and the participant_gate_lines docstring resolves the ambiguity ('withdrawn is checked first: it returns an empty list before the variant check, and the variant is checked for gated statuses'); the scripts workspace README first line rewords 'Discussion guides' to 'Interview scripts' per the MO-banned artifact word (1 line swapped, net zero lines). Net-new 12 payload lines, all in scripts (docstrings plus the duplicate-count block); the enforcement selftest gains one additive check pinning the new message (outside the payload).",
+        "date": "2026-11-22"
       }
     ],
     "golden_path_growth": null
