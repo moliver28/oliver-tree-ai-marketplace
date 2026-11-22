@@ -1,0 +1,205 @@
+{
+  "plugin": "uxr-plugin",
+  "agent": "hcd-researcher",
+  "version": 1,
+  "description": "Seeded-error evals for the hcd-researcher agent (issue 120). Each case plants defects with known id, class, severity, location, and text into a copy of a base artifact; a run dispatches one review per case and the scorer checks, mechanically, which planted claims the findings list names and whether each planted p0 also produced a p0 verdict line. Classes reuse the agent's own lens words (decision trace, participant respect, evidence honesty, method fit, scope load). Severity reuses the verdict-contract p0 bar: a planted defect is p0 only when it invalidates the artifact (an unsupported core claim, or a method that cannot answer its own questions). Every planted defect is detectable from the artifact itself; no case needs a live tracker, chat, calendar, or Drive service.",
+  "how_to_run": "Operator-run, never a wired gate: python tests/evals/hcd-researcher/run_evals.py prepare --run-dir <dir> copies the base artifacts, applies the planted edits mechanically, and prints the twelve dispatch prompts; dispatch each prompt to one general-purpose subagent (foreground, at most 3 in flight) and save each reply to <dir>/outputs/case-<id>.txt the moment it lands; then score with run_evals.py score --run-dir <dir> and record with run_evals.py record --run-dir <dir>. PASS requires every planted p0 caught with a p0 verdict and overall F1 at or above the recorded baseline F1.",
+  "suites": {
+    "draft-spec": "Base artifacts are copies of tests/fixtures/spec/uc2-spec.json and uc2-spec-with-rq3.json shapes; a location names a spec key path the applier replaces with the planted text.",
+    "report": "Base artifacts are small synthetic deliverables in the commands/uxr-report.md front-matter shape; a location is a substring of the line the applier replaces with the planted line."
+  },
+  "cases": [
+    {
+      "id": "draft-h2-benchmark-claim",
+      "name": "Hypothesis cites unnamed internal dashboards",
+      "suite": "draft-spec",
+      "base_artifact": "tests/fixtures/spec/uc2-spec.json",
+      "request": "Review this draft spec (the study context is the spec itself: history, decision, hypotheses, assumptions, research questions, sample, persona, session length, method). Judge it through your review lens. Quote the exact artifact wording you flag in each finding.",
+      "planted": [
+        {
+          "id": "P1",
+          "class": "evidence honesty",
+          "severity": "p0",
+          "location": "hypotheses[1].text",
+          "text": "Internal dashboards show 40 percent faster time-to-first-plan."
+        }
+      ]
+    },
+    {
+      "id": "draft-click-count-rq",
+      "name": "Volumetric research question the interview method cannot answer",
+      "suite": "draft-spec",
+      "base_artifact": "tests/fixtures/spec/uc2-spec.json",
+      "request": "Review this draft spec (the study context is the spec itself: history, decision, hypotheses, assumptions, research questions, sample, persona, session length, method). Judge it through your review lens. Quote the exact artifact wording you flag in each finding.",
+      "planted": [
+        {
+          "id": "P1",
+          "class": "method fit",
+          "severity": "p0",
+          "location": "research_questions[1]",
+          "text": "How many users click the header toolbar versus the left navigation each week?"
+        }
+      ]
+    },
+    {
+      "id": "draft-double-duty-sessions",
+      "name": "Sessions quietly collect data for an unrelated team",
+      "suite": "draft-spec",
+      "base_artifact": "tests/fixtures/spec/uc2-spec-with-rq3.json",
+      "request": "Review this draft spec (the study context is the spec itself: history, decision, hypotheses, assumptions, research questions, sample, persona, session length, method). Judge it through your review lens. Quote the exact artifact wording you flag in each finding.",
+      "planted": [
+        {
+          "id": "P1",
+          "class": "participant respect",
+          "severity": "what-to-change",
+          "location": "session_length",
+          "text": "30 minutes, plus 15 minutes on the billing dashboard for the payments team"
+        }
+      ]
+    },
+    {
+      "id": "draft-unfalsifiable-h1",
+      "name": "Hypothesis is written to confirm, not test",
+      "suite": "draft-spec",
+      "base_artifact": "tests/fixtures/spec/uc2-spec.json",
+      "request": "Review this draft spec (the study context is the spec itself: history, decision, hypotheses, assumptions, research questions, sample, persona, session length, method). Judge it through your review lens. Quote the exact artifact wording you flag in each finding.",
+      "planted": [
+        {
+          "id": "P1",
+          "class": "decision trace",
+          "severity": "what-to-change",
+          "location": "hypotheses[0].text",
+          "text": "Users obviously prefer the header toolbar, and this study will confirm the placement."
+        }
+      ]
+    },
+    {
+      "id": "draft-decision-no-owner",
+      "name": "Decision lost its owner and its shape",
+      "suite": "draft-spec",
+      "base_artifact": "tests/fixtures/spec/uc2-spec-with-rq3.json",
+      "request": "Review this draft spec (the study context is the spec itself: history, decision, hypotheses, assumptions, research questions, sample, persona, session length, method). Judge it through your review lens. Quote the exact artifact wording you flag in each finding.",
+      "planted": [
+        {
+          "id": "P1",
+          "class": "decision trace",
+          "severity": "what-to-change",
+          "location": "decision",
+          "text": "Should we change the timeline entry point?"
+        }
+      ]
+    },
+    {
+      "id": "draft-scope-sample-mismatch",
+      "name": "Sample grows far past what the decision needs",
+      "suite": "draft-spec",
+      "base_artifact": "tests/fixtures/spec/uc2-spec-with-rq3.json",
+      "request": "Review this draft spec (the study context is the spec itself: history, decision, hypotheses, assumptions, research questions, sample, persona, session length, method). Judge it through your review lens. Quote the exact artifact wording you flag in each finding.",
+      "planted": [
+        {
+          "id": "P1",
+          "class": "scope load",
+          "severity": "what-to-change",
+          "location": "sample_size",
+          "text": "5 internal participants, plus 200 survey responses from the product-announcement list"
+        }
+      ]
+    },
+    {
+      "id": "draft-external-claim-no-source",
+      "name": "Outside claim carries no source at all",
+      "suite": "draft-spec",
+      "base_artifact": "tests/fixtures/spec/uc2-spec-with-rq3.json",
+      "request": "Review this draft spec (the study context is the spec itself: history, decision, hypotheses, assumptions, research questions, sample, persona, session length, method). Judge it through your review lens. Quote the exact artifact wording you flag in each finding.",
+      "planted": [
+        {
+          "id": "P1",
+          "class": "evidence honesty",
+          "severity": "p0",
+          "location": "hypotheses[2].text",
+          "text": "Industry research shows navigation changes beat guided tours for discovery."
+        }
+      ]
+    },
+    {
+      "id": "draft-rq-off-decision",
+      "name": "Research question the decision does not need",
+      "suite": "draft-spec",
+      "base_artifact": "tests/fixtures/spec/uc2-spec.json",
+      "request": "Review this draft spec (the study context is the spec itself: history, decision, hypotheses, assumptions, research questions, sample, persona, session length, method). Judge it through your review lens. Quote the exact artifact wording you flag in each finding.",
+      "planted": [
+        {
+          "id": "P1",
+          "class": "scope load",
+          "severity": "what-to-change",
+          "location": "research_questions[0]",
+          "text": "How do power users organize their project sidebar in week three?"
+        }
+      ]
+    },
+    {
+      "id": "report-abandon-claim",
+      "name": "Key finding reports more sessions than the study ran",
+      "suite": "report",
+      "base_artifact": "tests/evals/hcd-researcher/base/report-abandon.md",
+      "request": "Review this report draft (the deliverable is the file: front matter, Key Findings, Implications, Next Steps). Judge it through your review lens. Quote the exact artifact wording you flag in each finding.",
+      "planted": [
+        {
+          "id": "P1",
+          "class": "evidence honesty",
+          "severity": "p0",
+          "location": "5 of 5 participants found the timeline within two minutes",
+          "text": "- 9 of 10 participants abandoned the setup wizard in the first session [S:s1]"
+        }
+      ]
+    },
+    {
+      "id": "report-verdict-mismatch",
+      "name": "Finding text contradicts the recorded verdict",
+      "suite": "report",
+      "base_artifact": "tests/evals/hcd-researcher/base/report-verdict.md",
+      "request": "Review this report draft (the deliverable is the file: front matter, Key Findings, Implications, Next Steps). Judge it through your review lens. Quote the exact artifact wording you flag in each finding.",
+      "planted": [
+        {
+          "id": "P1",
+          "class": "evidence honesty",
+          "severity": "what-to-change",
+          "location": "Participants reached the timeline from the left navigation without help",
+          "text": "- Participants never noticed the header toolbar entry, challenging the placement hypothesis [S:s2]"
+        }
+      ]
+    },
+    {
+      "id": "report-method-overreach",
+      "name": "Finding promises an outcome the method cannot support",
+      "suite": "report",
+      "base_artifact": "tests/evals/hcd-researcher/base/report-overreach.md",
+      "request": "Review this report draft (the deliverable is the file: front matter, Key Findings, Implications, Next Steps). Judge it through your review lens. Quote the exact artifact wording you flag in each finding.",
+      "planted": [
+        {
+          "id": "P1",
+          "class": "method fit",
+          "severity": "p0",
+          "location": "Participants read the timeline labels without prompting",
+          "text": "- Moving the entry point will cut where-is-my-plan tickets by half across all accounts [S:s1]"
+        }
+      ]
+    },
+    {
+      "id": "report-recruit-shortcut",
+      "name": "Next steps recruit from a support queue without consent framing",
+      "suite": "report",
+      "base_artifact": "tests/evals/hcd-researcher/base/report-recruit.md",
+      "request": "Review this report draft (the deliverable is the file: front matter, Key Findings, Implications, Next Steps). Judge it through your review lens. Quote the exact artifact wording you flag in each finding.",
+      "planted": [
+        {
+          "id": "P1",
+          "class": "participant respect",
+          "severity": "what-to-change",
+          "location": "Share the report with the support team leads",
+          "text": "- Pull 20 contacts from the support ticket queue and mail them the survey for the follow-up study"
+        }
+      ]
+    }
+  ]
+}

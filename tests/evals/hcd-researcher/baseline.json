@@ -1,0 +1,32 @@
+{
+  "recorded": "2026-11-21",
+  "baseline_f1": 0.2727,
+  "runs": [
+    {
+      "date": "2026-11-21",
+      "dir": "runs/2026-11-21-baseline",
+      "verdict": "PASS",
+      "verdict_line": "F1 0.27 | recall 1.00 | precision 0.16 | p0 recall 1.00 | verdict PASS",
+      "f1": 0.2727,
+      "recall": 1.0,
+      "precision": 0.1579,
+      "p0_recall": 1.0,
+      "instruction_assets": {
+        "uxr-plugin/agents/hcd-researcher.md": "636941da41cf5fdd60ddd06f530787bddb2a3eb4c7c8763bcc1d383d2fd582a5",
+        "uxr-plugin/prompts/hcd-gate/prompt.md": "f68623b537cdce620a57e76e8353c634b53382b9e209746c26df98d6144828b6",
+        "uxr-plugin/references/script-rigor.md": "d8fb226d1dc9d5426dc310c1fadfbb24825c52b7d500f163bed0bde759c933a2",
+        "uxr-plugin/prompts/hcd-gate/fragments/report-lens.md": "9d1fd58fbbfa05e67bd1c874786ce6ca96d2e75be0a32d0ff323e2d1294ff83c",
+        "uxr-plugin/prompts/hcd-gate/fragments/residual-checklist.md": "c9e1f93d2456ee8fccb8600133d8541dc357134739d068f6f889a148867fc4b1",
+        "uxr-plugin/prompts/hcd-gate/fragments/verdict-contract.md": "cc3f0b987b6b62ab9ed90bbc48bd35606b38a7931beb003a8f861f5f1e53c641"
+      }
+    }
+  ],
+  "instruction_assets": {
+    "uxr-plugin/agents/hcd-researcher.md": "636941da41cf5fdd60ddd06f530787bddb2a3eb4c7c8763bcc1d383d2fd582a5",
+    "uxr-plugin/prompts/hcd-gate/prompt.md": "f68623b537cdce620a57e76e8353c634b53382b9e209746c26df98d6144828b6",
+    "uxr-plugin/references/script-rigor.md": "d8fb226d1dc9d5426dc310c1fadfbb24825c52b7d500f163bed0bde759c933a2",
+    "uxr-plugin/prompts/hcd-gate/fragments/report-lens.md": "9d1fd58fbbfa05e67bd1c874786ce6ca96d2e75be0a32d0ff323e2d1294ff83c",
+    "uxr-plugin/prompts/hcd-gate/fragments/residual-checklist.md": "c9e1f93d2456ee8fccb8600133d8541dc357134739d068f6f889a148867fc4b1",
+    "uxr-plugin/prompts/hcd-gate/fragments/verdict-contract.md": "cc3f0b987b6b62ab9ed90bbc48bd35606b38a7931beb003a8f861f5f1e53c641"
+  }
+}
