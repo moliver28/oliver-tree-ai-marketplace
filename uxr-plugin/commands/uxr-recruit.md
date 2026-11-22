@@ -95,6 +95,11 @@ on a wave tab.
    `--coordinate`, draft the chat notes asking for those OKs and the warm
    intro; never send them; without `--coordinate`, say in one line that
    re-running with `--coordinate` drafts those chat notes).
+   Org-chart search (issue 50): with `--coordinate`, search the
+   org-chart connectors saved in `recruiting.org_chart_paths` for other
+   teams and accounts that could help recruit, and name what you find in
+   the drafted chat notes; the list empty means print one line that the
+   org chart is not configured and continue without it.
 7. **Booking page.** Reuse a verified page or build one to the settings in
    `references/recruit-outreach.md`. Verify the public link shows bookable
    slots.

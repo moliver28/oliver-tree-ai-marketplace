@@ -87,6 +87,18 @@
         "date": "2026-11-21"
       },
       {
+        "wave": "W3",
+        "issue": 50,
+        "delta_lines": 17,
+        "files": [
+          "uxr-plugin/commands/uxr-recruit.md",
+          "uxr-plugin/config/org.example.yaml",
+          "uxr-plugin/lib/config.py"
+        ],
+        "reason": "Org-chart connector paths saved config (#50): the recruiting.org_chart_paths key (saved by onboarding, read by the recruit flow for efficient reuse) and the additive uxr-recruit --coordinate paragraph that searches the saved connectors and reports an unconfigured org chart in one line. The midship-opportunities requirement is removed per the MO ruling of 2026-11-21. Net-new 17 payload lines; the recruit command change is additive only.",
+        "date": "2026-11-21"
+      },
+      {
         "wave": "pre-baseline",
         "issue": 122,
         "guard": "report_html.py blockquote parser fix (#123) added 1 net line in uxr-plugin/scripts before the baseline file existed; recorded here when first measured (develop = main + W2), because the release gate needs every line accounted for",

@@ -349,6 +349,17 @@ recruit:
   booking_url_regex: ""
 
 # -----------------------------------------------------------------------------
+# recruiting: the CSM and Alliance Partner coordination sources (issue 50)
+# -----------------------------------------------------------------------------
+recruiting:
+  # Connector paths, saved by onboarding (/uxr-onboard), that the recruit
+  # flow's --coordinate step searches for other teams and accounts that
+  # could help recruit. The search reads these saved paths first; an
+  # empty list means the flow reports the org chart is not configured and
+  # continues without it.
+  org_chart_paths: []
+
+# -----------------------------------------------------------------------------
 # calendar: calendar holds and moves (issue 10; drafts, never sends)
 # -----------------------------------------------------------------------------
 calendar:
