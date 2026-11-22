@@ -57,8 +57,10 @@ Thank you for agreeing to take part in our study.
 def _write_fixture(directory: str) -> tuple[str, str]:
     participants_path = Path(directory) / "participants.md"
     template_path = Path(directory) / "template.md"
-    participants_path.write_text(PARTICIPANTS, encoding="utf-8")
-    template_path.write_text(TEMPLATE, encoding="utf-8")
+    # newline='': the fixture bytes carry exactly the string's LF endings on
+    # every platform, so the byte-level stamp checks hold on Windows too.
+    participants_path.write_text(PARTICIPANTS, encoding="utf-8", newline="")
+    template_path.write_text(TEMPLATE, encoding="utf-8", newline="")
     return str(participants_path), str(template_path)
 
 
@@ -220,6 +222,22 @@ def _selftest() -> int:
         check("failed rows get no stamp (file byte-identical)",
               Path(participants_path).read_bytes() == before)
 
+        # --send with zero sendable rows and an account present: no send, no
+        # spurious refusal, exit 0 (issue 137: the account check fires on the
+        # send mode, not on the plan being non-empty).
+        def deliver_never(plan, settings, report, show):  # any call here is a bug
+            raise AssertionError("no plan, no deliver")
+
+        zero_path = Path(directory) / "participants-zero.md"
+        zero_path.write_text(PARTICIPANTS.replace("| invited |", "| scheduled |"),
+                             encoding="utf-8", newline="")
+        code, out = run({"participants": str(zero_path), "template": template_path,
+                         "send": "1", "today": "2026-11-22"}, environ=SEND_ENV,
+                        deliver=deliver_never)
+        check("--send with zero sendable rows and an account exits 0",
+              code == EXIT_OK and "SMTP account" in out and "done: 0 sent, 0 failed" in out,
+              f"exit={code} head={out[:160]}")
+
         # The real send path: stamps + advance per the gate law; exit 0.
         def deliver_all(plan, settings, report, show):
             for item in plan:
@@ -243,13 +261,34 @@ def _selftest() -> int:
               untouched_row)
         check("the skipped withdrawn row is never stamped",
               "| withdrawn |" in after and "gus.example@example.com" in after)
+        check("a stamped LF file gains no CR bytes (issue 137)",
+              b"\r" not in Path(participants_path).read_bytes(),
+              repr(Path(participants_path).read_bytes()[:80]))
 
-        # stamp_rows: only stamped cells change; the trailing newline survives.
+        # stamp_rows: only stamped cells change; line endings survive.
         text = "| a | b |\n| c | d |\n"
         stamped = stamp_rows(text, [{"line": 1, "status_index": 0, "dm_index": 1,
                                      "status_value": "x", "dm_value": "y"}])
         check("stamp_rows rewrites only the stamped row",
               stamped == "| a | b |\n| x | y |\n", repr(stamped))
+        crlf = "| a | b |\r\n| c | d |\r\n"
+        stamped_crlf = stamp_rows(crlf, [{"line": 1, "status_index": 0, "dm_index": 1,
+                                          "status_value": "x", "dm_value": "y"}])
+        check("stamp_rows keeps CRLF endings byte-true (issue 137)",
+              stamped_crlf == "| a | b |\r\n| x | y |\r\n", repr(stamped_crlf))
+
+        # A connect/login failure is one clean ERROR line and no sent rows,
+        # never a traceback (issue 137); run() then exits 1 by the failed-row law.
+        error_report: list[str] = []
+        sent_set = _smtp_deliver(
+            [{"address": "probe@example.org", "subject": "s", "body": "b", "label": "row X"}],
+            {"smtp_host": "127.0.0.1", "smtp_port": "1", "from_address": "team@example.com"},
+            error_report,
+        )
+        check("a refused SMTP connect reports one clean ERROR line (no traceback)",
+              sent_set == set() and len(error_report) == 1
+              and error_report[0].startswith("ERROR connect/login to 127.0.0.1:"),
+              repr(error_report))
 
     # Usage law: exit 2 surfaces as _Usage (main prints it and exits 2).
     for name, args in (

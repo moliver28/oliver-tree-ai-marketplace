@@ -403,10 +403,15 @@ def stamp_rows(text: str, stamps: list[dict]) -> str:
     Each stamp names the row's ``line`` index, the ``status_index`` and
     ``dm_index`` cell positions, and the values to write. Only stamped
     rows change; a stamped row is rebuilt in canonical ``| a | b |``
-    spacing. Short rows pad to the cell index before writing.
+    spacing and keeps the line terminator it had. Short rows pad to the
+    cell index before writing. Every other line keeps its exact bytes,
+    so LF input stays LF and CRLF input stays CRLF on every platform
+    (issue 137).
     """
-    lines = text.splitlines()
-    trailing_newline = text.endswith("\n")
+    parts = re.split(r"(\r\n|\r|\n)", text)
+    lines = parts[0::2]
+    terms = parts[1::2]
+    terms += [""] * (len(lines) - len(terms))
     for stamp in stamps:
         cells = split_cells(lines[stamp["line"]])
         width = max(stamp["status_index"], stamp["dm_index"]) + 1
@@ -415,7 +420,7 @@ def stamp_rows(text: str, stamps: list[dict]) -> str:
         cells[stamp["status_index"]] = stamp["status_value"]
         cells[stamp["dm_index"]] = stamp["dm_value"]
         lines[stamp["line"]] = "| " + " | ".join(cells) + " |"
-    return "\n".join(lines) + ("\n" if trailing_newline else "")
+    return "".join(line + term for line, term in zip(lines, terms))
 
 
 def _smtp_deliver(
@@ -426,6 +431,9 @@ def _smtp_deliver(
     Returns the set of plan indexes that sent. A failed row is reported
     (its reason is scrubbed so an SMTP error echo never prints an
     address), stays unstamped, and the remaining rows still go out.
+    A connect, STARTTLS, or login failure is one clean scrubbed ERROR
+    line in the report and an empty returned set, never a traceback
+    (issue 137); the run then exits 1 through the failed-row law.
     ``show`` is the ``--show-contacts`` flag: the recipient prints in
     full only when it is set, masked otherwise.
     """
@@ -444,13 +452,18 @@ def _smtp_deliver(
         "off",
     )
     sent: set[int] = set()
-    with smtplib.SMTP(host, port, timeout=_SMTP_TIMEOUT_SECONDS) as server:
+    try:
+        server = smtplib.SMTP(host, port, timeout=_SMTP_TIMEOUT_SECONDS)
         server.ehlo()
         if use_tls:
             server.starttls()
             server.ehlo()
         if user:
             server.login(user, password)
+    except (smtplib.SMTPException, OSError) as exc:
+        report.append(f"ERROR connect/login to {host}: {_scrub(str(exc))}")
+        return sent
+    with server:
         for index, item in enumerate(plan):
             message = build_message(
                 from_address, item["address"], item["subject"], item["body"]
@@ -497,7 +510,8 @@ def run(
     participants_path = Path(participants_value).expanduser()
     if not participants_path.is_file():
         raise _Usage(f"participants file not found: {participants_path}")
-    text = participants_path.read_text(encoding="utf-8")
+    with participants_path.open("r", encoding="utf-8", newline="") as handle:
+        text = handle.read()  # newline='': the file's own endings survive to the stamp
     template_path = Path(template_value).expanduser()
     if not template_path.is_file():
         raise _Usage(f"template file not found: {template_path}")
@@ -557,7 +571,7 @@ def run(
     failed = 0
     send_mode = bool(args.get("send"))
 
-    if send_mode and plan:
+    if send_mode:  # the account check never depends on the plan being non-empty
         missing = [key for key in ("smtp_host", "from_address") if not str(settings.get(key) or "").strip()]
         if missing:
             raise _Usage(
@@ -627,7 +641,8 @@ def run(
     )
 
     if send_mode and stamps:
-        participants_path.write_text(stamp_rows(text, stamps), encoding="utf-8")
+        with participants_path.open("w", encoding="utf-8", newline="") as handle:
+            handle.write(stamp_rows(text, stamps))  # newline='': no platform translation
 
     output = "\n".join(report) + "\n"
     if show_contacts:
