@@ -50,6 +50,18 @@
         "date": "2026-11-21"
       },
       {
+        "wave": "W3",
+        "issue": 114,
+        "delta_lines": 16,
+        "files": [
+          "uxr-plugin/config/org.example.yaml",
+          "uxr-plugin/lib/adapters.py",
+          "uxr-plugin/lib/config.py"
+        ],
+        "reason": "KB adapter entries (#114): the shipped declared notion entry (module empty, area kb, read-only default pull on push off per the W2 design section 6), its registry mirror in ADAPTER_DEFAULTS, and the TRACKER_KINDS extension with the KB kind so validation accepts it. Net-new 16 payload lines; declared-not-built keeps absent-sync behavior, no UX surface changes.",
+        "date": "2026-11-21"
+      },
+      {
         "wave": "pre-baseline",
         "issue": 122,
         "guard": "report_html.py blockquote parser fix (#123) added 1 net line in uxr-plugin/scripts before the baseline file existed; recorded here when first measured (develop = main + W2), because the release gate needs every line accounted for",

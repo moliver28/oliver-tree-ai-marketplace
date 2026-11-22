@@ -26,7 +26,7 @@
 # tracker: the system that holds study tickets (issue 03 owns the adapter)
 # -----------------------------------------------------------------------------
 tracker:
-  # Tracker kind. One of: jira | linear | github | asana
+  # Tracker kind. One of: jira | linear | github | asana | notion
   kind: ""
   # Base URL used to build item links.
   # Example shape: https://your-company.atlassian.net
@@ -448,3 +448,11 @@ adapters:
     doc: "references/trackers-other.md"
     area: issues
     capabilities: {pull: true, push: true, spec_transform: true}
+  # Knowledge-base kinds (issue 114): declared now, first KB adapter lands
+  # through onboarding. Read-only default: pull on, push off. The doc
+  # pointer names the onboarding reference that holds the KB semantics.
+  notion:
+    module: ""
+    doc: "references/onboarding.md"
+    area: kb
+    capabilities: {pull: true, push: false, spec_transform: false}

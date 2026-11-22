@@ -103,6 +103,12 @@ ADAPTER_DEFAULTS: dict[str, dict[str, Any]] = {
         "area": "issues",
         "capabilities": {"pull": True, "push": True, "spec_transform": True},
     },
+    "notion": {
+        "module": "",
+        "doc": "references/onboarding.md",
+        "area": "kb",
+        "capabilities": {"pull": True, "push": False, "spec_transform": False},
+    },
 }
 
 #: The three capability bits, in the order the record carries them.

@@ -50,8 +50,10 @@ EXAMPLE_FILE = PLUGIN_ROOT / "config" / "org.example.yaml"
 USER_FILE = PLUGIN_ROOT / "config" / "org.yaml"
 ENV_PREFIX = "UXR_CONFIG__"
 
-#: ``tracker.kind`` must be one of these when set.
-TRACKER_KINDS = ("jira", "linear", "github", "asana")
+#: ``tracker.kind`` must be one of these when set. The issue systems plus
+#: the knowledge-base kinds the adapters section ships (issue 114: adapters
+#: cover issue systems and knowledge-base systems).
+TRACKER_KINDS = ("jira", "linear", "github", "asana", "notion")
 #: ``tracker.body_format`` must be one of these when set.
 BODY_FORMATS = ("adf", "markdown", "html")
 
