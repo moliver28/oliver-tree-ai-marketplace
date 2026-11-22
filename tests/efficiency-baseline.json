@@ -172,6 +172,19 @@
         ],
         "reason": "Researcher input item (#120, unit 3): one additive input item in the agent definition - prior review notes, when present, are claims to re-test against the current artifact and a prior finding that no longer holds is restated as changed; without prior reviews the agent reviews without them and never invents prior state. Counted by the recorded convention: 5 net-new payload lines of 23,243 (under 0.1 percent). The tuning harness gates the change: the baseline run on the unchanged definition scored F1 0.27 | recall 1.00 | precision 0.16 | p0 recall 1.00 | verdict PASS and the re-run on the edited definition scored F1 0.28 | recall 1.00 | precision 0.16 | p0 recall 1.00 | verdict PASS, both recorded in tests/evals/hcd-researcher/baseline.json with the asset hashes.",
         "date": "2026-11-21"
+      },
+      {
+        "wave": "W4",
+        "issue": 53,
+        "delta_lines": 290,
+        "files": [
+          "uxr-plugin/lib/checklist_gate.py",
+          "uxr-plugin/lib/phase_gates.py",
+          "uxr-plugin/lib/config.py",
+          "uxr-plugin/config/org.example.yaml"
+        ],
+        "reason": "Checklist gate machinery (#53): the deterministic per-item gate (loader for the one-line item shape with its spec:/path:/always probe vocabulary, the check CLI copying the phase-gates exit law, the absent-content line with exit 0 so the machinery works with the checklist content half absent), the two standing-mandate ask predicates added to SPEC_CHECKS (reachable only through checklist items, so the reference requirements table and every pinned gate output stay unchanged), the checklists.enforcement required config key, and its documented record default in the shipped example. Counted by the recorded convention: 290 net-new payload lines (257 new gate module + 24 phase_gates predicate lines + 1 config contract line + 8 config example lines) of 23,243 (1.2 percent). No checklist content files land; the report and debrief attachment lines are additive record-gap rows, never blocks.",
+        "date": "2026-11-21"
       }
     ],
     "golden_path_growth": null

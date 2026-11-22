@@ -466,6 +466,14 @@ sync:
   remote: "origin"
 
 # -----------------------------------------------------------------------------
+# Checklists (issue 53): the checklist gate reads references/checklists/<type>.md
+# once the confirmed item set lands. `record` (default) prints the missing list
+# and continues; `block` stops the report write when more than half the items
+# lack evidence.
+checklists:
+  enforcement: "record"
+
+# -----------------------------------------------------------------------------
 # adapters: the pluggable sync half (issue 112). One entry per tracker kind.
 # tracker.kind selects the entry. module "" = declared, not built (absent-sync).
 # area: issues | kb. capabilities gate pull / push / spec-transform per entry.
