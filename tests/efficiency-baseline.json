@@ -38,6 +38,18 @@
         "pr": 129
       },
       {
+        "wave": "W3",
+        "issue": 114,
+        "delta_lines": 205,
+        "files": [
+          "uxr-plugin/commands/uxr-onboard.md",
+          "uxr-plugin/references/onboarding.md",
+          "uxr-plugin/scripts/validate_cheatsheet.py"
+        ],
+        "reason": "One-shot interactive onboarding (#114): the onboard command (ask law, saved-path probe, adapter and KB selection, field mapping, calculator override, privacy, workspace push, org-chart asks, walkthrough) and the onboarding flow-rules reference the adapter registry points at; one generator purpose-dict line gives the command its cheat-sheet row summary. Net-new 205 payload lines; command and reference md are new surfaces only, no existing command or reference bytes change.",
+        "date": "2026-11-21"
+      },
+      {
         "wave": "pre-baseline",
         "issue": 122,
         "guard": "report_html.py blockquote parser fix (#123) added 1 net line in uxr-plugin/scripts before the baseline file existed; recorded here when first measured (develop = main + W2), because the release gate needs every line accounted for",
