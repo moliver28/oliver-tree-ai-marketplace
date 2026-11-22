@@ -90,6 +90,7 @@ SEND_VARIANT = "external"      # the MVP send path serves the external table
 _SMTP_TIMEOUT_SECONDS = 30
 
 _TOKEN_RE = re.compile(r"\{\{\s*([a-z0-9_]+)\s*\}\}")
+_STRAY_RE = re.compile(r"\{\{([^{}]*)\}\}")  # every brace pair, any spelling
 
 #: ``recruit.email`` config keys and their env fallback names. Values
 #: never live in a repo file; the shipped example carries placeholders only.
@@ -345,6 +346,16 @@ def parse_template(text: str, variant: str) -> tuple[str, str]:
     if unknown:
         named = ", ".join("{{" + token + "}}" for token in unknown)
         raise _Usage(f"template tokens match no approved column: {named}")
+    stray = sorted(
+        {pair.strip() for pair in _STRAY_RE.findall(subject) + _STRAY_RE.findall(body)
+         if not re.fullmatch(r"[a-z0-9_]+", pair.strip())}
+    )
+    if stray:
+        named = ", ".join("{{" + token + "}}" for token in stray)
+        raise _Usage(
+            "template tokens must be lowercase letters, digits, or underscores: "
+            + named
+        )
     return subject, body
 
 
@@ -372,7 +383,10 @@ def build_message(
     message["To"] = address
     message["Subject"] = subject
     message["Date"] = formatdate(localtime=True)
-    message["Message-ID"] = make_msgid(domain=address.partition("@")[2] or "localhost")
+    # Message-ID domain = the sender's domain (recipient-domain IDs score spam).
+    message["Message-ID"] = make_msgid(
+        domain=from_address.partition("@")[2] or "localhost"
+    )
     message.set_content(body)
     return message
 

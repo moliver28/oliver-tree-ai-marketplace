@@ -19,6 +19,8 @@ bind("scripts.recruit_send", globals())
 import tempfile  # selftest-only import (no shipped surface)
 from scripts import recruit_funnel as _funnel  # the identity pin source
 
+EXIT_SELFTEST = 3  # selftest failure exit (runner convention)
+
 PARTICIPANTS = """# Participants
 
 ## Internal flow (default)
@@ -167,6 +169,25 @@ def _selftest() -> int:
             check("unknown template token fails closed", False, "no error raised")
         except _Usage:
             check("unknown template token fails closed", True)
+        for stray_token in ("{{Name}}", "{{prep-note}}"):
+            try:
+                parse_template(f"Subject: hi {stray_token}\n\nBody.", "external")
+                check(f"stray token {stray_token} fails closed", False, "no error raised")
+            except _Usage:
+                check(f"stray token {stray_token} fails closed", True)
+        check("env fallback names pinned (7 values, in order)",
+              list(ENV_FALLBACKS.values()) == [
+                  "UXR_RECRUIT_SMTP_HOST",
+                  "UXR_RECRUIT_SMTP_PORT",
+                  "UXR_RECRUIT_SMTP_USER",
+                  "UXR_RECRUIT_SMTP_PASSWORD",
+                  "UXR_RECRUIT_FROM",
+                  "UXR_RECRUIT_USE_TLS",
+                  "UXR_RECRUIT_TEMPLATE",
+              ])
+        check("Message-ID domain is the sender domain",
+              "@team.example.com" in str(build_message(
+                  "researcher@team.example.com", "p@example.org", "s", "b")["Message-ID"]))
 
         # Dry-run default: exit 0, merged preview, no change on disk, masked.
         before = Path(participants_path).read_bytes()
@@ -247,6 +268,9 @@ def _selftest() -> int:
         check("usage: unreadable participants file fails closed", True)
 
     # --send without an SMTP account refuses (usage), dry run never needs one.
+    # Precondition: config/org.yaml carries no recruit.email account here; on a
+    # configured machine this check needs the config layer pointed elsewhere
+    # (queued follow-up).
     with tempfile.TemporaryDirectory() as directory:
         participants_path, template_path = _write_fixture(directory)
         try:
