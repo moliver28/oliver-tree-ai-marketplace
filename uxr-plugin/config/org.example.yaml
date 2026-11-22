@@ -361,6 +361,26 @@ recruit:
   wave_tab_headers: []
   # Regex that matches a booking link in a reply.
   booking_url_regex: ""
+  # Email send (W5 MVP): the SMTP account scripts/recruit_send.py sends
+  # through. Values never live in a repo file: fill them in config/org.yaml
+  # (gitignored) or set the UXR_RECRUIT_* environment variables. The dry run
+  # (no --send flag) needs no account; --send refuses to run without one.
+  email:
+    # SMTP host, for example smtp.gmail.com
+    smtp_host: ""
+    # SMTP port; 587 (STARTTLS) is the default
+    smtp_port: 587
+    # SMTP user; empty means no login
+    smtp_user: ""
+    # SMTP password or app password. Keep the real value in config/org.yaml only.
+    smtp_password: ""
+    # The From address every recruitment email carries.
+    from_address: ""
+    # STARTTLS before login when true; set false only for a local relay.
+    use_tls: true
+    # Default merge template path (a workspace-local file); the --template
+    # flag overrides it.
+    template_path: ""
 
 # -----------------------------------------------------------------------------
 # recruiting: the CSM and Alliance Partner coordination sources (issue 50)
