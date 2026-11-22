@@ -60,6 +60,8 @@ counter-evidence and the weak links; Critic applies the HCD review;
 Strategic names the business risk and the opportunity cost. The
 synthesis merge keeps every note line attributable to its stance.
 
+The Critic dispatch first runs `python "${CLAUDE_PLUGIN_ROOT}/scripts/researcher_state.py" digest --key <KEY>`; when it prints reviews, paste its output into the dispatch input under a `Prior reviews:` line and add the label line `Artifact kind: deck`; `no prior reviews` continues unchanged. The Critic dispatch input opens with the verbatim ask from the spec: `Original ask (<ask_source date>): <ask_verbatim>`; a pre-ask spec says `Original ask: not recorded (pre-ask spec)` in one line and continues.
+
 ## Personas (`deck.personas_file`; one file shared with the report reader)
 
 | Persona | Base slide cap | Priority order | Methodology | Arc order |
@@ -117,5 +119,7 @@ slides never count. `slide-plan` prints the computed card.
   produce.
 - The `.pptx` is regenerated from the outline, never edited; raster
   images are never generated.
+- The deck may quote an up-level ask from the spec's `ask_uplevels`; the
+  original ask (`ask_verbatim`) is never replaced or reworded.
 - Two failed attempts on any problem: search the web before trying
   again.

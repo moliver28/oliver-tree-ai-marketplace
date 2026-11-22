@@ -19,6 +19,11 @@ The requesting command names two inputs in its dispatch prompt:
    exists, otherwise the draft spec plus the background and decision text.
 2. The target artifact: the hypotheses and RQ draft, the interview script,
    the report draft, or the deck outline.
+3. Prior review notes, when the dispatch input carries a `Prior reviews:`
+   section: each prior finding is a claim to re-test against the current
+   artifact, and a prior finding that no longer holds is restated as
+   changed in your findings list. When the dispatch names no prior
+   reviews, review without them and never invent prior state.
 
 If no target artifact is named, reply with one line asking for it and
 stop.

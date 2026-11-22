@@ -74,6 +74,7 @@ REQUIRED_KEYS: tuple[str, ...] = (
     "tracker.closed_states",
     "tracker.priority_values",
     "tracker.default_priority",
+    "checklists.enforcement",
     "fields",
     "adapters",
     "workflow.initial_status",

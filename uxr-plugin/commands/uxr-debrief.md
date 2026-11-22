@@ -41,7 +41,14 @@ contract with the report parser.
    `references/tracker.md`.
 3. Load the roster from the spec at `<state_dir>/specs/<KEY>.spec.json`
    (never parse the roster from the ticket body). No spec file: tell the
-   user to run `backfill_spec.py` first and stop before any write.
+   user to run `backfill_spec.py` first and stop before any write. When
+   the spec carries the ask keys, print `Original ask (<ask_source
+   date>): <ask_verbatim>` after the load; a pre-ask spec continues
+   without the line. Then run the checklist gate - `python
+   "${CLAUDE_PLUGIN_ROOT}/lib/checklist_gate.py" check --type
+   <qual-interviews | quant-surveys> --spec <spec path> --workspace
+   <workspace>` - and print the missing list as gap lines; never block
+   (debrief is per-session).
 
 ## Phases
 
