@@ -70,6 +70,70 @@ SCHEDULED_STATUSES: frozenset[str] = frozenset(
     {"Scheduled", "Data Collected", "No Show", "Qualified (screener)"}
 )
 
+#: The workspace participants-table columns (issue 51; the approved
+#: column law of 2026-11-22). One list per recruit-flow variant and the
+#: order is the contract the template and the recruit command carry.
+#: Checked by ``participant_header_issues`` and the repo-level recruit
+#: enforcement module; the funnel table below is a different table.
+PARTICIPANT_COLUMNS: dict[str, tuple[str, ...]] = {
+    "internal": (
+        "participant id",
+        "name",
+        "role/segment",
+        "team/org area",
+        "source (org-chart path)",
+        "screener result",
+        "status",
+        "consent-to-record",
+        "DM sent (date)",
+        "notes",
+    ),
+    "external": (
+        "participant id",
+        "name/pseudonym",
+        "contact",
+        "source (panel/channel)",
+        "screener result",
+        "status",
+        "consent-to-record",
+        "incentive status",
+        "DM sent (date)",
+        "prep note",
+        "notes",
+    ),
+}
+
+#: The locked status vocabulary for the workspace participants table
+#: (issue 51). ``withdrawn`` is reachable from any status.
+PARTICIPANT_STATUSES: tuple[str, ...] = (
+    "identified",
+    "screened",
+    "invited",
+    "scheduled",
+    "completed",
+    "incentive-sent",
+    "withdrawn",
+)
+
+#: Gate columns per variant and status (issue 51): a status may not
+#: advance while its gate columns are empty on the row.
+#: ``incentive-sent`` additionally requires the row to already sit at
+#: ``completed``; ``withdrawn`` has no gate and is always allowed.
+PARTICIPANT_STATUS_GATES: dict[str, dict[str, tuple[str, ...]]] = {
+    "internal": {
+        "screened": ("screener result",),
+        "invited": ("source (org-chart path)",),
+        "scheduled": ("DM sent (date)",),
+        "completed": ("consent-to-record",),
+    },
+    "external": {
+        "screened": ("screener result",),
+        "invited": ("contact",),
+        "scheduled": ("DM sent (date)",),
+        "completed": ("consent-to-record",),
+    },
+}
+
 #: The fixed table shape (issue 10). Order is part of the contract.
 TABLE_COLUMNS: tuple[str, ...] = (
     "Internal users",
@@ -518,6 +582,80 @@ def check_draft_v1(path_value: str) -> tuple[int, list[str]]:
     if problems:
         return EXIT_V1, ["V1 FAIL: " + p for p in problems]
     return EXIT_OK, ["V1 OK: draft keeps {{First name}} and {{Booking link}}, no http"]
+
+
+# ---------------------------------------------------------------------------
+# workspace participants-table enforcement (issue 51): additive checks.
+# Pure helpers for the recruit flow and the repo-level enforcement module;
+# nothing in run(), build_table(), preflight(), or reminders() calls them,
+# so every existing output stays byte-identical.
+# ---------------------------------------------------------------------------
+
+
+def participant_header_issues(header: list, variant: str) -> list[str]:
+    """Compare a participants-table header against the approved columns.
+
+    ``header`` holds the header row's cell values (raw; compared
+    stripped and case-insensitively) and ``variant`` is ``internal`` or
+    ``external``. Returns one line per problem: a missing approved
+    column, an approved column out of order, an unrecognized extra
+    column, or an unknown variant. An empty list means the header
+    matches the approved set.
+    """
+    approved = PARTICIPANT_COLUMNS.get(str(variant).strip().lower())
+    if approved is None:
+        return [f"participant columns: unknown variant {variant!r} (use internal or external)"]
+    approved_lower = [name.lower() for name in approved]
+    cells = [str(cell).strip().lower() for cell in header if str(cell).strip()]
+    problems: list[str] = []
+    for name, low in zip(approved, approved_lower):
+        if low not in cells:
+            problems.append(f"participant columns: missing {name!r} ({variant})")
+    present = [low for low in approved_lower if low in cells]
+    if present != [cell for cell in cells if cell in approved_lower]:
+        problems.append(f"participant columns: approved columns out of order ({variant})")
+    for name in (cell for cell in cells if cell not in approved_lower):
+        problems.append(f"participant columns: unrecognized extra column {name!r} ({variant})")
+    return problems
+
+
+def participant_status_issue(status: str) -> str:
+    """One line when ``status`` is outside the locked vocabulary, else ``\"\"``."""
+    if str(status).strip().lower() in PARTICIPANT_STATUSES:
+        return ""
+    return f"participant status: {status!r} is outside the locked vocabulary"
+
+
+def participant_gate_lines(row: dict, target_status: str, variant: str) -> list[str]:
+    """Status-gate check for one participants-table row; pure.
+
+    ``row`` maps the approved column names to their cell values,
+    ``target_status`` is the status the row wants to advance to, and
+    ``variant`` is ``internal`` or ``external``. A status may not
+    advance while its gate columns are empty on the row;
+    ``completed`` needs ``consent-to-record`` = yes and
+    ``incentive-sent`` needs the row already ``completed``;
+    ``withdrawn`` and statuses outside the vocabulary pass through
+    unchecked; an unknown variant is reported, never silently passed.
+    Returns one ``GATE`` line per violated gate; an empty list means
+    the advance is allowed.
+    """
+    target = str(target_status).strip().lower()
+    if target == "withdrawn" or target not in PARTICIPANT_STATUSES:
+        return []
+    gates = PARTICIPANT_STATUS_GATES.get(str(variant).strip().lower())
+    if gates is None:
+        return [f"participant gates: unknown variant {variant!r} (use internal or external)"]
+    problems: list[str] = []
+    if target == "incentive-sent" and str(row.get("status") or "").strip().lower() != "completed":
+        problems.append("GATE incentive-sent: the row is not at completed")
+    for column in gates.get(target, ()):
+        value = str(row.get(column) or "").strip()
+        if not value:
+            problems.append(f"GATE {target}: {column} is empty")
+        elif column == "consent-to-record" and value.lower() != "yes":
+            problems.append(f"GATE {target}: consent-to-record is not yes")
+    return problems
 
 
 def run(args: dict[str, str], config: dict | None = None) -> tuple[int, str]:

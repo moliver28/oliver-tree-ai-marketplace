@@ -206,6 +206,36 @@
         ],
         "reason": "W4 release bookkeeping (version bump to 0.4.0): the CHANGELOG release section describing the wave's shipped work and the README version line. The two JSON version surfaces (.claude-plugin/plugin.json and the marketplace entry) sit outside the counted suffixes. Counted by the recorded convention: 14 net-new payload lines of 23,243 (under 0.1 percent). Wave total after all seven commits: 843 net-new payload lines (each of the seven payload-growing commits carries its entry), inside the 900-line W4 target.",
         "date": "2026-11-22"
+      },
+      {
+        "wave": "W4b",
+        "issue": 51,
+        "delta_lines": 20,
+        "files": [
+          "uxr-plugin/templates/workspace/recruitment/participants.md"
+        ],
+        "reason": "Recruitment participants template reworked to the approved column sets (issue 51, MO column law 2026-11-22): one table per flow, internal ten columns, external eleven columns, the locked seven-value status vocabulary, the approved external screener field list, and the PII ruling. The method-dependent table placeholder goes away because the approved sets are fixed lists, so the scaffold fills no tokens in this file; validate-recruitment stays advisory per the recruit command. Net-new 20 payload lines in templates.",
+        "date": "2026-11-22"
+      },
+      {
+        "wave": "W4b",
+        "issue": 51,
+        "delta_lines": 24,
+        "files": [
+          "uxr-plugin/commands/uxr-recruit.md"
+        ],
+        "reason": "Recruit status-gate law (issue 51, enforcement shape approved by MO 2026-11-22): one additive section between Setup and the flows stating that a workspace participants-table status may not advance while its gate columns are empty, the six gate rules (screened, invited, scheduled, completed, incentive-sent, withdrawn), the one-line blocked-advance behavior, and the scope note that the spec roster keeps its own vocabulary. No model call; existing wording untouched. Net-new 24 payload lines in commands.",
+        "date": "2026-11-22"
+      },
+      {
+        "wave": "W4b",
+        "issue": 51,
+        "delta_lines": 138,
+        "files": [
+          "uxr-plugin/scripts/recruit_funnel.py"
+        ],
+        "reason": "Recruit enforcement spec keys (issue 51, enforcement shape approved by MO 2026-11-22): the approved participants-table column sets, the locked seven-value status vocabulary, and the per-variant status-gate map added as checked constants in recruit_funnel.py, plus three pure additive checkers (header against the approved set, status against the locked vocabulary, row gates per the status-gate law). Nothing in run(), build_table(), preflight(), or reminders() calls them, so every existing output stays byte-identical; the funnel-table selftest passes unchanged and the new repo-level enforcement selftest (tests/uxr_selftests/, outside the payload) rides the smoke check-3 glob. Net-new 138 payload lines in scripts.",
+        "date": "2026-11-22"
       }
     ],
     "golden_path_growth": null
