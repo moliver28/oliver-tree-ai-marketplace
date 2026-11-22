@@ -1,0 +1,31 @@
+{
+ "title": "Release Audits Are the Missing Spec",
+ "primary_keyword": "release audits",
+ "tags": [
+  "release audits",
+  "traceability"
+ ],
+ "link": "https://example.org/posts/release-audits-are-the-missing-spec",
+ "stat": "74 percent of platform teams now run an automated step inside release, up from 41 percent two years ago",
+ "source": "A cross-industry survey of platform engineering leads",
+ "topic_claim": "the practice of treating release logs as settled is now the default answer",
+ "story_examples": [
+  "One release sheet listed forty changes and named owners for none of them.",
+  "Another team merged six fixes into one deploy and wrote a single ticket line for all of them.",
+  "A third rebuilt the same report twice because nobody recorded which version shipped."
+ ],
+ "thesis": "Every fix costs more than it should because nothing tracks which change a correction touched. Release audits cost less than the rework they prevent. The audit trail is where that cost gets paid, one line at a time",
+ "design_moves": [
+  "keep a change-level release log",
+  "require the ticket link next to every fixed line",
+  "review the log instead of the document"
+ ],
+ "counter": "the fixed-review story no longer matches what automated pipelines and their silent defaults actually ship",
+ "definition": "Release audit is the work a reviewer must spend to trace a shipped change back to its ticket",
+ "gap_stat_a": "68 percent of teams say traceability decides their trust in a release",
+ "gap_stat_b": "only 22 percent can show where a correction landed",
+ "takeaway": "Write the log you would want run on you: expose the ticket, log the cut, show the diff.",
+ "question_tail": "Which step in your release process still claims a record it cannot show?",
+ "person_context": "I maintain a release pipeline for a platform team",
+ "consensus_holder": "practitioner voices across the field"
+}

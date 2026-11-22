@@ -1,17 +1,17 @@
 ---
 name: humanizer-voice
-description: "Applies the user's learned voice profile to public-facing copy via the /voice command, with a quiet tell gate. Use when the user says: '/voice polish this post', 'make this sound like me', 'humanize this before it ships'."
-version: 0.1.0
+description: "Applies the user's learned voice profile to public-facing copy via the /voice command, with a quiet tell gate. Use when the user says: '/voice polish this post', 'make this sound like me', 'humanize this before it ships', 'learn my voice from these samples'."
+version: 1.0.0
 author: Michael Oliver (moliver28)
 license: MIT
 ---
 
-# /voice plugin
+# /voice plugin (canonical)
 
-Quiet-background writing profile system. Three stages, only one of which the user ever sees:
+Quiet-background writing profile system. Three stages, only one of which the user ever sees. The inference boundary: the ONLY place a language model runs is the `/voice` rewrite itself; learning, calibration, and the gate are deterministic scripts that spend zero model tokens.
 
-1. **Learn (quiet).** The hosting tool reads `onboarding/VOICE_ONBOARDING.template.md` from this repo and walks the user through it once. The filled profile (channels/situations/rules/reader) lives wherever the platform stores config (memory, `~/.voice-profile.md`, or the platform equivalent). Nothing ships to the user during learning beyond the onboarding questions.
-2. **Hook setup (quiet).** If the platform supports pre-delivery hooks, register the scan-on-delivery hook (the repo's `voice-gate/` is a reference implementation: regex tell-scan, fail-open, one line on block with a rewrite instruction). If hooks are not available, the `/voice` command carries the scan inline. No regular output mentions the gate; it fires in logs only.
+1. **Learn (quiet, zero-LLM).** Walk the user through `learn/VOICE_ONBOARDING.template.md` once (hand-filled; the model asks and records, never answers). Optionally prefill sections 2/3/5 deterministically: `python3 $CLAUDE_PLUGIN_ROOT/learn/build_voice_profile.py <sample files or dirs>` (prints the draft, writes `learned/profile.json`). Then calibrate the gate to the user's clean writing: `python3 $CLAUDE_PLUGIN_ROOT/learn/calibrate.py <corpus dir>` (writes `learned/calibration.json`; flagged patterns print "decide by hand"). The full procedure lives in `learn/LEARN-VOICE.md`. The filled profile lives wherever the platform stores config (memory, `~/.voice-profile.md`, or the platform equivalent). Nothing ships to the user during learning beyond the onboarding questions.
+2. **Hook setup (quiet).** If the platform supports pre-delivery hooks, point them at `python3 $CLAUDE_PLUGIN_ROOT/hooks/gate.py --surface chat|public` (self-contained: the scanner is `hooks/voice_tells.py` beside it; chat = STE layer, public = tell scan + STE; pass = zero tokens, fail = one patch-in-place repair contract, scan error = fail-open). Surface lists come from the user's learned profile, never from hard-coded paths (see `hooks/HOOKS.md`). If hooks are not available, the `/voice` command carries the scan inline. No regular output mentions the gate; it fires in logs only.
 3. **Apply (user-facing, minimal).** The user (or the tool's command surface) invokes:
 
 ```
@@ -22,7 +22,7 @@ where `<target>` is the text, file, or draft slot to process. Behavior:
 
 - Load the learned profile (error once, with the onboarding pointer, if none exists).
 - SOURCE-CONTEXT-ONLY RULE (ASD-STE100 discipline applied to fidelity): the rewrite may use ONLY (a) the user's onboarding profile (voice, channels, bans) and (b) the facts present in the provided text or attachments. Never add facts, statistics, examples, metaphors, or emphasis from internal priors. If a passage needs context the profile and source do not carry, write it plainly and mark `[note: needs source]`; never invent.
-- Rewrite the target in that profile's register and structure within the source boundary (generation pass).
+- Rewrite the target in that profile's register and structure within the source boundary (generation pass; the one model stage).
 - Run the delivery gate: `python3 $CLAUDE_PLUGIN_ROOT/hooks/gate.py --surface public` (stdin = the generated text).
 - Return final copy plus a one-line gate status (`voice: pass` or `voice: 2 fixes applied`). Never narrates the pattern list.
 
@@ -30,5 +30,8 @@ where `<target>` is the text, file, or draft slot to process. Behavior:
 
 - The plugin never asks the user to fill things in twice; learning happens once at setup.
 - Default output is the copy, not commentary. Status line last, one line.
-- If no profile exists yet, `/voice <text>` responds with a single line: "No voice profile yet. Run setup (the onboarding template) once; then /voice works everywhere."
+- If no profile exists yet, `/voice <text>` responds with a single line: "No voice profile yet. Run setup (learn/VOICE_ONBOARDING.template.md) once; then /voice works everywhere."
 - `/voice --dry` runs the gate only: no rewrite, no profile work, no learning log write. Pipe the raw `--dry` text through `python3 $CLAUDE_PLUGIN_ROOT/hooks/gate.py --surface public`, then respond with the one-line status and (on fail) the repair list, so the author can edit by hand.
+- `/voice learn` and `/voice onboard` are deterministic pointers, not model work: run the learn tools from `learn/` per `learn/LEARN-VOICE.md` (onboard = the template walkthrough; learn = profile, calibration, distillation). The tools learn; the model only runs them and reports one line.
+- After successful NON-dry delivery, append one line to `$CLAUDE_PLUGIN_ROOT/learned/phrases.log` (shell append, no model): `<date>\t<verbatim request>`.
+- Ambiguous rule conflict (a ban and an allowance both apply, or learned rules contradict): print "decide by hand" and stop. Never auto-ask a model to arbitrate; the user resolves it in the profile or the state file.

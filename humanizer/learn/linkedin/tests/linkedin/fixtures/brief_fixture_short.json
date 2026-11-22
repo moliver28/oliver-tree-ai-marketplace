@@ -1,0 +1,16 @@
+{
+  "title": "Registry fixture post (short tagline negative)",
+  "primary_keyword": "traceability",
+  "tags": [
+    "traceability"
+  ],
+  "link": "https://example.org/posts/registry-fixture-post",
+  "stat": "41 percent of platform teams now audit release steps by hand",
+  "story_examples": [
+    "One rollout sheet listed forty changes and named owners for none of them.",
+    "Another team merged six fixes into one deploy and logged a single line for all of them.",
+    "A third rebuilt the same report twice because nobody recorded which version shipped."
+  ],
+  "tagline": "Too short",
+  "question_tail": "Which step in your release process still claims a record it cannot show?"
+}

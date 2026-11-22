@@ -4,15 +4,17 @@
 Checks:
 1. marketplace.json parses and every listed plugin source dir exists with a plugin.json manifest.
 2. Every SKILL.md in the repo has name + description frontmatter.
-3. The /voice gate actually runs: one sloppy text must fail, one clean text must pass (exit codes 4/0).
+3. The /voice gate actually runs: one sloppy text must fail, one clean text must pass (exit codes 4/0),
+   and the fail JSON carries the patch-in-place repair contract (max 5 patterns).
 4. Every README-indexed path exists.
-5. voice-gate loads learned rules from the runtime state file (issue #5): a state
+5. humanizer loads learned rules from the runtime state file (issue #5): a state
    pattern/exemplar/threshold override is applied at scan time with per-source
    provenance; an absent state file falls back to the embedded lists silently; a
    corrupt state file falls back and logs `state_skip` (fail-open unchanged).
 6. learn/apply drift: the runtime gate's embedded rule data must hash-match the
-   published mirror, and a state file present on the machine must parse under the
-   shared loader. No runtime on the machine (CI) -> explicit SKIP line.
+   published mirror (humanizer/hooks/voice_tells.py), and a state file present on
+   the machine must parse under the shared loader. No runtime on the machine (CI)
+   -> explicit SKIP line.
 7. Organization law (issue #8, flatten): top-level dirs and level-2 entries inside
    group dirs are whitelisted; a new group or entry requires a verify.py edit
    (explicit owner approval); grouping depth max 2 (entry-internal anatomy exempt).
@@ -21,6 +23,14 @@ Checks:
    `__pycache__`/`*.pyc`, no stub markers in plugin/skill text files (inline
    `verify-allow` whitelists honored), no `pass`/`...`-only function bodies in
    plugin `.py` files, no dangling catalog/PROVENANCE path rows.
+9. Learn-tool determinism (canonical v1.0.0): the learn tools are importable with
+   a main(); calibrate.py emits parseable per-class JSON on a fixture corpus
+   (clean corpus = zero hits, tell fixture = deterministic hits); distill_phrases.py
+   has a defined empty-log behavior.
+10. De-personalization gate (owner ruling 2026-11-21): the owner's personal voice
+   artifacts left the public mirror (canonical copies live in the private archive
+   outside this repo). A fixed token list must not appear in any published
+   plugin/skill content file outside the named exceptions.
 
 Exit 0 = marketplace verified working; nonzero = broken, do not publish.
 """
@@ -118,67 +128,61 @@ for p in data["plugins"]:
         ck((src / "learned" / "phrases.log").exists(), "learned sidecar exists")
         cmd = (src / "commands" / "voice.md").read_text()
         ck("phrases.log" in cmd, "/voice logs learned phrases deterministically")
-    if p["name"] == "voice-gate":
-        vt_src = (src / "voice-tells.py").read_text()
-        ck("COSINE_THRESHOLD" not in vt_src, "voice-gate global cosine threshold removed (per-class table)")
+        # --- canonical v1.0.0: the plugin is self-contained; the engine lives in hooks/, the
+        # zero-LLM learn tools in learn/. Vectors/calibration are per-user artifacts, never shipped.
+        hooks_dir = src / "hooks"
+        learn_dir = src / "learn"
+        ck(not (src / "voice-tells-vectors.json").is_file()
+           and not (src / "voice-tells-calibration.json").is_file(),
+           "humanizer ships no packaged vector payload (vectors/calibration are per-user learned/ artifacts)")
+        vt_src = (hooks_dir / "voice_tells.py").read_text()
+        ck("COSINE_THRESHOLD" not in vt_src, "voice_tells global cosine threshold removed (per-class table)")
         ck(all(l[:1] in " \t" for l in vt_src.splitlines() if "import onnxruntime" in l),
            "onnxruntime import confined to lazy fallback path (not module scope)")
         vt = None
         try:
-            _spec = importlib.util.spec_from_file_location("voice_tells_verify", src / "voice-tells.py")
+            _spec = importlib.util.spec_from_file_location("voice_tells_verify", hooks_dir / "voice_tells.py")
             vt = importlib.util.module_from_spec(_spec)
             _spec.loader.exec_module(vt)
         except Exception as e:
-            ck(False, f"voice-tells.py importable in verifier: {e!r}")
+            ck(False, f"voice_tells.py importable in verifier: {e!r}")
         if vt is not None:
-            try:
-                cache = json.loads((src / "voice-tells-vectors.json").read_text())
-                cal = json.loads((src / "voice-tells-calibration.json").read_text())
-                labels = {ex["label"] for b in cache["backends"].values() for ex in b["vectors"]}
-                cache_texts = {v["text"] for b in cache["backends"].values() for v in b["vectors"]}
-                for backend, b in cache["backends"].items():
-                    ck(len(b.get("vectors", [])) >= len(vt.EXEMPLARS),
-                       f"exemplar cache complete for {backend} (>= {len(vt.EXEMPLARS)})")
-                    ck(set(vt.EXEMPLARS) <= cache_texts,
-                       f"exemplar cache covers every embedded exemplar for {backend}")
-                    ck(set(cal["backends"][backend]["thresholds"]) >= labels,
-                       f"per-class thresholds cover every exemplar class for {backend}")
-            except Exception as e:
-                ck(False, f"voice-gate cache + calibration parse and cover: {e!r}")
-            # pattern-count parity: claimed counts in published text must match PATTERNS
-            # exactly, so the prose cannot drift from the code again
-            for label, txt in (("plugin.json", d), ("marketplace.json", p.get("description", "")),
-                               ("README.md", (src / "README.md").read_text(encoding="utf-8"))):
-                m = re.search(r"(\d+)[ -](?:pattern|inflection)", txt)
-                ck(m is not None and int(m.group(1)) == len(vt.PATTERNS),
-                   f"claimed pattern count == PATTERNS ({label}): "
-                   f"{m.group(1) if m else 'none claimed'} vs {len(vt.PATTERNS)}")
-            # default calibration corpus must resolve inside the repo from top-level
-            # voice-gate/ (pure path logic; no embedder imports at module scope)
+            # De-personalized register: 55 patterns (the six owner-order register-36/37
+            # adds are gone), 16 synthetic exemplars, and no register/owner wording in labels.
+            ck(len(vt.PATTERNS) == 55,
+               f"voice_tells embedded pattern count == 55 (de-personalized register; edit this check together with the register): got {len(vt.PATTERNS)}")
+            ck(len(vt.EXEMPLARS) == 16,
+               f"voice_tells embedded exemplar count == 16 (synthetic exemplar set): got {len(vt.EXEMPLARS)}")
+            ck(not any(("register" in label.lower() or "owner" in label.lower()) for _p, label in vt.PATTERNS),
+               "voice_tells labels carry no register/owner references (de-personalization ruling)")
+            ck(vt.PLUGIN_DIR == ROOT / "humanizer",
+               "voice_tells resolves per-user vector/calibration paths into the plugin's learned/ dir")
+            ck(not vt.CACHE_PATH.exists() and not vt.CAL_PATH.exists(),
+               "no per-user vector payload committed into humanizer/learned/")
+            # learn tools importable (same importlib pattern as the voice-tells check above)
+            for tool_name in ("build_voice_profile", "distill_phrases", "calibrate", "voice_vector_build"):
+                try:
+                    tspec = importlib.util.spec_from_file_location(
+                        f"humanizer_learn_{tool_name}", learn_dir / f"{tool_name}.py")
+                    tmod = importlib.util.module_from_spec(tspec)
+                    tspec.loader.exec_module(tmod)
+                    ck(hasattr(tmod, "main"), f"learn tool {tool_name}.py importable with main()")
+                except Exception as e:
+                    ck(False, f"learn tool {tool_name}.py importable: {e!r}")
+            # default corpus root must resolve to the plugin root from the new location
             try:
                 _vbs = importlib.util.spec_from_file_location(
-                    "voice_vector_build_verify", src / "voice-vector-build.py")
+                    "voice_vector_build_verify", learn_dir / "voice_vector_build.py")
                 vb = importlib.util.module_from_spec(_vbs)
                 _vbs.loader.exec_module(vb)
-                ck(vb.repo_root() == ROOT,
-                   "voice-vector-build resolves the default corpus root to the repo root")
+                ck(vb.plugin_root() == ROOT / "humanizer",
+                   "voice_vector_build resolves the default corpus root to the plugin root")
             except (SystemExit, Exception) as e:
-                ck(False, f"voice-vector-build resolves the default corpus root to the repo root: {e!r}")
-        with tempfile.TemporaryDirectory() as td:
-            vf = pathlib.Path(td) / "probe.md"
-            vf.write_text("The tool serves as a foundation for innovation, and that is okay. "
-                          "It is not just about speed, it is about unlocking value at the end of the day.")
-            env = {**os.environ, "VOICE_GATE_VECTOR": "off"}
-            r = subprocess.run(["python3", str(src / "voice-check.py"), str(vf)], capture_output=True, text=True, env=env)
-            ck(r.returncode == 1, "voice-check regex layer fails tell-laden text (exit 1)")
-            ck(not (pathlib.Path(td) / "probe.voice-pass").exists(), "voice-check writes no marker on failure")
-            vf.write_text("The scanner loads the rules from the shared module, so the hook and the checker cannot drift.")
-            r2 = subprocess.run(["python3", str(src / "voice-check.py"), str(vf)], capture_output=True, text=True, env=env)
-            ck(r2.returncode == 0 and "PASS" in r2.stdout, "voice-check passes clean text and writes marker")
+                ck(False, f"voice_vector_build resolves the default corpus root to the plugin root: {e!r}")
 
         # --- learn/apply decoupling (issue #5): shared state-file loader contract ---
         has_loader = vt is not None and hasattr(vt, "effective_rules") and hasattr(vt, "state_path")
-        ck(has_loader, "voice-tells exposes the shared state-file loader API (state_path/effective_rules)")
+        ck(has_loader, "voice_tells exposes the shared state-file loader API (state_path/effective_rules)")
         if has_loader:
             with tempfile.TemporaryDirectory() as td:
                 tdp = pathlib.Path(td)
@@ -273,7 +277,7 @@ for p in data["plugins"]:
                     try:
                         fake = tdp / "hermes-fake"
                         (fake / "agent-hooks").mkdir(parents=True)
-                        shutil.copyfile(src / "voice-tells.py", fake / "agent-hooks" / "voice-tells.py")
+                        shutil.copyfile(hooks_dir / "voice_tells.py", fake / "agent-hooks" / "voice-tells.py")
                         st, msg = voice_gate_drift(vt, fake)
                         ck(st == "ok", f"drift: identical runtime gate -> ok ({msg})")
                         gate_py = fake / "agent-hooks" / "voice-tells.py"
@@ -286,8 +290,8 @@ for p in data["plugins"]:
                         fake2 = tdp / "hermes-stateonly"
                         (fake2 / "state").mkdir(parents=True)
                         (fake2 / "state" / "voice-rules.json").write_text(json.dumps(
-                            {"format": 1, "sources": {"owner": {"patterns": [
-                                {"pattern": "\\bwidget\\b", "label": "owner manual 'widget'"}]}}}))
+                            {"format": 1, "sources": {"manual": {"patterns": [
+                                {"pattern": "\\bwidget\\b", "label": "manual note 'widget'"}]}}}))
                         st, msg = voice_gate_drift(vt, fake2)
                         ck(st == "skip" and "state-only" in msg,
                            f"drift: valid state file without runtime gate -> skip with note ({msg})")
@@ -308,11 +312,24 @@ for p in data["plugins"]:
                 hermes_home = os.environ.get("HERMES_HOME") or str(pathlib.Path.home() / ".hermes")
                 drift_status, drift_msg = voice_gate_drift(vt, hermes_home)
                 if drift_status == "skip":
-                    print("SKIP voice-gate drift check: " + drift_msg)
+                    print("SKIP humanizer drift check: " + drift_msg)
                 else:
-                    ck(drift_status == "ok", f"voice-gate drift check (issue #5): {drift_msg}")
+                    ck(drift_status == "ok", f"humanizer drift check (issue #5): {drift_msg}")
             except Exception as e:
-                ck(False, f"voice-gate drift check crashed: {e!r}")
+                ck(False, f"humanizer drift check crashed: {e!r}")
+
+        # --- regex-layer standalone scanner: tell-laden text fails, clean text passes + marker
+        with tempfile.TemporaryDirectory() as td:
+            vf = pathlib.Path(td) / "probe.md"
+            vf.write_text("The tool serves as a foundation for innovation, and that is okay. "
+                          "It is not just about speed, it is about unlocking value at the end of the day.")
+            env = {**os.environ, "VOICE_GATE_VECTOR": "off"}
+            r = subprocess.run(["python3", str(hooks_dir / "voice_check.py"), str(vf)], capture_output=True, text=True, env=env)
+            ck(r.returncode == 1, "voice_check regex layer fails tell-laden text (exit 1)")
+            ck(not (pathlib.Path(td) / "probe.voice-pass").exists(), "voice_check writes no marker on failure")
+            vf.write_text("The scanner loads the rules from the shared module, so the hook and the checker cannot drift.")
+            r2 = subprocess.run(["python3", str(hooks_dir / "voice_check.py"), str(vf)], capture_output=True, text=True, env=env)
+            ck(r2.returncode == 0 and "PASS" in r2.stdout, "voice_check passes clean text and writes marker")
 
 skills = list(ROOT.glob("**/SKILL.md"))
 for s in skills:
@@ -345,6 +362,64 @@ r = subprocess.run(["python3", str(hooks)], input=sloppy, capture_output=True, t
 ck(r.returncode == 4 and json.loads(r.stdout)["status"] == "fail", "gate fails sloppy text (exit 4)")
 r2 = subprocess.run(["python3", str(hooks)], input=clean, capture_output=True, text=True)
 ck(r2.returncode == 0 and json.loads(r2.stdout)["status"] == "pass", "gate passes clean text (exit 0)")
+# gate self-containment on the explicit public surface: fail JSON = one repair
+# contract, max 5 patterns, patch-in-place instruction; pass JSON = zero tokens.
+r_pub = subprocess.run(["python3", str(hooks), "--surface", "public"], input=sloppy, capture_output=True, text=True)
+try:
+    pj = json.loads(r_pub.stdout)
+    ck(r_pub.returncode == 4 and pj["status"] == "fail" and 1 <= pj["reported"] <= 5
+       and pj["instruction_char_budget"] == 900 and "REPAIR, DO NOT REWRITE" in pj["instruction"],
+       "gate public surface self-containment: fail JSON carries the patch-in-place repair contract (max 5 patterns)")
+except Exception as e:
+    ck(False, f"gate public-surface fail JSON parse: {e!r}")
+r_pub2 = subprocess.run(["python3", str(hooks), "--surface", "public"], input=clean, capture_output=True, text=True)
+try:
+    pj2 = json.loads(r_pub2.stdout)
+    ck(r_pub2.returncode == 0 and pj2["status"] == "pass" and pj2["tokens_to_model"] == 0,
+       "gate public surface self-containment: clean text pass JSON, zero tokens to the model")
+except Exception as e:
+    ck(False, f"gate public-surface pass JSON parse: {e!r}")
+
+# --- learn-tool determinism (zero-LLM loop): fixture corpus + defined empty behavior ---
+voice_fix = ROOT / "tests" / "fixtures" / "voice"
+if voice_fix.is_dir():
+    with tempfile.TemporaryDirectory() as td:
+        tdp = pathlib.Path(td)
+        cal_script = ROOT / "humanizer" / "learn" / "calibrate.py"
+        out_clean = tdp / "calibration_clean.json"
+        rc = subprocess.run(["python3", str(cal_script), "--corpus", str(voice_fix / "clean"),
+                             "--out", str(out_clean)], capture_output=True, text=True)
+        ck(rc.returncode == 0, "calibrate.py runs on the clean fixture corpus (exit 0)")
+        try:
+            cal = json.loads(out_clean.read_text())
+            total_hits = sum(v["hits"] for v in cal.get("per_class", {}).values())
+            ck(cal.get("format") == 1 and isinstance(cal.get("per_class"), dict)
+               and cal.get("sentences", 0) > 0 and "deviations" in cal and total_hits == 0,
+               "calibrate.py emits parseable calibration JSON; clean fixture corpus passes the full regex layer")
+        except Exception as e:
+            ck(False, f"calibrate.py clean-corpus JSON parse: {e!r}")
+        out_tell = tdp / "calibration_tells.json"
+        rc2 = subprocess.run(["python3", str(cal_script), "--corpus", str(voice_fix / "tells"),
+                              "--out", str(out_tell)], capture_output=True, text=True)
+        try:
+            cal2 = json.loads(out_tell.read_text())
+            total_hits2 = sum(v["hits"] for v in cal2.get("per_class", {}).values())
+            dev = [d["label"] for d in cal2.get("deviations", [])]
+            ck(rc2.returncode == 0 and total_hits2 >= 3 and len(dev) >= 3,
+               f"calibrate.py deterministically flags the tell fixture (>= 3 hits, deviations listed: {len(dev)})")
+        except Exception as e:
+            ck(False, f"calibrate.py tell-fixture JSON parse: {e!r}")
+        dist_script = ROOT / "humanizer" / "learn" / "distill_phrases.py"
+        out_rules = tdp / "rules.json"
+        rd = subprocess.run(["python3", str(dist_script), "--log", str(tdp / "absent.log"),
+                             "--out", str(out_rules)], capture_output=True, text=True)
+        try:
+            rules = json.loads(out_rules.read_text())
+            ck(rd.returncode == 0 and rules.get("request_lines") == 0
+               and rules.get("recurring_ngrams") == [],
+               "distill_phrases.py empty/missing log: defined behavior, parseable rules.json, exit 0")
+        except Exception as e:
+            ck(False, f"distill_phrases.py empty-log behavior: {e!r}")
 
 readme = (ROOT / "README.md").read_text()
 ck("`humanizer/`" in readme, "README indexes humanizer plugin")
@@ -353,23 +428,20 @@ ck("PROVENANCE.md" in readme, "README links provenance ledger")
 # --- Organization law (issue #8, MO ruling 2026-11-17): flatten + grouping cap ---
 # Top-level folders are the highest grouping. Level 1 = top-level groups and
 # top-level plugin entries; level 2 = entries inside a group. Entry-internal
-# anatomy (a plugin's own hooks/, commands/, .claude-plugin/, a skill's
+# anatomy (a plugin's own hooks/, learn/, commands/, .claude-plugin/, a skill's
 # references/) is NOT grouping and is unrestricted in depth. Adding a level-1
 # dir or a level-2 entry requires editing these whitelists -> reviewable code
 # change = explicit owner approval. Zero stubs / markers enforced below.
-TOP_GROUPS = {"business", "engineering", "hobby", "onboarding", "research", "voice", "writing"}
-TOP_PLUGINS = {"decision-advisor", "humanizer", "voice-gate", "uxr-plugin"}
+TOP_GROUPS = {"business", "engineering", "hobby", "research"}
+TOP_PLUGINS = {"decision-advisor", "humanizer", "uxr-plugin"}
 TOP_WHITELIST = TOP_GROUPS | TOP_PLUGINS | {"scripts", "tests"}
 LEVEL2_WHITELIST = {
     "business": ["side-business-gtm"],
     "engineering": ["codebase-inspection", "deliberation", "iit-hci-integration", "llm-integration",
                     "meta-decision", "node-inspect-debugger", "prompt-engineering", "python-debugpy"],
     "hobby": ["media-taste-algo"],
-    "onboarding": ["VOICE_ONBOARDING.template.md", "zero-ai-tells-register.md"],
     "research": ["academic", "document-to-action-items", "grounded-citations", "literature-review",
                  "meeting-action-items", "nlp-analyst"],
-    "voice": ["voice-michael-oliver"],
-    "writing": ["linkedin-style-learner"],
 }
 for name in sorted(p.name for p in ROOT.iterdir() if p.is_dir() and not p.name.startswith(".")):
     ck(name in TOP_WHITELIST, f"top-level dir whitelisted (issue #8): {name}/")
@@ -448,12 +520,93 @@ for base in sorted(TOP_PLUGINS):
             ln = src[:m.start()].count("\n") + 1
             ck(False, f"pass/...-only function body in {p.relative_to(ROOT).as_posix()}:{ln} (zero-stub law)")
 
+# --- De-personalization gate (owner ruling 2026-11-21) ----------------------
+# Michael Oliver's personal voice artifacts (voice/, the zero-ai-tells register,
+# the runtime hook adapter with his personal surfaces, his vectors/calibration,
+# the linkedin voice guard + real article briefs) were REMOVED from the public
+# mirror; canonical copies live in the private archive outside this repo. This
+# scan makes the ruling mechanical: none of the tokens below may appear in any
+# published plugin/skill content file. Allowed exceptions: frontmatter `author:`
+# lines, the marketplace.json owner block, the law/ledger files (PROVENANCE.md,
+# REVIEW.md, MAINTENANCE.md keep honest history), and CHANGELOG.md author credit
+# lines. A hit anywhere else fails verification with file + line.
+FORBIDDEN_TOKENS = [
+    "/Users/moliver",
+    "moliver/Downloads",
+    "michaeleoliver.notion.site",
+    "uxr-blog",
+    "karahokes",
+    "pierce county",
+    "michael's voice",
+    "owner order",
+    "owner's canonical register",
+    "voice spec (michael oliver)",
+    "voice-michael-oliver",
+]
+DEPERSONALIZED_EXEMPT_FILES = {"PROVENANCE.md", "REVIEW.md", "MAINTENANCE.md"}
+
+
+def _exempt_lines(path):
+    """Line indexes exempt from the token scan in one file: frontmatter
+    `author:` lines, marketplace.json's owner object, changelog author credits."""
+    lines = path.read_text(errors="replace").splitlines()
+    exempt = set()
+    # frontmatter author lines (--- delimited block at the very top)
+    if lines and lines[0].strip() == "---":
+        for i, line in enumerate(lines[1:], 2):
+            if line.strip() == "---":
+                break
+            if re.match(r"^\s*author\s*:", line):
+                exempt.add(i)
+    # marketplace.json owner block: the object after the "owner" key
+    if path.suffix == ".json":
+        depth = None
+        for i, line in enumerate(lines, 1):
+            if depth is None:
+                if '"owner"' in line and "{" in line:
+                    depth = line.count("{") - line.count("}")
+                    exempt.add(i)
+                continue
+            exempt.add(i)
+            depth += line.count("{") + line.count("[") - line.count("}") - line.count("]")
+            if depth <= 0:
+                break
+    # changelog author-credit lines
+    if path.name == "CHANGELOG.md" and "author" in path.read_text(errors="replace").lower():
+        for i, line in enumerate(lines, 1):
+            if re.search(r"\bauthor\b", line, re.IGNORECASE):
+                exempt.add(i)
+    return exempt
+
+
+dep_bases = sorted((TOP_GROUPS | TOP_PLUGINS))
+dep_targets = []
+for base in dep_bases:
+    bp = ROOT / base
+    if bp.is_dir():
+        dep_targets += [p for p in sorted(bp.rglob("*"))
+                        if p.is_file() and p.suffix.lower() in TEXT_EXTS
+                        and p.name not in DEPERSONALIZED_EXEMPT_FILES]
+dep_targets += [ROOT / f for f in ("README.md", "catalog.md", ".claude-plugin/marketplace.json")
+                if (ROOT / f).is_file()]
+for p in dep_targets:
+    exempt = _exempt_lines(p)
+    for i, line in enumerate(p.read_text(errors="replace").splitlines(), 1):
+        if i in exempt:
+            continue
+        low = line.lower()
+        for tok in FORBIDDEN_TOKENS:
+            if tok in low:
+                ck(False, f"forbidden token {tok!r} in {p.relative_to(ROOT).as_posix()}:{i} "
+                          f"(de-personalization ruling 2026-11-21)")
+
 # dangling catalog/PROVENANCE path rows: a path named in a row must exist on
 # disk. A token counts as a repo path only if its group segment is a whitelisted
-# level-2 entry (prose like "beyond voice/work" and the strikethrough REMOVED
-# rows are not repo paths); trailing punctuation is stripped (Windows tolerates
-# a trailing dot in paths, Linux CI does not). "Published at X" statements are
-# checked unconditionally; gated uxr-plugin carries no "Published at" row.
+# level-2 entry (prose references to removed dirs and the strikethrough REMOVED
+# rows are not repo paths; removed top-level dirs drop out of the regex
+# entirely); trailing punctuation is stripped (Windows tolerates a trailing dot
+# in paths, Linux CI does not). "Published at X" statements are checked
+# unconditionally; gated uxr-plugin carries no "Published at" row.
 TOP_ALT = "|".join(sorted(TOP_WHITELIST))
 ROW_PATH_RE = re.compile(rf"\b(?:{TOP_ALT})(?:/[\w.-]+)+")
 for doc in ("catalog.md", "PROVENANCE.md"):

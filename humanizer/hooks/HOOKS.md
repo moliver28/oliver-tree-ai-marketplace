@@ -18,3 +18,28 @@ Conditional design rules:
 - Distinct-pattern dedup (one fix line per pattern, not per hit) keeps dense drafts' feedback short.
 - Max 5 patterns per pass; anything further waits for the next pass so the repair contract stays small.
 - The user still sees only the copy plus `voice: pass` or `voice: N fixes applied`; the JSON and instruction are hook-facing.
+
+## Runtime hook adapters (config-driven surfaces)
+
+The gate ships as ONE deterministic scanner (`gate.py --surface chat|public`).
+A platform that supports pre-send/pre-write hooks points its hook at the gate;
+it never re-implements the pattern list. Which texts get scanned is decided by
+the installing user's learned profile, not by anything hard-coded here:
+
+- **Chat sends** (`--surface chat`): the platform's outgoing-message hook pipes
+  the reply text to the gate and blocks on exit 4 (repair contract) or sends on
+  exit 0. Status-token lines and code-fence bodies pass untouched.
+- **Public-facing file writes** (`--surface public`): the platform's write hook
+  pipes file content to the gate when the target path is one of the user's
+  public surfaces (posts, docs, marketing, career materials). The surface list
+  comes from the user's onboarding profile (template section 6) or their learned
+  rules; the adapter carries no built-in path regexes.
+- **Render marker gate**: a deterministic render step (PDF export and similar)
+  may require a `<source>.voice-pass` marker written by `voice_check.py` on a
+  clean scan; no marker, no render.
+- **Delegation briefs**: when a task touches public prose, the adapter appends
+  the enforcement contract (scan before writing or rendering) to the brief.
+
+Every fire logs JSONL events (block/pass/render_block/state_load/state_skip and
+the vector-layer events) to the platform's log sink. Fail-open posture is
+unchanged: a scan error delivers, never blocks.

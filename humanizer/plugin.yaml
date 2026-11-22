@@ -1,17 +1,21 @@
 plugin:
   name: humanizer-voice
-  version: 0.1.0
+  version: 1.0.0
   description: Learned voice profile + quiet delivery gate; user surface is the /voice command only.
   author: moliver28
   entry: SKILL.md
   command: /voice
   stages:
-    learn: read onboarding template from repo root; store filled profile per platform convention
-    hooks: optional pre-delivery scan (reference implementation in ../voice-gate/)
+    learn: learn/ (onboarding template + deterministic profile/calibration/distillation tools; zero-LLM)
+    hooks: hooks/ (self-contained gate: voice_tells.py scanner + STE layer; pass = zero tokens, fail = patch-in-place repair contract, scan error = fail-open)
     apply: /voice <target> -> rewrite in learned profile -> gate scan -> copy + one status line
   hooks:
     gate: hooks/gate.py (deterministic regex scan; pass = silence/zero tokens; fail = repair contract naming up to 5 family-deduped patterns with in-place fix hints; scan error = fail-open)
     contract: hooks/HOOKS.md
+  learn:
+    onboard: learn/VOICE_ONBOARDING.template.md
+    tools: [learn/build_voice_profile.py, learn/calibrate.py, learn/distill_phrases.py, learn/voice_vector_build.py]
+    procedure: learn/LEARN-VOICE.md
   surfaces:
     user_facing: [/voice]
     background: [learn, scan hooks, logs]

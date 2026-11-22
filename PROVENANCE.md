@@ -6,11 +6,11 @@ Published assets in this repo must originate with us (moliver28 / Hermes Agent /
 
 | Asset | Origin | Status |
 |---|---|---|
-| voice/voice-michael-oliver | Michael Oliver, built here from his Notion voice spec | ours, published |
-| onboarding/ | built here | ours, published |
-| voice-gate | Michael + Hermes Agent, built here (regex + vector gate) | ours, published |
-| humanizer (the /voice plugin) | Michael + Hermes Agent, built here | ours, published |
-| writing/linkedin-style-learner | Michael Oliver, built here | ours, published |
+| ~~voice/voice-michael-oliver~~ | Michael Oliver, built here from his Notion voice spec | REMOVED from public mirror 2026-11-21 (de-personalization, owner directive); canonical private |
+| ~~onboarding/~~ | built here | REMOVED 2026-11-21 (de-personalization): the zero-ai-tells register is personal, archived private; the onboarding template lives on at humanizer/learn/VOICE_ONBOARDING.template.md |
+| ~~voice-gate~~ | Michael + Hermes Agent, built here (regex + vector gate) | REMOVED as separate plugin 2026-11-21 — generic engine folded into humanizer 1.0.0 (hooks/voice_tells.py, hooks/voice_check.py, learn/voice_vector_build.py); personal artifacts (exemplar vectors, calibration, the runtime hook adapter with personal surfaces) archived private |
+| humanizer (the /voice plugin) | Michael + Hermes Agent, built here | ours, published (canonical 1.0.0: learn/hooks/apply consolidated, zero-LLM learn tools, de-personalized 2026-11-21) |
+| ~~writing/linkedin-style-learner~~ | Michael Oliver, built here | de-personalized + folded into humanizer/learn/linkedin 1.0.0 (synthetic briefs, example.org links, generic ban list); voice_guard.py + the personal canon list archived private |
 | engineering/codebase-inspection, llm-integration, node-inspect-debugger, python-debugpy | Hermes Agent | ours, published |
 | research/grounded-citations, document-to-action-items, meeting-action-items | Hermes Agent + collaborator | ours, published |
 | engineering/meta-decision (port) | Michael Oliver + Hermes Agent | ours, published (de-Hermes-ized 0.2.0) |

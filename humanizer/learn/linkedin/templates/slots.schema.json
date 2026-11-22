@@ -1,0 +1,172 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "linkedin_templates/slots.schema.json",
+  "title": "LinkedIn voicebook brief JSON",
+  "description": "Input contract for linkedin_render.py and for the --slots-file coverage checks in linkedin_voicebook_check.py. The render script implements these constraints with stdlib checks (no jsonschema dependency); this file is the machine-readable statement of the same contract.",
+  "type": "object",
+  "required": [
+    "title",
+    "primary_keyword",
+    "tags",
+    "link",
+    "stat",
+    "source",
+    "topic_claim",
+    "story_examples",
+    "thesis",
+    "design_moves",
+    "counter",
+    "definition",
+    "gap_stat_a",
+    "gap_stat_b",
+    "takeaway",
+    "question_tail"
+  ],
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "article title (DB row; used by the caller, not by the render)"
+    },
+    "primary_keyword": {
+      "type": "string",
+      "minLength": 1,
+      "description": "SEO keyword; must appear verbatim in at least one rendered slot; passed to the checker as --keyword"
+    },
+    "tags": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "topic keywords; passed to the checker as --topics"
+    },
+    "link": {
+      "type": "string",
+      "pattern": "^https://\\S+$",
+      "anyOf": [
+        {
+          "pattern": "example\\.org"
+        }
+      ],
+      "not": {
+        "pattern": "app\\.notion\\.com"
+      },
+      "description": "public article URL, final line of the rendered post. The anyOf pattern reflects the factory allowlist (example.org); with a live config file the render and checker validate the URL against url_allowlist (regex list) instead, and app.notion.com stays rejected regardless of config."
+    },
+    "stat": {
+      "type": "string",
+      "pattern": "\\d",
+      "maxLength": 340,
+      "description": "the number the post opens on, as a single sentence fragment with no terminal punctuation"
+    },
+    "source": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 180,
+      "description": "the survey, study, standard or person, as a phrase; slots into 'SOURCE found STAT.'"
+    },
+    "topic_claim": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 320,
+      "description": "the settled consensus restated as fact, one sentence"
+    },
+    "story_examples": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 3,
+      "items": {
+        "type": "string",
+        "minLength": 15,
+        "maxLength": 220
+      },
+      "description": "concrete one-sentence tool/agent examples from the article, no internal sentence break, no trailing punctuation"
+    },
+    "thesis": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 640,
+      "description": "the article's core architecture answer, 1-3 sentences"
+    },
+    "design_moves": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 3,
+      "items": {
+        "type": "string",
+        "minLength": 4,
+        "maxLength": 180
+      },
+      "description": "imperative practices; rendered as one comma-joined clause list"
+    },
+    "counter": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 400,
+      "description": "what the consensus misses, 1-2 sentences (required by V2)"
+    },
+    "definition": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 260,
+      "pattern": "\\bis\\b",
+      "description": "coined term plus definition, one sentence shaped 'Term is plain-words definition'"
+    },
+    "gap_stat_a": {
+      "type": "string",
+      "pattern": "\\d",
+      "maxLength": 200,
+      "description": "first of two contrasting percentages (clause)"
+    },
+    "gap_stat_b": {
+      "type": "string",
+      "pattern": "\\d",
+      "maxLength": 200,
+      "description": "second contrasting percentage; render joins as '<a>, while <b>'"
+    },
+    "takeaway": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 400,
+      "description": "one-line specification, 1-2 sentences"
+    },
+    "question_tail": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 200,
+      "pattern": "\\?",
+      "description": "exactly one question mark, must address the reader's experience (you/your); rendered as the close"
+    },
+    "person_context": {
+      "type": "string",
+      "minLength": 4,
+      "description": "the author's standing clause (duration, role, artifact); no terminal punctuation"
+    },
+    "consensus_holder": {
+      "type": "string",
+      "minLength": 3,
+      "description": "named holder of the steelman consensus (V3)"
+    },
+    "failure_row": {
+      "type": "object",
+      "description": "V4 receipt row: {system, date, what_broke, what_now_catches}; V4 render is refused by design until a real row exists",
+      "properties": {
+        "system": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "what_broke": {
+          "type": "string"
+        },
+        "what_now_catches": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}
