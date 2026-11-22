@@ -446,7 +446,8 @@ def record(run_name: str) -> int:
         base["baseline_f1"] = result["overall"]["f1"]
     base.setdefault("runs", [])
     base["runs"].append(entry)
-    base["instruction_assets"] = assets
+    if result["verdict"] == "PASS":
+        base["instruction_assets"] = assets
     BASELINE.write_text(
         json.dumps(base, ensure_ascii=False, indent=2, sort_keys=False) + "\n", encoding="utf-8"
     )
