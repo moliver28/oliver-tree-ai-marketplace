@@ -185,6 +185,16 @@
         ],
         "reason": "Checklist gate machinery (#53): the deterministic per-item gate (loader for the one-line item shape with its spec:/path:/always probe vocabulary, the check CLI copying the phase-gates exit law, the absent-content line with exit 0 so the machinery works with the checklist content half absent), the two standing-mandate ask predicates added to SPEC_CHECKS (reachable only through checklist items, so the reference requirements table and every pinned gate output stay unchanged), the checklists.enforcement required config key, and its documented record default in the shipped example. Counted by the recorded convention: 290 net-new payload lines (257 new gate module + 24 phase_gates predicate lines + 1 config contract line + 8 config example lines) of 23,243 (1.2 percent). No checklist content files land; the report and debrief attachment lines are additive record-gap rows, never blocks.",
         "date": "2026-11-21"
+      },
+      {
+        "wave": "W4",
+        "issue": 56,
+        "delta_lines": 2,
+        "files": [
+          "uxr-plugin/commands/uxr-report.md"
+        ],
+        "reason": "Rigor subset (#56): the third harness run on the edited instruction assets scored F1 0.25 | recall 0.92 | precision 0.14 | p0 recall 1.00 | verdict FAIL (F1 0.25 against the 0.2727 baseline bar, with the p0 bar itself holding at 1.00), so the instruction-asset edits - the rigor-lens fragment, the hcd-gate prompt wiring with the 70 to 78 budget bump, the two script-rigor rider lines, and the research-grounding note - reverted per the contract, leaving no payload trace; the recorded FAIL attempt stays in tests/evals/hcd-researcher/baseline.json with the hashes it measured. What stays: the one non-instruction edit, the report methodology line naming the analysis plan actually followed. Counted by the recorded convention: 2 net-new payload lines of 23,243 (under 0.1 percent).",
+        "date": "2026-11-22"
       }
     ],
     "golden_path_growth": null

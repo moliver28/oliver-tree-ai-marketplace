@@ -75,7 +75,9 @@ never generate images. `--altitude=brief` writes the lite shape,
 `altitude --level`). The methodology section prints the original ask
 first - `Original ask (<ask_source date>): <ask_verbatim>` from the spec;
 a draft may quote an up-level after it, and up-levels live only in the
-spec's `ask_uplevels`, never in `ask_verbatim`.
+spec's `ask_uplevels`, never in `ask_verbatim`. The methodology section
+also names the analysis plan actually followed - the deterministic gates
+that ran, in the order they ran.
 
 ## The HCD gate (phase 4; one call per run)
 
