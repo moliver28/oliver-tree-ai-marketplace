@@ -130,6 +130,21 @@
         "reason": "Issue #122 fix: the blockquote parser consumes any >-prefixed line instead of hanging. One net-new line in uxr-plugin/scripts; pre-existing bug fix, zero UX change; disclosed in PR #123 and merged before the efficiency gate existed.",
         "date": "2026-11-22",
         "pr": 123
+      },
+      {
+        "wave": "W4",
+        "issue": 120,
+        "delta_lines": 444,
+        "files": [
+          "uxr-plugin/scripts/researcher_state.py",
+          "uxr-plugin/hooks/review_gate.py",
+          "uxr-plugin/commands/uxr-new.md",
+          "uxr-plugin/commands/uxr-report.md",
+          "uxr-plugin/commands/uxr-deck.md",
+          "uxr-plugin/skills/interview-script/SKILL.md"
+        ],
+        "reason": "Persistent researcher storage (#120): the journal digest script (state-dir resolution law, append under the provenance file lock, bounded digest CLI printing the last reviews, the open p0 count, and 'no prior reviews') and the SubagentStop journal-append duty in the review gate (bounded transcript-tail extraction of the verdict, summary, and findings, with the pointer-only fallback line so a run is never lost), plus one prior-reviews pickup line at each of the four dispatch sites. Counted by the recorded convention: 444 net-new payload lines (229 new script + 205 hook + 10 command and skill lines) of 23,243 (1.9 percent), inside the 900-line W4 target. The digest is a read-only print and the command lines are additive only; no existing wording rewritten; all pins unchanged.",
+        "date": "2026-11-21"
       }
     ],
     "golden_path_growth": null

@@ -60,6 +60,8 @@ counter-evidence and the weak links; Critic applies the HCD review;
 Strategic names the business risk and the opportunity cost. The
 synthesis merge keeps every note line attributable to its stance.
 
+The Critic dispatch first runs `python "${CLAUDE_PLUGIN_ROOT}/scripts/researcher_state.py" digest --key <KEY>`; when it prints reviews, paste its output into the dispatch input under a `Prior reviews:` line and add the label line `Artifact kind: deck`; `no prior reviews` continues unchanged.
+
 ## Personas (`deck.personas_file`; one file shared with the report reader)
 
 | Persona | Base slide cap | Priority order | Methodology | Arc order |

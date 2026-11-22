@@ -69,6 +69,7 @@ local path in Resources: search Drive for a match and ask for a separate
 1. Save the phase 5 set to a temp spec JSON and run `python "${CLAUDE_PLUGIN_ROOT}/scripts/trace_prompts.py" --rq-map <spec.json>`. Drop an RQ in the `unmapped` list, and say you dropped it and why.
 2. Fact-check first (citations/counts/stances come from the gates that already ran), then assemble the gate input and run it as this run's THIRD model call: `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render hcd-gate --set "artifact=<draft spec>" --set "artifact_kind=draft" --set "factcheck=<the settled JSON>"`, dispatched to the `hcd-researcher` agent (Task tool, `subagent_type: hcd-researcher`). It judges only the qualitative residual and ends with `verdict: {"result": "pass"|"p0", "p0": [...]}`.
 3. Fold every finding in, or record a one-line decline. Print the agent's Summary, Risks, and What to change verbatim, plus your fold-in or decline per finding. Re-invoke only on `p0`, after the fix. Wait for the user's go-ahead on the revised set.
+4. Prior reviews: when the study already resolves to a workspace (the retro path), run `python "${CLAUDE_PLUGIN_ROOT}/scripts/researcher_state.py" digest --key <study key>` (the overview `Ticket:` line match, else the workspace folder name) and, when it prints reviews, paste its output into the step 2 gate input's study context under a `Prior reviews:` line; `no prior reviews` continues unchanged.
 
 ### Phase 7. Method, sample, investment (**Wait**)
 

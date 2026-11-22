@@ -171,6 +171,11 @@ Every RQ map row names at least one script question in `Script Qs`.
      onboarding-tour studies, with the rider from
      `references/script-rigor.md` appended to the dispatch; it returns
      the Critical-to-Success block. For other study types, skip it.
+     For the `hcd-researcher` dispatch: run
+     `python "${CLAUDE_PLUGIN_ROOT}/scripts/researcher_state.py" digest --key <KEY>`
+     first; when it prints reviews, paste its output into the dispatch
+     under a `Prior reviews:` line and add the label line
+     `Artifact kind: script`; `no prior reviews` continues unchanged.
    Give each reader the full script draft; give the novice the manifest
    when one exists, and say in the dispatch that no artifact was fetched
    when it does not. Validate each returned flag array against

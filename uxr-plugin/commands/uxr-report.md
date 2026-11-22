@@ -78,6 +78,8 @@ never generate images. `--altitude=brief` writes the lite shape,
 
 Render the dispatch - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render hcd-gate --set "artifact=<the draft>" --set "artifact_kind=report" --set "factcheck=<the settled gates JSON: check-citations, word-count-sections, evidence-weight verdicts>"` - and dispatch it to `hcd-researcher` (Task tool, `subagent_type: hcd-researcher`). The deterministic fact-check already settled numbers, citations, and stance vocabulary; the agent judges only the qualitative residual (claim-evidence trace, method/RQ alignment, stance justification) and ends with a checklist-scoped `verdict: {"result": "pass"|"p0", "p0": [...]}` line. Fold every finding in, or record a one-line decline. Print the agent's Summary, Risks, and What to change verbatim. Re-invoke only on a `p0` verdict, after the fix.
 
+Before the dispatch, run `python "${CLAUDE_PLUGIN_ROOT}/scripts/researcher_state.py" digest --key <KEY>` and, when it prints reviews, paste its output into the dispatch input's study context under a `Prior reviews:` line; `no prior reviews` continues unchanged.
+
 ## Verdicts (from `report.verdict_threshold`, default 0.60)
 
 The denominator is the count for that one hypothesis or assumption

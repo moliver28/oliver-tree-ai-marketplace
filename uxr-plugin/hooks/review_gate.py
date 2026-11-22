@@ -57,6 +57,7 @@ from lib.util import (
     resolve as _resolve,
     utcnow as _utcnow,
 )  # noqa: E402  (shared plumbing)
+from scripts import researcher_state as _researcher_state  # noqa: E402  (issue 120 journal read/write helpers)
 
 AGENT_NAME = "hcd-researcher"
 OVERVIEW_MARKER = "00-overview.md"
@@ -86,6 +87,9 @@ REMINDER_TEXT = (
 
 #: How much transcript tail to scan for the agent name, in bytes.
 TRANSCRIPT_SCAN_BYTES = 262_144
+
+#: How much transcript head to scan for the dispatch label (issue 120), in bytes.
+TRANSCRIPT_HEAD_BYTES = 65_536
 
 
 # ---------------------------------------------------------------------------
@@ -309,6 +313,203 @@ def subagent_ran(event: dict) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# researcher journal (issue 120): one line per completed review
+# ---------------------------------------------------------------------------
+
+#: The dispatch label patterns, in the order the dispatches carry them: the
+#: rendered hcd-gate prompt prints ``Artifact kind: <kind>`` and the render
+#: command line carries ``artifact_kind=<kind>``.
+_ARTIFACT_KIND_RES = (
+    re.compile(r"Artifact kind:\s*([A-Za-z][A-Za-z0-9_-]*)"),
+    re.compile(r"artifact_kind=([A-Za-z][A-Za-z0-9_-]*)"),
+)
+_VERDICT_LINE_RE = re.compile(r"verdict:\s*(\{.*\})\s*$", re.MULTILINE)
+_SUMMARY_SECTION_RE = re.compile(r"^Summary[ \t]*\n(.*?)(?=^Strengths[ \t]*$)", re.MULTILINE | re.DOTALL)
+_FINDINGS_HEAD_SPLIT_RE = re.compile(r"^findings:[ \t]*$", re.MULTILINE)
+_FINDING_FIELDS_RE = re.compile(
+    r"claim:\s*\"?(.*?)\"?\s*,\s*source:\s*\"?(.*?)\"?\s*,\s*confidence:\s*\"?(high|medium|low)\"?\s*$",
+    re.IGNORECASE,
+)
+
+
+def _transcript_window(transcript_path: str, tail: bool) -> list[str]:
+    """One bounded transcript window decoded to lines; never raises.
+
+    A tail window drops its first line when the read opened mid-line; a
+    head window keeps everything it read (the dispatch opens the file).
+    """
+    if not transcript_path:
+        return []
+    start = 0
+    try:
+        with open(transcript_path, "rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            if tail:
+                start = max(0, size - TRANSCRIPT_SCAN_BYTES)
+                handle.seek(start)
+                raw = handle.read(TRANSCRIPT_SCAN_BYTES)
+            else:
+                handle.seek(0)
+                raw = handle.read(TRANSCRIPT_HEAD_BYTES)
+    except OSError:
+        return []
+    lines = raw.decode("utf-8", errors="replace").splitlines()
+    if tail and start > 0 and lines:
+        return lines[1:]
+    return lines
+
+
+def _assistant_texts(lines: list[str]) -> list[str]:
+    """Text blocks of the assistant entries in one decoded transcript window."""
+    texts: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped.startswith("{"):
+            continue
+        try:
+            obj = json.loads(stripped)
+        except ValueError:
+            continue
+        if not isinstance(obj, dict) or str(obj.get("type") or "") != "assistant":
+            continue
+        message = obj.get("message")
+        content = message.get("content") if isinstance(message, dict) else None
+        if isinstance(content, str):
+            texts.append(content)
+        elif isinstance(content, list):
+            for block in content:
+                if (
+                    isinstance(block, dict)
+                    and block.get("type") == "text"
+                    and isinstance(block.get("text"), str)
+                ):
+                    texts.append(block["text"])
+    return texts
+
+
+def _artifact_kind(event: dict) -> str:
+    """The dispatch's own label (draft, report, script, deck); else ``review``."""
+    for line in _transcript_window(str(event.get("transcript_path") or ""), tail=False):
+        for pattern in _ARTIFACT_KIND_RES:
+            match = pattern.search(line)
+            if match:
+                return match.group(1).lower()
+    return "review"
+
+
+def _parse_findings(block: str) -> list[dict]:
+    """The ``- {claim: ..., source: ..., confidence: ...}`` entries of one findings block.
+
+    Tolerant parse: strict JSON first, then the unquoted template shape.
+    An entry without a claim stays out; the pointer-only fallback covers
+    the rest (issue 120).
+    """
+    findings: list[dict] = []
+    for line in block.splitlines():
+        stripped = line.strip()
+        if not (stripped.startswith("- {") and stripped.endswith("}")):
+            continue
+        content = stripped[3:-1].strip()
+        parsed = None
+        try:
+            parsed = json.loads("{" + content + "}")
+        except ValueError:
+            match = _FINDING_FIELDS_RE.search(content)
+            if match:
+                parsed = {
+                    "claim": match.group(1).strip(),
+                    "source": match.group(2).strip(),
+                    "confidence": match.group(3).strip(),
+                }
+        if isinstance(parsed, dict):
+            claim = str(parsed.get("claim") or "").strip()
+            if claim:
+                findings.append(
+                    {
+                        "claim": claim,
+                        "source": str(parsed.get("source") or "").strip(),
+                        "confidence": str(parsed.get("confidence") or "").strip(),
+                    }
+                )
+    return findings
+
+
+def _review_facts(transcript_path: str) -> dict:
+    """The trailing review shape (verdict, summary, findings) from the transcript tail.
+
+    Returns only the keys the tail actually carries; an empty dict means
+    the parse found nothing review-shaped (the caller appends the
+    pointer-only fallback line). Bounded by TRANSCRIPT_SCAN_BYTES; never
+    raises.
+    """
+    try:
+        blob = "\n".join(_assistant_texts(_transcript_window(transcript_path, tail=True)))
+    except Exception:
+        return {}
+    if not blob.strip():
+        return {}
+    facts: dict = {}
+    for raw in reversed(_VERDICT_LINE_RE.findall(blob)):
+        try:
+            parsed = json.loads(raw)
+        except ValueError:
+            continue
+        if isinstance(parsed, dict) and str(parsed.get("result") or ""):
+            facts["verdict"] = parsed
+            break
+    summary_matches = _SUMMARY_SECTION_RE.findall(blob)
+    if summary_matches:
+        summary = " ".join(summary_matches[-1].split())
+        if summary:
+            facts["summary"] = summary[:600]
+    blocks = _FINDINGS_HEAD_SPLIT_RE.split(blob)
+    if len(blocks) > 1:
+        findings = _parse_findings(blocks[-1])
+        if findings:
+            facts["findings"] = findings
+    return facts
+
+
+def append_researcher_journal(event: dict, key: str, config: dict | None) -> bool:
+    """Append the researcher journal line for one completed review (issue 120).
+
+    Full line when the transcript tail carries the review shape; the
+    pointer-only fallback line (``ran_at``, ``agent_id``, ``session_id``,
+    ``transcript_path``) when the parse finds nothing, so the stream never
+    silently loses a run. One append under the journal file lock; True
+    when written. Never raises (the hook contract).
+    """
+    try:
+        transcript_path = str(event.get("transcript_path") or "")
+        journal = _researcher_state.journal_path(key, config)
+        if journal is None:
+            return False
+        agent_id = str(event.get("agent_id") or event.get("agent_type") or AGENT_NAME)
+        facts = _review_facts(transcript_path)
+        if facts:
+            line = {
+                "ran_at": _utcnow(),
+                "agent_id": agent_id,
+                "session_id": str(event.get("session_id") or ""),
+                "artifact_kind": _artifact_kind(event),
+                "verdict": facts.get("verdict"),
+                "summary": facts.get("summary", ""),
+                "findings": facts.get("findings", []),
+            }
+        else:
+            line = {
+                "ran_at": _utcnow(),
+                "agent_id": agent_id,
+                "session_id": str(event.get("session_id") or ""),
+                "transcript_path": transcript_path,
+            }
+        return _researcher_state.append_line(journal, line)
+    except Exception:
+        return False
+
+
+# ---------------------------------------------------------------------------
 # event handling
 # ---------------------------------------------------------------------------
 
@@ -348,6 +549,10 @@ def handle_subagent_stop(event: dict, config: dict | None = None, home=None) -> 
         agent_id=str(event.get("agent_id") or event.get("agent_type") or AGENT_NAME),
         session_id=str(event.get("session_id") or ""),
     )
+    # Issue 120: the researcher journal - one line per completed review.
+    # A Stop fire (the marker backstop) never appends content.
+    if str(event.get("hook_event_name") or "") == "SubagentStop":
+        append_researcher_journal(event, key, config)
     return ""
 
 
