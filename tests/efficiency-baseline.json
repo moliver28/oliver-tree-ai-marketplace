@@ -145,6 +145,33 @@
         ],
         "reason": "Persistent researcher storage (#120): the journal digest script (state-dir resolution law, append under the provenance file lock, bounded digest CLI printing the last reviews, the open p0 count, and 'no prior reviews') and the SubagentStop journal-append duty in the review gate (bounded transcript-tail extraction of the verdict, summary, and findings, with the pointer-only fallback line so a run is never lost), plus one prior-reviews pickup line at each of the four dispatch sites. Counted by the recorded convention: 444 net-new payload lines (229 new script + 205 hook + 10 command and skill lines) of 23,243 (1.9 percent), inside the 900-line W4 target. The digest is a read-only print and the command lines are additive only; no existing wording rewritten; all pins unchanged.",
         "date": "2026-11-21"
+      },
+      {
+        "wave": "W4",
+        "issue": 60,
+        "delta_lines": 88,
+        "files": [
+          "uxr-plugin/lib/spec_blocks.py",
+          "uxr-plugin/scripts/backfill_spec.py",
+          "uxr-plugin/commands/uxr-new.md",
+          "uxr-plugin/commands/uxr-report.md",
+          "uxr-plugin/commands/uxr-deck.md",
+          "uxr-plugin/commands/uxr-debrief.md",
+          "uxr-plugin/commands/uxr-edit.md",
+          "uxr-plugin/skills/interview-script/SKILL.md"
+        ],
+        "reason": "Mechanical verbatim ask (#60): the validate_spec hard rule that fires only on a _meta.last_edited_by_command of new (empty ask_verbatim and byte-equal up-levels are errors; fixture specs carry no _meta so every pinned output is unchanged), the save-spec validate call with exit 4 and the assert-ask subcommand (ask OK / ask missing (pre-ask spec) / exit 5 on a real gap), the build-block ask keys plus the retro save that records the unrecovered gap, the assert-ask check in edit, the Original ask quote lines in the debrief and report scope card and in the four hcd-gate dispatch inputs, and the no-replacement lines in report and deck. Counted by the recorded convention: 88 net-new payload lines (17 validator + 49 backfill and assert-ask + 22 command and skill lines) of 23,243 (0.4 percent). All user-visible changes are additive lines or appended sentences; no existing wording rewritten.",
+        "date": "2026-11-21"
+      },
+      {
+        "wave": "W4",
+        "issue": 120,
+        "delta_lines": 5,
+        "files": [
+          "uxr-plugin/agents/hcd-researcher.md"
+        ],
+        "reason": "Researcher input item (#120, unit 3): one additive input item in the agent definition - prior review notes, when present, are claims to re-test against the current artifact and a prior finding that no longer holds is restated as changed; without prior reviews the agent reviews without them and never invents prior state. Counted by the recorded convention: 5 net-new payload lines of 23,243 (under 0.1 percent). The tuning harness gates the change: the baseline run on the unchanged definition scored F1 0.27 | recall 1.00 | precision 0.16 | p0 recall 1.00 | verdict PASS and the re-run on the edited definition scored F1 0.28 | recall 1.00 | precision 0.16 | p0 recall 1.00 | verdict PASS, both recorded in tests/evals/hcd-researcher/baseline.json with the asset hashes.",
+        "date": "2026-11-21"
       }
     ],
     "golden_path_growth": null
