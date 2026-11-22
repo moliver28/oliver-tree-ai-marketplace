@@ -12,7 +12,10 @@ saved replies mechanically against the planted defects:
 - FALSE POSITIVE: a findings entry that matches no planted claim of its case.
 - FALSE ALARM: a planted non-p0 case (or a case whose planted p0 went
   uncaught) that still produced a ``p0`` verdict line; counts as a false
-  positive.
+  positive. The second trigger deliberately extends design section 2.3,
+  which names only the planted non-p0 case: a ``p0`` verdict with no
+  caught p0 names no evidence, so it is scored as a false positive. No
+  recorded run has fired it (issue 133).
 - A planted p0 counts toward p0 recall only when it is caught AND its
   case produced the ``p0`` verdict.
 
@@ -175,17 +178,21 @@ def prepare(run_name: str) -> int:
         suffix = ".json" if suite == "draft-spec" else ".md"
         target = artifacts / f"case-{case_id}{suffix}"
         shutil.copyfile(base, target)
-        for plant in case["planted"]:
-            if suite == "draft-spec":
-                spec = json.loads(target.read_text(encoding="utf-8"))
-                _apply_spec_plant(spec, plant["location"], plant["text"])
-                target.write_text(
-                    json.dumps(spec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-                )
-            else:
-                lines = target.read_text(encoding="utf-8").splitlines()
-                _apply_report_plant(lines, plant["location"], plant["text"])
-                target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        try:
+            for plant in case["planted"]:
+                if suite == "draft-spec":
+                    spec = json.loads(target.read_text(encoding="utf-8"))
+                    _apply_spec_plant(spec, plant["location"], plant["text"])
+                    target.write_text(
+                        json.dumps(spec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+                    )
+                else:
+                    lines = target.read_text(encoding="utf-8").splitlines()
+                    _apply_report_plant(lines, plant["location"], plant["text"])
+                    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        except ValueError as exc:  # a plant location the applier could not find: exit 3
+            print(f"prepare: case {case_id}: {exc}", file=sys.stderr)
+            return 3
         prompt = f"{DISPATCH_PREFIX}\n\nArtifact: {target.resolve()}\n\n{case['request']}"
         (dispatch_dir / f"case-{case_id}.txt").write_text(prompt + "\n", encoding="utf-8")
         print(prompt)
@@ -423,6 +430,17 @@ def score(run_name: str) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _entry_date(run_name: str) -> str:
+    """The recorded entry date: the run-dir name's date prefix, else today.
+
+    The run name is the date-stamped label the operator gave the run, so
+    the entry date follows it instead of the record-time clock, which can
+    straddle midnight between prepare and record (issue 133).
+    """
+    match = re.match(r"(\d{4}-\d{2}-\d{2})", run_name)
+    return match.group(1) if match else time.strftime("%Y-%m-%d")
+
+
 def record(run_name: str) -> int:
     run_dir = RUNS / run_name
     result = _score_run(run_dir)
@@ -430,7 +448,7 @@ def record(run_name: str) -> int:
         return 3
     assets = instruction_assets()
     entry = {
-        "date": time.strftime("%Y-%m-%d"),
+        "date": _entry_date(run_name),
         "dir": f"runs/{run_name}",
         "verdict": result["verdict"],
         "verdict_line": result["verdict_line"],
@@ -466,7 +484,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     command = args[0]
     if command == "prepare":
-        run_name = args[args.index("--run-dir") + 1] if "--run-dir" in args[1:] else ""
+        run_name = ""
+        if "--run-dir" in args[1:]:
+            index = args.index("--run-dir")
+            if index + 1 >= len(args):
+                print("prepare: --run-dir needs a value", file=sys.stderr)
+                return 2
+            run_name = args[index + 1]
         if not run_name:
             run_name = time.strftime("%Y%m%d-%H%M%S")
         return prepare(run_name)
@@ -474,7 +498,11 @@ def main(argv: list[str] | None = None) -> int:
         if "--run-dir" not in args[1:]:
             print(f"{command}: --run-dir is required", file=sys.stderr)
             return 2
-        run_name = args[args.index("--run-dir") + 1]
+        index = args.index("--run-dir")
+        if index + 1 >= len(args):
+            print(f"{command}: --run-dir needs a value", file=sys.stderr)
+            return 2
+        run_name = args[index + 1]
         if not (RUNS / run_name).is_dir():
             print(f"{command}: no run dir {(RUNS / run_name)}", file=sys.stderr)
             return 2

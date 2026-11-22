@@ -274,8 +274,63 @@
         "wave": "W5",
         "issue": 51,
         "delta_lines": 14,
-        "files": ["uxr-plugin/scripts/recruit_send.py"],
+        "files": [
+          "uxr-plugin/scripts/recruit_send.py"
+        ],
         "reason": "momus review fixes: parse_template now validates every brace pair, so a stray spelling (mixed case or hyphenated) fails closed per the documented law; the Message-ID domain derives from the sender address (recipient-domain IDs score spam filters); the selftest gains the env-name pin (7 pairs), two stray-token fail-closed checks, and the sender-domain Message-ID check, defines the EXIT_SELFTEST failure exit, and documents the refusal-check config precondition; the ledger prose of entry 2 now states 54. Net-new 14 payload lines (15 in, 1 out in the script; the selftest is outside the payload).",
+        "date": "2026-11-22"
+      },
+      {
+        "wave": "debt-pass",
+        "issue": 133,
+        "delta_lines": 7,
+        "files": [
+          "uxr-plugin/lib/spec_blocks.py"
+        ],
+        "reason": "Issue 133 item 3: the ask_uplevel replacement check gains an isinstance str guard, so an ask_uplevels entry with no text key no longer fires the replacement error against an entry that carries no text (one misleading second error line on a save the empty-ask error already blocks). Net +7 payload lines in lib/spec_blocks.py (guard lines plus the reason comment).",
+        "date": "2026-11-22"
+      },
+      {
+        "wave": "debt-pass",
+        "issue": 135,
+        "delta_lines": 70,
+        "files": [
+          "uxr-plugin/scripts/scaffold_workspace.py",
+          "uxr-plugin/templates/workspace/recruitment/README.md"
+        ],
+        "reason": "Issue 135 items 1-2: validate-recruitment learns the approved two-table participants shape - table-block scan, variant detection through recruit_funnel participant_header_issues (imported, not duplicated), statuses checked against the locked PARTICIPANT_STATUSES vocabulary, drift advisory at exit 1, exit 3 only when neither shape is present; the legacy Name-header law stays for old workspaces. The recruitment README bullet now states the shipped law (fixed approved column sets, one table per flow; no tokens), replacing the false method/channel sentence. Net +70 payload lines (scripts +70: numstat 112 in, 42 out; templates README net 0, 2 in 2 out).",
+        "date": "2026-11-22"
+      },
+      {
+        "wave": "debt-pass",
+        "issue": 137,
+        "delta_lines": 15,
+        "files": [
+          "uxr-plugin/scripts/recruit_send.py"
+        ],
+        "reason": "Issue 137 items 1-3: the SMTP connect, STARTTLS, and login phase moves inside a guarded block - a refused connection, TLS failure, or failed login appends one clean scrubbed ERROR line to the report and returns no sent rows instead of raising a host-naming traceback out of run (the exit code is 1 by the failed-row law, not by interpreter accident). The participants file is now read and written with newline so the file keeps its own line endings through a stamp on every platform, and stamp_rows preserves each line terminator byte-true (only stamped rows change, LF stays LF, CRLF stays CRLF). The SMTP account check fires on the send mode alone, so --send with zero sendable rows refuses without an account instead of reporting an account source and exiting 0. Net +15 payload lines (numstat 23 in, 8 out); the zero-plan refusal pin lands with the config-injection commit so it stays hermetic on configured machines.",
+        "date": "2026-11-22"
+      },
+      {
+        "wave": "debt-pass",
+        "issue": 137,
+        "delta_lines": 9,
+        "files": [
+          "uxr-plugin/scripts/recruit_send.py"
+        ],
+        "reason": "Issue 137 item 4: the selftest refusal checks no longer depend on the machine - load_send_settings gains a config_file override (riden through lib.config.load_config user_file, the config-path override the config layer has carried since 0.3.0, so no lib/config.py change was needed), run() passes it through, and the selftest points it at an empty file: an injected empty config carries no account values, --send refuses without an account, and the zero-plan --send refusal is pinned hermetically. Net +9 payload lines (numstat 13 in, 4 out); the selftest (tests/) is outside the payload.",
+        "date": "2026-11-22"
+      },
+      {
+        "wave": "debt-pass",
+        "issue": 0,
+        "delta_lines": 11,
+        "files": [
+          "uxr-plugin/CHANGELOG.md",
+          "uxr-plugin/README.md",
+          "uxr-plugin/.claude-plugin/plugin.json"
+        ],
+        "reason": "Debt-pass release bookkeeping (issues 133, 135, 137): the manifest law version bump 0.4.0 -> 0.4.1 with the CHANGELOG Fixed section naming the eleven executed follow-ups. Net +11 payload lines, all in CHANGELOG.md (plugin.json and README.md are 1 in, 1 out each).",
         "date": "2026-11-22"
       }
     ],

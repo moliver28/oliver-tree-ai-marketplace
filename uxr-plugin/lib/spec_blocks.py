@@ -433,7 +433,14 @@ def _validate_spec(spec: Any, config: dict | None) -> tuple[bool, list[str]]:
         uplevels = spec.get("ask_uplevels")
         if isinstance(uplevels, list):
             for index, uplevel in enumerate(uplevels):
-                if isinstance(uplevel, dict) and uplevel.get("text") == ask:
+                # The str guard keeps an entry with no ``text`` key from
+                # firing the replacement error on top of the empty-ask
+                # error (issue 133: one misleading second error line).
+                if (
+                    isinstance(uplevel, dict)
+                    and isinstance(uplevel.get("text"), str)
+                    and uplevel.get("text") == ask
+                ):
                     add("ask_uplevel must not replace the original ask")
 
     return (not errors), errors

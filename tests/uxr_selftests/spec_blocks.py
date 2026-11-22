@@ -554,6 +554,16 @@ def _selftest() -> int:
         not ok and "ask_uplevel must not replace the original ask" in errors,
         repr(errors),
     )
+    no_text = {**ask_spec, "ask_verbatim": "   ", "_meta": new_meta,
+               "ask_uplevels": [{"note": "carries no text key"}]}
+    ok, errors = validate_spec(no_text, selftest_config())
+    check(
+        "a text-less up-level never fires the replacement error (issue 133)",
+        not ok
+        and "ask_uplevel must not replace the original ask" not in errors
+        and "ask_verbatim is empty (the original ask must be stored verbatim)" in errors,
+        repr(errors),
+    )
     edit_meta = {"last_edited_by_command": "edit"}
     ok, errors = validate_spec({**GOLDEN_SPEC, "ask_verbatim": "", "_meta": edit_meta}, selftest_config())
     check("the ask rule never fires on an edit-command spec", ok, repr(errors))
