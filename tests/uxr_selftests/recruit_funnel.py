@@ -74,6 +74,37 @@ def _selftest() -> int:
         check("preflight exits 2 on a non-booking-page URL", code == EXIT_BLOCKED, output)
         check("BLOCK line names the reason", "booking link is not a booking-page URL" in output)
 
+        # preflight: Google appointment-schedule links pass (issue 50 fix:
+        # the shipped pattern carried a hyphenated shape Google never
+        # emits, so a real appointment link was refused and a
+        # redirect-wrapped URL could end up in the send instead). The
+        # share link Google's Copy link emits and the underlying page it
+        # resolves to both pass; a redirect wrapper still blocks.
+        for label, link in (
+            ("share", "https://calendar.app.google/AcZssZ0example123"),
+            ("page", "https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ0example123"),
+        ):
+            google_data = json.loads(json.dumps(FUNNEL_DATA))
+            google_data["tabs"]["Wave 1"]["rows"][0]["booking_link"] = link
+            google_file = tmp_path / f"google_{label}.json"
+            google_file.write_text(json.dumps(google_data), encoding="utf-8")
+            code, output = run(
+                {"spec": str(spec_file), "funnel_data": str(google_file), "wave": "Wave 1", "preflight": "1"},
+                config={},
+            )
+            check(f"google appointment {label} link passes preflight", code == EXIT_OK, output)
+        redirect_data = json.loads(json.dumps(FUNNEL_DATA))
+        redirect_data["tabs"]["Wave 1"]["rows"][0]["booking_link"] = (
+            "https://www.google.com/url?q=https://calendar.app.google/AcZssZ0example123"
+        )
+        redirect_file = tmp_path / "google_redirect.json"
+        redirect_file.write_text(json.dumps(redirect_data), encoding="utf-8")
+        code, output = run(
+            {"spec": str(spec_file), "funnel_data": str(redirect_file), "wave": "Wave 1", "preflight": "1"},
+            config={},
+        )
+        check("redirect-wrapped link still blocks", code == EXIT_BLOCKED, output)
+
         # preflight: suppression and duplication reasons
         blocked_data = json.loads(json.dumps(FUNNEL_DATA))
         blocked_data["tabs"]["Wave 2"]["rows"].append(

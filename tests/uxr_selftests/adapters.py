@@ -65,8 +65,21 @@ def _selftest() -> int:
     check("github (module empty) resolves to None", resolve(_with_kind("github")) is None)
     check("asana (module empty) resolves to None", resolve(_with_kind("asana")) is None)
 
-    # 4. Unknown kind resolves to None.
-    check("unknown kind resolves to None", resolve(_with_kind("notion")) is None)
+    # 4. Unknown kind resolves to None; the shipped declared KB kind too
+    # (module empty = declared, not built; issue 114 shipped the notion
+    # entry with the read-only default).
+    check("unknown kind resolves to None", resolve(_with_kind("no-such-kind")) is None)
+    check("notion (declared KB, module empty) resolves to None",
+          resolve(_with_kind("notion")) is None)
+    check(
+        "shipped notion entry mirrors ADAPTER_DEFAULTS (area kb, push off)",
+        EXAMPLE_CONFIG.get("adapters", {}).get("notion") == {
+            "module": "", "doc": "references/onboarding.md", "area": "kb",
+            "capabilities": {"pull": True, "push": False, "spec_transform": False},
+        },
+        repr(EXAMPLE_CONFIG.get("adapters", {}).get("notion")),
+    )
+    check("notion kind is validated (TRACKER_KINDS)", "notion" in _config.TRACKER_KINDS)
 
     # 5. Configured-but-broken is a named ConfigError; empty module stays None.
     broken_section = {"jira": {"module": "lib/__no_such_adapter__.py", "doc": "",

@@ -232,6 +232,7 @@ def build_commands_section(names: list[str]) -> str:
         "uxr-move": "Move a study to its next phase, gated on readiness.",
         "uxr-new": "Guided interview that creates a study ticket and workspace.",
         "uxr-notebook": "Upload study files to NotebookLM and run saved prompts.",
+        "uxr-onboard": "One-shot onboarding: save the adapters, fields, calculator, and privacy, workspace, and recruit config once.",
         "uxr-recruit": "Fill the study: internal slots or the external funnel.",
         "uxr-report": "Write the stakes-sized research report.",
         "uxr-show": "Render one study ticket.",

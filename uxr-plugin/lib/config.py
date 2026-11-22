@@ -31,7 +31,9 @@ the 6.0.3 sdist into site-packages, or wait for a 6.0.4 release.
 
 Usage::
 
-    python lib/config.py --print      # dump the resolved configuration
+    python lib/config.py --print            # dump the resolved configuration
+    python lib/config.py --init-ignore-set  # the effective interview-data
+                                            # ignore set, one path per line
 """
 
 from __future__ import annotations
@@ -50,8 +52,10 @@ EXAMPLE_FILE = PLUGIN_ROOT / "config" / "org.example.yaml"
 USER_FILE = PLUGIN_ROOT / "config" / "org.yaml"
 ENV_PREFIX = "UXR_CONFIG__"
 
-#: ``tracker.kind`` must be one of these when set.
-TRACKER_KINDS = ("jira", "linear", "github", "asana")
+#: ``tracker.kind`` must be one of these when set. The issue systems plus
+#: the knowledge-base kinds the adapters section ships (issue 114: adapters
+#: cover issue systems and knowledge-base systems).
+TRACKER_KINDS = ("jira", "linear", "github", "asana", "notion")
 #: ``tracker.body_format`` must be one of these when set.
 BODY_FORMATS = ("adf", "markdown", "html")
 
@@ -93,6 +97,8 @@ REQUIRED_KEYS: tuple[str, ...] = (
     "workspace.remote",
     "workspace.slug_max_body",
     "workspace.gitignored_paths",
+    "workspace.remote_push",
+    "privacy.init_ignore",
     "evidence.sources",
     "evidence.chat_channels",
     "ssot.jtbd_url",
@@ -108,6 +114,8 @@ REQUIRED_KEYS: tuple[str, ...] = (
     "defaults.fast_path.investment",
     "defaults.fast_path.support",
     "defaults.fast_path.outcomes",
+    "priority.weights",
+    "priority.formula",
     "links.calculator",
     "links.templates",
     "links.plugin_repo",
@@ -124,6 +132,7 @@ REQUIRED_KEYS: tuple[str, ...] = (
     "recruit.sheets",
     "recruit.wave_tab_headers",
     "recruit.booking_url_regex",
+    "recruiting.org_chart_paths",
     "calendar.working_hours",
     "calendar.default_level",
     "calendar.max_moves_per_recruit",
@@ -266,6 +275,32 @@ def _expand_paths(config: dict) -> dict:
     return config
 
 
+#: The interview-data ignore set when ``privacy.init_ignore`` is empty
+#: (issue 57): the default covers ALL interview data, the whole
+#: ``interviews/`` tree. This flips the shipped default of earlier
+#: releases, which ignored only the participant key and the raw
+#: transcripts. The participant-identity floor stays enforced by the
+#: ``init`` command's hardcoded gate arguments and is never replaceable
+#: by this section.
+INIT_IGNORE_DEFAULT = ("interviews/",)
+
+
+def init_ignore_set(config: Mapping[str, Any]) -> tuple[str, ...]:
+    """Return the effective interview-data ignore set (issue 57).
+
+    An empty or missing ``privacy.init_ignore`` returns
+    :data:`INIT_IGNORE_DEFAULT` (all interview data). A non-empty list
+    returns exactly the listed paths, in order, with blank entries
+    dropped. Pure function of the config; the ``init`` command passes the
+    result to the gitignore gate.
+    """
+    privacy = config.get("privacy") if isinstance(config, Mapping) else None
+    entries = privacy.get("init_ignore") if isinstance(privacy, Mapping) else None
+    if not entries:
+        return INIT_IGNORE_DEFAULT
+    return tuple(str(entry) for entry in entries if str(entry).strip())
+
+
 def load_config(
     environ: Mapping[str, str] | None = None,
     example_file: str | os.PathLike[str] | None = None,
@@ -304,10 +339,24 @@ def _print_config() -> int:
     return 0
 
 
+def _print_init_ignore_set() -> int:
+    """Print the effective interview-data ignore set, one path per line."""
+    try:
+        config = load_config()
+    except ConfigError as exc:
+        print(f"config error: {exc}", file=sys.stderr)
+        return 2
+    for entry in init_ignore_set(config):
+        print(entry)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if "--print" in args:
         return _print_config()
+    if "--init-ignore-set" in args:
+        return _print_init_ignore_set()
     print(__doc__.strip().splitlines()[0])  # terse bare-run pointer; full doc in this file
     return 0
 

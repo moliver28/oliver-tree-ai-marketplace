@@ -27,3 +27,8 @@ Working rules:
    Hypotheses, Assumptions, Research questions, Resources, and JTBD &
    Personas sections are owned by the spec: update them through
    `edit`, never by hand here.
+8. This workspace is a uxr-workspace: commit to `main`; never create
+   branches and never open pull requests here. Push to the configured
+   remote only when `workspace.remote_push` is true (default false);
+   otherwise keep the commits local. The value is having version
+   control, not a branch flow.

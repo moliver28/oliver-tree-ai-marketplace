@@ -105,11 +105,29 @@ Steps:
    any `git add`. Print the blocked paths, tell
    the user to fix `<workspace>/.gitignore`, and end. Never write
    participant data while the gate fails.
+
+   Interview-data set (issue 57): also pass one path argument per entry
+   of the effective privacy set, and append every one of those entries
+   to `<workspace>/.gitignore` before the gate runs, so the config and
+   the file can never disagree. Read the effective set with
+   `python "${CLAUDE_PLUGIN_ROOT}/lib/config.py" --init-ignore-set` (one
+   path per line): when `privacy.init_ignore` is empty (the default) it
+   prints `interviews/`, which covers all interview data; when non-empty
+   it prints exactly the listed paths. The hardcoded floor entries stay
+   and are never replaceable.
 9. If `workspace.remote` is set: run
    `git -C "<target>" remote add origin <remote>` (ignore an
    already-exists error), then `git -C "<target>" push -u origin HEAD`.
    A push failure only warns: print the git error, note the workspace is
    committed locally, and continue.
+
+   Push gate (issue 58): a uxr-workspace commits to its main branch and
+   never creates branches or pull requests inside itself. The step-9
+   push runs only when `workspace.remote_push` is true; with the
+   default `false`, skip the push, note the workspace is committed
+   locally, and say in one line that `workspace.remote_push` controls
+   pushing. The marketplace repository is not a uxr-workspace; its own
+   flow is untouched.
 10. Print next steps, one line each, as plain command names with the key:
 
     - `show <KEY>` - open the study view
