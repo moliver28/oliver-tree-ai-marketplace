@@ -195,6 +195,17 @@
         ],
         "reason": "Rigor subset (#56): the third harness run on the edited instruction assets scored F1 0.25 | recall 0.92 | precision 0.14 | p0 recall 1.00 | verdict FAIL (F1 0.25 against the 0.2727 baseline bar, with the p0 bar itself holding at 1.00), so the instruction-asset edits - the rigor-lens fragment, the hcd-gate prompt wiring with the 70 to 78 budget bump, the two script-rigor rider lines, and the research-grounding note - reverted per the contract, leaving no payload trace; the recorded FAIL attempt stays in tests/evals/hcd-researcher/baseline.json with the hashes it measured. What stays: the one non-instruction edit, the report methodology line naming the analysis plan actually followed. Counted by the recorded convention: 2 net-new payload lines of 23,243 (under 0.1 percent).",
         "date": "2026-11-22"
+      },
+      {
+        "wave": "W4",
+        "issue": 0,
+        "delta_lines": 14,
+        "files": [
+          "uxr-plugin/CHANGELOG.md",
+          "uxr-plugin/README.md"
+        ],
+        "reason": "W4 release bookkeeping (version bump to 0.4.0): the CHANGELOG release section describing the wave's shipped work and the README version line. The two JSON version surfaces (.claude-plugin/plugin.json and the marketplace entry) sit outside the counted suffixes. Counted by the recorded convention: 14 net-new payload lines of 23,243 (under 0.1 percent). Wave total after all seven commits: 843 net-new payload lines (each of the seven payload-growing commits carries its entry), inside the 900-line W4 target.",
+        "date": "2026-11-22"
       }
     ],
     "golden_path_growth": null
