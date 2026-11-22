@@ -236,6 +236,17 @@
         ],
         "reason": "Recruit enforcement spec keys (issue 51, enforcement shape approved by MO 2026-11-22): the approved participants-table column sets, the locked seven-value status vocabulary, and the per-variant status-gate map added as checked constants in recruit_funnel.py, plus three pure additive checkers (header against the approved set, status against the locked vocabulary, row gates per the status-gate law). Nothing in run(), build_table(), preflight(), or reminders() calls them, so every existing output stays byte-identical; the funnel-table selftest passes unchanged and the new repo-level enforcement selftest (tests/uxr_selftests/, outside the payload) rides the smoke check-3 glob. Net-new 138 payload lines in scripts.",
         "date": "2026-11-22"
+      },
+      {
+        "wave": "W5",
+        "issue": 51,
+        "delta_lines": 660,
+        "files": [
+          "uxr-plugin/scripts/recruit_send.py",
+          "uxr-plugin/templates/workspace/recruitment/email-merge-template.example.md"
+        ],
+        "reason": "Recruitment email send MVP (issue 51, HANDOFF section 11; MO waived the policy concern): the plugin-native stdlib SMTP send script with a dry-run default (merged-message preview, no send, no stamp, no write), the invited-only sendable state machine (a send stamps DM sent (date) and advances invited to scheduled per the shipped gate map; a failed row gets no stamp), the one-recipient-per-message law (exactly one To header, never Cc or Bcc; a duplicate address sends once and later rows are reported), contact masking with the explicit show flag, the org-config recruit.email.* keys with UXR_RECRUIT_* env fallbacks, and the synthetic-only example merge template. The gate and column law is imported from recruit_funnel.py, not duplicated. No real send happens in the build; the repo carries placeholder values only. Net-new 660 payload lines (650 script + 10 template) of 23,243 (2.8 percent), inside the 10 percent cap.",
+        "date": "2026-11-22"
       }
     ],
     "golden_path_growth": null
