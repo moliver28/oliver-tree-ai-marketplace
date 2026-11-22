@@ -307,6 +307,20 @@ defaults:
     outcomes: ["Summary of findings", "Continued Research"]
 
 # -----------------------------------------------------------------------------
+# priority: the prioritization calculator overrides (issue 114)
+# -----------------------------------------------------------------------------
+priority:
+  # Weights for the prioritization calculator, keyed by the operator's own
+  # input names (the custom fields onboarding records). An input without a
+  # weight carries weight 1. Empty = the built-in weights documented in
+  # references/onboarding.md (impact 3, confidence 2, urgency 1).
+  weights: {}
+  # Formula string that replaces the built-in calculator formula when set.
+  # Empty = the built-in formula (score = impact*3 + confidence*2 +
+  # urgency*1, each input answered 1 to 3).
+  formula: ""
+
+# -----------------------------------------------------------------------------
 # links: checklist links rendered into the ticket body (issue 04)
 # -----------------------------------------------------------------------------
 links:

@@ -114,6 +114,8 @@ REQUIRED_KEYS: tuple[str, ...] = (
     "defaults.fast_path.investment",
     "defaults.fast_path.support",
     "defaults.fast_path.outcomes",
+    "priority.weights",
+    "priority.formula",
     "links.calculator",
     "links.templates",
     "links.plugin_repo",
