@@ -274,8 +274,20 @@
         "wave": "W5",
         "issue": 51,
         "delta_lines": 14,
-        "files": ["uxr-plugin/scripts/recruit_send.py"],
+        "files": [
+          "uxr-plugin/scripts/recruit_send.py"
+        ],
         "reason": "momus review fixes: parse_template now validates every brace pair, so a stray spelling (mixed case or hyphenated) fails closed per the documented law; the Message-ID domain derives from the sender address (recipient-domain IDs score spam filters); the selftest gains the env-name pin (7 pairs), two stray-token fail-closed checks, and the sender-domain Message-ID check, defines the EXIT_SELFTEST failure exit, and documents the refusal-check config precondition; the ledger prose of entry 2 now states 54. Net-new 14 payload lines (15 in, 1 out in the script; the selftest is outside the payload).",
+        "date": "2026-11-22"
+      },
+      {
+        "wave": "debt-pass",
+        "issue": 133,
+        "delta_lines": 7,
+        "files": [
+          "uxr-plugin/lib/spec_blocks.py"
+        ],
+        "reason": "Issue 133 item 3: the ask_uplevel replacement check gains an isinstance str guard, so an ask_uplevels entry with no text key no longer fires the replacement error against an entry that carries no text (one misleading second error line on a save the empty-ask error already blocks). Net +7 payload lines in lib/spec_blocks.py (guard lines plus the reason comment).",
         "date": "2026-11-22"
       }
     ],
