@@ -2,6 +2,17 @@
 
 All notable changes to uxr-plugin. One `## X.Y.Z` heading per release, newest first.
 
+## [0.4.1] - 2026-11-22
+
+### Fixed
+
+- Debt pass (#133, #135, #137): the tuning harness keeps its exit laws (`prepare` reports a plant location it cannot find with one stderr line and exit 3; a valueless `--run-dir` is usage exit 2), the scorer docstring names its second false-alarm trigger as a deliberate extension of the design note, and `record` derives the entry date from the run-dir name so a midnight straddle cannot misdate an entry.
+- The verbatim-ask up-level check carries a str guard: an `ask_uplevels` entry with no `text` key no longer draws the replacement error on top of the empty-ask error (#133).
+- `validate-recruitment` reads the approved two-table participants shape: headers checked against the approved column sets, statuses against the locked vocabulary, drift advisory at exit 1; the legacy `Name` table stays valid for old workspaces (#135).
+- The recruitment README bullet states the shipped law (fixed approved column sets, one table per flow) (#135).
+- `recruit_send.py`: an SMTP connect, STARTTLS, or login failure prints one clean scrubbed ERROR line and exits 1 (no host-naming traceback); the participants file keeps its own line endings through a stamp (LF stays LF, CRLF stays CRLF); `--send` with zero sendable rows refuses without an SMTP account (#137).
+- The `--send` refusal checks are machine-independent: `load_send_settings` and `run` accept a `config_file` override, and the repo-level tests point it at an empty file (#137).
+
 ## [0.4.0] - 2026-11-22
 
 ### Added

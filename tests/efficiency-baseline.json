@@ -320,6 +320,18 @@
         ],
         "reason": "Issue 137 item 4: the selftest refusal checks no longer depend on the machine - load_send_settings gains a config_file override (riden through lib.config.load_config user_file, the config-path override the config layer has carried since 0.3.0, so no lib/config.py change was needed), run() passes it through, and the selftest points it at an empty file: an injected empty config carries no account values, --send refuses without an account, and the zero-plan --send refusal is pinned hermetically. Net +9 payload lines (numstat 13 in, 4 out); the selftest (tests/) is outside the payload.",
         "date": "2026-11-22"
+      },
+      {
+        "wave": "debt-pass",
+        "issue": 0,
+        "delta_lines": 11,
+        "files": [
+          "uxr-plugin/CHANGELOG.md",
+          "uxr-plugin/README.md",
+          "uxr-plugin/.claude-plugin/plugin.json"
+        ],
+        "reason": "Debt-pass release bookkeeping (issues 133, 135, 137): the manifest law version bump 0.4.0 -> 0.4.1 with the CHANGELOG Fixed section naming the eleven executed follow-ups. Net +11 payload lines, all in CHANGELOG.md (plugin.json and README.md are 1 in, 1 out each).",
+        "date": "2026-11-22"
       }
     ],
     "golden_path_growth": null
