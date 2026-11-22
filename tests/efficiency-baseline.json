@@ -289,6 +289,17 @@
         ],
         "reason": "Issue 133 item 3: the ask_uplevel replacement check gains an isinstance str guard, so an ask_uplevels entry with no text key no longer fires the replacement error against an entry that carries no text (one misleading second error line on a save the empty-ask error already blocks). Net +7 payload lines in lib/spec_blocks.py (guard lines plus the reason comment).",
         "date": "2026-11-22"
+      },
+      {
+        "wave": "debt-pass",
+        "issue": 135,
+        "delta_lines": 70,
+        "files": [
+          "uxr-plugin/scripts/scaffold_workspace.py",
+          "uxr-plugin/templates/workspace/recruitment/README.md"
+        ],
+        "reason": "Issue 135 items 1-2: validate-recruitment learns the approved two-table participants shape - table-block scan, variant detection through recruit_funnel participant_header_issues (imported, not duplicated), statuses checked against the locked PARTICIPANT_STATUSES vocabulary, drift advisory at exit 1, exit 3 only when neither shape is present; the legacy Name-header law stays for old workspaces. The recruitment README bullet now states the shipped law (fixed approved column sets, one table per flow; no tokens), replacing the false method/channel sentence. Net +70 payload lines (scripts +70: numstat 112 in, 42 out; templates README net 0, 2 in 2 out).",
+        "date": "2026-11-22"
       }
     ],
     "golden_path_growth": null
