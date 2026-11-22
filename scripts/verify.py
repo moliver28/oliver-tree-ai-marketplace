@@ -23,15 +23,24 @@ Checks:
    `__pycache__`/`*.pyc`, no stub markers in plugin/skill text files (inline
    `verify-allow` whitelists honored), no `pass`/`...`-only function bodies in
    plugin `.py` files, no dangling catalog/PROVENANCE path rows.
-9. Learn-tool determinism (canonical v1.0.0): the learn tools are importable with
-   a main(); calibrate.py emits parseable per-class JSON on a fixture corpus
-   (clean corpus = zero hits, tell fixture = deterministic hits); distill_phrases.py
-   has a defined empty-log behavior.
-10. De-personalization gate (owner ruling 2026-11-21): the owner's personal voice
+9. Efficiency gate (W1, MO ruling 2026-11-21; runs only with `--efficiency` or
+   env `VERIFY_EFFICIENCY=1`, i.e. the develop -> main release lane): shipped
+   uxr-plugin payload lines vs the recorded floor in tests/efficiency-baseline.json
+   (tolerance 0; any growth FAILs and lists the growing dirs, and a justification
+   must be recorded in the baseline file in the same PR), and the declared
+   golden-path model-call budget vs the recorded floor (growth FAILs without a
+   recorded justification). Golden immobility and the hash pins are enforced
+   above by tests/test_parity.py; the efficiency gate references them, never
+   duplicates them.
+10. Learn-tool determinism (canonical v1.0.0): the learn tools are importable with
+    a main(); calibrate.py emits parseable per-class JSON on a fixture corpus
+    (clean corpus = zero hits, tell fixture = deterministic hits); distill_phrases.py
+    has a defined empty-log behavior.
+11. De-personalization gate (owner ruling 2026-11-21): the owner's personal voice
     artifacts left the public mirror (canonical copies live in the private archive
     outside this repo). A fixed token list must not appear in any published
     plugin/skill content file outside the named exceptions.
-11. Voice-NLP v1.1.0 (issue #127 Tiers 1+2+3): hash-guard no-recompute (the
+12. Voice-NLP v1.1.0 (issue #127 Tiers 1+2+3): hash-guard no-recompute (the
     second build run prints the no-rebuild line and runs WITHOUT any embedder);
     gate advisory fields (voice_fit/source_fidelity/p_ai/voice_delta) appear
     deterministically with fixture artifacts and stay absent without them;
@@ -894,6 +903,59 @@ if uxr.is_dir() and uxr_tests.is_dir():
                             capture_output=True, text=True, cwd=str(uxr))
     tail = ((parity.stdout or "") + (parity.stderr or "")).strip().splitlines()
     ck(parity.returncode == 0, f"uxr-plugin golden parity tests (W2): {tail[-1] if tail else parity.returncode}")
+
+# --- Efficiency gate (W1, MO ruling 2026-11-21) ------------------------------
+# Release-lane only: CI arms VERIFY_EFFICIENCY=1 on develop -> main PRs, so
+# ordinary pushes run the base checks unchanged. The recorded floor lives in
+# tests/efficiency-baseline.json (recorded with the repo's shipped ex-tests
+# counting convention, cited in the file). The gate FAILs any payload growth
+# and lists the growing dirs, so the release PR must argue the growth by
+# recording a justification in the baseline file in the same PR. Golden
+# immobility and the hash pins are already enforced above by tests/test_parity.py;
+# the REF line below points at that check, it does not repeat it.
+if "--efficiency" in sys.argv or os.environ.get("VERIFY_EFFICIENCY") == "1":
+    eff_base = json.loads((ROOT / "tests" / "efficiency-baseline.json").read_text())
+    eff_just = eff_base.get("justifications", {})
+    cur_total, cur_dirs = 0, {}
+    for t in tracked:
+        if not t.startswith("uxr-plugin/") or t.startswith("uxr-plugin/tests/"):
+            continue
+        if not t.endswith((".py", ".md", ".yaml", ".yml")):
+            continue
+        raw = (ROOT / t).read_bytes()
+        n = raw.count(b"\n") + (1 if raw and not raw.endswith(b"\n") else 0)
+        cur_total += n
+        d = t.split("/")[1] if len(t.split("/")) > 2 else "root"
+        cur_dirs[d] = cur_dirs.get(d, 0) + n
+    floor = eff_base["payload"]["total_lines"]
+    grew = sorted(d for d, n in cur_dirs.items() if n > eff_base["payload"]["per_dir"].get(d, 0))
+    ck(cur_total <= floor or bool(eff_just.get("payload_growth")),
+       f"payload {cur_total} lines vs baseline {floor} (tolerance 0; growing dirs: "
+       + (", ".join(grew) if grew else "none") + ")")
+    ck(not grew or bool(eff_just.get("payload_growth")),
+       "payload growth (if any) justified in tests/efficiency-baseline.json (the release PR must argue it)")
+    declared = []
+    for t in tracked:
+        if not t.startswith("uxr-plugin/") or not t.endswith(".md"):
+            continue
+        for line in (ROOT / t).read_text(errors="replace").splitlines():
+            if "golden path" not in line.lower():
+                continue
+            for m in re.finditer(r"\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+model\s+calls?\b",
+                                 line, re.IGNORECASE):
+                declared.append({"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+                                 "seven": 7, "eight": 8, "nine": 9, "ten": 10}.get(m.group(1).lower())
+                                or int(m.group(1)))
+    budget = eff_base["golden_path_model_calls"]
+    if not declared:
+        ck(False, f"declared golden-path model-call budget present in plugin md (baseline records {budget})")
+    else:
+        ck(max(declared) <= budget or bool(eff_just.get("golden_path_growth")),
+           f"declared golden-path model calls {max(declared)} vs baseline {budget} "
+           "(growth FAILs without a recorded justification)")
+    pins = len(json.loads((ROOT / "tests" / "goldens" / "hashes.json").read_text()))
+    print(f"REF efficiency: golden immobility + {pins} hash pins enforced above by "
+          "tests/test_parity.py (referenced, not duplicated)")
 
 print(f"\n{len(fails)} failure(s)")
 sys.exit(1 if fails else 0)

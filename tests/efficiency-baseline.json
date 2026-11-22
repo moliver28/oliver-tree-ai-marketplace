@@ -1,0 +1,28 @@
+{
+  "recorded": "2026-11-21",
+  "convention": "Shipped payload lines = git-tracked files under uxr-plugin/ with suffix .py, .md, .yaml, or .yml, excluding uxr-plugin/tests/**; a line ends at \\n and a non-empty file without a trailing newline counts one final line (git numstat counting). The loc-account.py 'R1 shipped EX-tests' convention applied as an absolute snapshot of the tree instead of a diff. Per-dir lines group by the first path segment below uxr-plugin/; root-level files group under 'root'.",
+  "payload": {
+    "growth_tolerance_lines": 0,
+    "total_lines": 23243,
+    "per_dir": {
+      "agents": 502,
+      "commands": 1662,
+      "config": 420,
+      "docs": 71,
+      "hooks": 2761,
+      "lib": 3935,
+      "prompts": 275,
+      "references": 4136,
+      "root": 151,
+      "scripts": 8711,
+      "skills": 339,
+      "templates": 280
+    }
+  },
+  "golden_path_model_calls": 6,
+  "golden_path_declared_in": "uxr-plugin/CHANGELOG.md [0.2.0]: 'the golden path across the workflow now spends six model calls'; per-command shares are declared in uxr-plugin/commands/*.md",
+  "justifications": {
+    "payload_growth": null,
+    "golden_path_growth": null
+  }
+}
