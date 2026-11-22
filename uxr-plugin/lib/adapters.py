@@ -69,6 +69,8 @@ except ImportError:  # direct execution: python lib/adapters.py
 
 ConfigError = _config.ConfigError
 PLUGIN_ROOT = _config.PLUGIN_ROOT
+if str(PLUGIN_ROOT) not in sys.path:
+    sys.path.insert(0, str(PLUGIN_ROOT))  # resolve() imports adapter modules as lib.<name>
 
 #: The shipped registration, mirroring the ``adapters`` section of
 #: ``config/org.example.yaml``. Fallback only for a config dict that lacks
