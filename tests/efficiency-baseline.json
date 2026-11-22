@@ -240,23 +240,23 @@
       {
         "wave": "W5",
         "issue": 51,
-        "delta_lines": 660,
+        "delta_lines": 670,
         "files": [
           "uxr-plugin/scripts/recruit_send.py",
           "uxr-plugin/templates/workspace/recruitment/email-merge-template.example.md"
         ],
-        "reason": "Recruitment email send MVP (issue 51, HANDOFF section 11; MO waived the policy concern): the plugin-native stdlib SMTP send script with a dry-run default (merged-message preview, no send, no stamp, no write), the invited-only sendable state machine (a send stamps DM sent (date) and advances invited to scheduled per the shipped gate map; a failed row gets no stamp), the one-recipient-per-message law (exactly one To header, never Cc or Bcc; a duplicate address sends once and later rows are reported), contact masking with the explicit show flag, the org-config recruit.email.* keys with UXR_RECRUIT_* env fallbacks, and the synthetic-only example merge template. The gate and column law is imported from recruit_funnel.py, not duplicated. No real send happens in the build; the repo carries placeholder values only. Net-new 660 payload lines (650 script + 10 template) of 23,243 (2.8 percent), inside the 10 percent cap.",
+        "reason": "Recruitment email send MVP (issue 51, HANDOFF section 11; MO waived the policy concern): the plugin-native stdlib SMTP send script with a dry-run default (merged-message preview, no send, no stamp, no write), the invited-only sendable state machine (a send stamps DM sent (date) and advances invited to scheduled per the shipped gate map; a failed row gets no stamp), the one-recipient-per-message law (exactly one To header, never Cc or Bcc; a duplicate address sends once and later rows are reported), contact masking with the explicit show flag, the org-config recruit.email.* keys with UXR_RECRUIT_* env fallbacks, and the synthetic-only example merge template. The gate and column law is imported from recruit_funnel.py, not duplicated. No real send happens in the build; the repo carries placeholder values only. Net-new 670 payload lines (660 script + 10 template) of 23,243 (2.9 percent), inside the 10 percent cap.",
         "date": "2026-11-22"
       },
       {
         "wave": "W5",
         "issue": 51,
-        "delta_lines": 56,
+        "delta_lines": 54,
         "files": [
           "uxr-plugin/commands/uxr-recruit.md",
           "uxr-plugin/config/org.example.yaml"
         ],
-        "reason": "Email send (MVP) command-doc section and the recruit.email config keys (issue 51): one additive section after the external flow (the command, the dry-run default, the gate-law recap with the invited-only sendable state machine, the one-recipient law with contact masking, the SMTP account placement in the gitignored config or env vars, the synthetic example template path and the token rule) plus the optional DM paragraph (context plus the prep note, or nothing), the recruit_send.py Scripts-table row, and the sanctioned issue-135 item-3 list edit naming the email send in the scheduled-gate outreach list (2 lines swapped, net zero). The config example gains the recruit.email section with placeholder values only. Net-new 56 payload lines (34 command + 2-row table line, 20 config example); no existing wording rewritten beyond the sanctioned list edit, and the draft-only safety rule is untouched (the researcher runs the real send).",
+        "reason": "Email send (MVP) command-doc section and the recruit.email config keys (issue 51): one additive section after the external flow (the command, the dry-run default, the gate-law recap with the invited-only sendable state machine, the one-recipient law with contact masking, the SMTP account placement in the gitignored config or env vars, the synthetic example template path and the token rule) plus the optional DM paragraph (context plus the prep note, or nothing), the recruit_send.py Scripts-table row, and the sanctioned issue-135 item-3 list edit naming the email send in the scheduled-gate outreach list (2 lines swapped, net zero). The config example gains the recruit.email section with placeholder values only. Net-new 56 payload lines (34 command net, 20 config example); no existing wording rewritten beyond the sanctioned list edit, and the draft-only safety rule is untouched (the researcher runs the real send).",
         "date": "2026-11-22"
       },
       {

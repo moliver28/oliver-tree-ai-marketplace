@@ -93,14 +93,24 @@ _TOKEN_RE = re.compile(r"\{\{\s*([a-z0-9_]+)\s*\}\}")
 
 #: ``recruit.email`` config keys and their env fallback names. Values
 #: never live in a repo file; the shipped example carries placeholders only.
+#: Each env name is computed as the prefix plus the config key uppercased,
+#: except two keys with short names.
+_ENV_PREFIX = "UXR_RECRUIT_"
+_ENV_SHORT_NAMES = {
+    "from_address": "FROM",
+    "template_path": "TEMPLATE",
+}
 ENV_FALLBACKS: dict[str, str] = {
-    "smtp_host": "UXR_RECRUIT_SMTP_HOST",
-    "smtp_port": "UXR_RECRUIT_SMTP_PORT",
-    "smtp_user": "UXR_RECRUIT_SMTP_USER",
-    "smtp_password": "UXR_RECRUIT_SMTP_PASSWORD",
-    "from_address": "UXR_RECRUIT_FROM",
-    "use_tls": "UXR_RECRUIT_USE_TLS",
-    "template_path": "UXR_RECRUIT_TEMPLATE",
+    key: _ENV_PREFIX + _ENV_SHORT_NAMES.get(key, key.upper())
+    for key in (
+        "smtp_host",
+        "smtp_port",
+        "smtp_user",
+        "smtp_password",
+        "from_address",
+        "use_tls",
+        "template_path",
+    )
 }
 
 
