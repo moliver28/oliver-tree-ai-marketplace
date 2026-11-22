@@ -39,7 +39,7 @@
       }
     },
     {
-      "date": "2026-11-21",
+      "date": "2026-11-22",
       "dir": "runs/2026-11-22-rigor",
       "verdict": "FAIL",
       "verdict_line": "F1 0.25 | recall 0.92 | precision 0.14 | p0 recall 1.00 | verdict FAIL",
