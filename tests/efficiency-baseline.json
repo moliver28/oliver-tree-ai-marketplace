@@ -99,6 +99,16 @@
         "date": "2026-11-21"
       },
       {
+        "wave": "W3",
+        "issue": 50,
+        "delta_lines": 7,
+        "files": [
+          "uxr-plugin/scripts/recruit_funnel.py"
+        ],
+        "reason": "Appointment-link redirect fix (#50): the shipped default booking-page pattern carried a hyphenated Google shape (appointment-schedules) that matches nothing Google emits, so a real appointment link was refused by preflight and a redirect-wrapped URL could end up in the user-facing email instead. The corrected default accepts the share link Google's Copy link emits (calendar.app.google) and the underlying appointments/schedules booking page; redirect-wrapped URLs still block. Net-new 7 payload lines (pattern plus its comment); regression checks added to the recruit_funnel selftest (repo level, outside the payload).",
+        "date": "2026-11-21"
+      },
+      {
         "wave": "pre-baseline",
         "issue": 122,
         "guard": "report_html.py blockquote parser fix (#123) added 1 net line in uxr-plugin/scripts before the baseline file existed; recorded here when first measured (develop = main + W2), because the release gate needs every line accounted for",

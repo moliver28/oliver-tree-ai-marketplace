@@ -102,12 +102,19 @@ DEFAULT_WAVE_TAB_HEADERS: tuple[str, ...] = (
 )
 
 #: Booking-page URL match when config ``recruit.booking_url_regex`` is
-#: empty. Organizations list their real booking domain in config.
+#: empty. Organizations list their real booking domain in config. The
+#: Google appointment-schedule shapes are the share link Google's
+#: ``Copy link`` emits (``calendar.app.google/<id>``) and the underlying
+#: booking page it resolves to; before the fix (issue 50) the pattern
+#: carried a hyphenated shape that matches nothing Google emits, so a
+#: real appointment link was refused and a redirect-wrapped URL could
+#: end up in the send instead.
 DEFAULT_BOOKING_URL_RE = (
     r"^https://(calendly\.com/|savvycal\.com/|cal\.com/|cal\.so/|"
     r"outlook\.office\.com/bookwithme/|bookings\.office\.com/|"
     r"calendar\.google\.com/calendar/u/\d+/appraisal/|"
-    r"calendar\.google\.com/calendar/u/\d+/appointment-schedules/)"
+    r"calendar\.google\.com/calendar/u/\d+/appointments/schedules/|"
+    r"calendar\.app\.google/)"
 )
 
 _EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.\-]+", re.UNICODE)
