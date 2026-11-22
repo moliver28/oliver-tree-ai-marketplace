@@ -120,6 +120,14 @@ Steps:
    already-exists error), then `git -C "<target>" push -u origin HEAD`.
    A push failure only warns: print the git error, note the workspace is
    committed locally, and continue.
+
+   Push gate (issue 58): a uxr-workspace commits to its main branch and
+   never creates branches or pull requests inside itself. The step-9
+   push runs only when `workspace.remote_push` is true; with the
+   default `false`, skip the push, note the workspace is committed
+   locally, and say in one line that `workspace.remote_push` controls
+   pushing. The marketplace repository is not a uxr-workspace; its own
+   flow is untouched.
 10. Print next steps, one line each, as plain command names with the key:
 
     - `show <KEY>` - open the study view

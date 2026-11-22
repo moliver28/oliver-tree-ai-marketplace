@@ -97,6 +97,7 @@ REQUIRED_KEYS: tuple[str, ...] = (
     "workspace.remote",
     "workspace.slug_max_body",
     "workspace.gitignored_paths",
+    "workspace.remote_push",
     "privacy.init_ignore",
     "evidence.sources",
     "evidence.chat_channels",

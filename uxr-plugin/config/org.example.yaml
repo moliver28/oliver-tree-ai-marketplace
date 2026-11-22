@@ -232,6 +232,11 @@ paths:
 workspace:
   # Optional git remote to give study workspaces.
   remote: ""
+  # Whether a workspace pushes its commits to the configured remote.
+  # A uxr-workspace commits to main; branches and pull requests are never
+  # created inside one (issue 58). Default false: commits stay local.
+  # uxr-workspaces only; the marketplace repository flow is untouched.
+  remote_push: false
   # Maximum characters of the ticket body used to derive the workspace slug.
   slug_max_body: 50
   # Paths inside a workspace that must be gitignored (participant data; these

@@ -74,6 +74,19 @@
         "date": "2026-11-21"
       },
       {
+        "wave": "W3",
+        "issue": 58,
+        "delta_lines": 19,
+        "files": [
+          "uxr-plugin/commands/uxr-init.md",
+          "uxr-plugin/config/org.example.yaml",
+          "uxr-plugin/lib/config.py",
+          "uxr-plugin/templates/workspace/CLAUDE.md"
+        ],
+        "reason": "Workspaces main-only with optional push (#58): the workspace.remote_push key (default false), the workspace template main-only git rule (commit to main, no branches, no pull requests, push only per config), and the additive uxr-init push gate paragraph. uxr-workspaces only; the marketplace repository flow is untouched. Net-new 19 payload lines.",
+        "date": "2026-11-21"
+      },
+      {
         "wave": "pre-baseline",
         "issue": 122,
         "guard": "report_html.py blockquote parser fix (#123) added 1 net line in uxr-plugin/scripts before the baseline file existed; recorded here when first measured (develop = main + W2), because the release gate needs every line accounted for",
