@@ -22,7 +22,34 @@
   "golden_path_model_calls": 6,
   "golden_path_declared_in": "uxr-plugin/CHANGELOG.md [0.2.0]: 'the golden path across the workflow now spends six model calls'; per-command shares are declared in uxr-plugin/commands/*.md",
   "justifications": {
-    "payload_growth": null,
+    "payload_growth": [
+      {
+        "wave": "W2",
+        "issue": 112,
+        "delta_lines": 465,
+        "files": [
+          "uxr-plugin/lib/adapters.py",
+          "uxr-plugin/lib/adapter_jira.py",
+          "uxr-plugin/config/org.example.yaml",
+          "uxr-plugin/lib/config.py"
+        ],
+        "reason": "Harness/sync split substrate (#112): adapter registry and resolver, Jira adapter facade over spec_blocks/field_map/build_body, adapters config section. Net-new 465 of 23,243 payload lines (2.0 percent), inside the 10 percent cap of about 2,324 lines and under the 600-line build target. Commands and references byte-identical; all pin counts unchanged.",
+        "date": "2026-11-21",
+        "pr": 129
+      },
+      {
+        "wave": "pre-baseline",
+        "issue": 122,
+        "guard": "report_html.py blockquote parser fix (#123) added 1 net line in uxr-plugin/scripts before the baseline file existed; recorded here when first measured (develop = main + W2), because the release gate needs every line accounted for",
+        "delta_lines": 1,
+        "files": [
+          "uxr-plugin/scripts/report_html.py"
+        ],
+        "reason": "Issue #122 fix: the blockquote parser consumes any >-prefixed line instead of hanging. One net-new line in uxr-plugin/scripts; pre-existing bug fix, zero UX change; disclosed in PR #123 and merged before the efficiency gate existed.",
+        "date": "2026-11-22",
+        "pr": 123
+      }
+    ],
     "golden_path_growth": null
   }
 }
