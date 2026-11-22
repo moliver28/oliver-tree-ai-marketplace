@@ -124,13 +124,19 @@ def column_token(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", str(name).strip().lower()).strip("_")
 
 
-def load_send_settings(environ: dict | None = None) -> tuple[dict, str]:
+def load_send_settings(
+    environ: dict | None = None, config_file: str | os.PathLike[str] | None = None
+) -> tuple[dict, str]:
     """SMTP settings: org config first (``recruit.email.*``), env as fallback.
 
     Returns ``(values, source)``. The config layer reads through
     ``lib.config.load_config`` (the documented PyYAML exception); when the
     config is absent, unreadable, or PyYAML is missing, the env fallbacks
     carry the account. Values never come from a repo file.
+    ``config_file`` overrides the user config path (``load_config``'s
+    ``user_file``); the repo-level test module points it at an empty file so
+    a check cannot depend on the machine's real ``config/org.yaml``
+    (issue 137).
     """
     env = os.environ if environ is None else environ
     values: dict[str, str | None] = {key: None for key in ENV_FALLBACKS}
@@ -138,7 +144,7 @@ def load_send_settings(environ: dict | None = None) -> tuple[dict, str]:
     try:
         from lib.config import load_config  # PyYAML: the documented exception
 
-        recruit = load_config().get("recruit")
+        recruit = load_config(user_file=config_file).get("recruit")
         email = recruit.get("email") if isinstance(recruit, dict) else None
         if isinstance(email, dict):
             for key in values:
@@ -483,6 +489,7 @@ def run(
     args: dict[str, str],
     environ: dict | None = None,
     deliver=None,
+    config_file: str | os.PathLike[str] | None = None,
 ) -> tuple[int, str]:
     """One CLI invocation; returns ``(exit_code, stdout_text)``.
 
@@ -491,13 +498,15 @@ def run(
     SMTP connection and writes stamps. ``deliver`` is injectable so the
     repo-level test module can pin the exit-code law without a network;
     the callable takes ``(plan, settings, report, show)`` and returns
-    the set of plan indexes that sent.
+    the set of plan indexes that sent. ``config_file`` overrides the
+    user config path the settings read through (the repo-level test
+    module points it at an empty file, issue 137).
     """
     show_contacts = bool(args.get("show_contacts"))
     participants_value = str(args.get("participants") or "").strip()
     if not participants_value:
         raise _Usage("--participants <participants.md> is required")
-    settings, settings_source = load_send_settings(environ)
+    settings, settings_source = load_send_settings(environ, config_file)
     template_value = str(args.get("template") or "").strip() or str(
         settings.get("template_path") or ""
     ).strip()

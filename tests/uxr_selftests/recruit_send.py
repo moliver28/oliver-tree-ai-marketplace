@@ -307,17 +307,35 @@ def _selftest() -> int:
         check("usage: unreadable participants file fails closed", True)
 
     # --send without an SMTP account refuses (usage), dry run never needs one.
-    # Precondition: config/org.yaml carries no recruit.email account here; on a
-    # configured machine this check needs the config layer pointed elsewhere
-    # (queued follow-up).
+    # The config layer is pointed at an empty file (issue 137), so the check
+    # holds on a machine whose real config/org.yaml carries an account.
     with tempfile.TemporaryDirectory() as directory:
         participants_path, template_path = _write_fixture(directory)
+        empty_config = Path(directory) / "empty-org.yaml"
+        empty_config.write_text("", encoding="utf-8")
+        values, source = load_send_settings(environ={}, config_file=str(empty_config))
+        check("an injected empty config carries no account values",
+              not values["smtp_host"] and not values["from_address"],
+              f"source={source} host={values['smtp_host']}")
         try:
             run({"participants": participants_path, "template": template_path,
-                 "send": "1", "today": "2026-11-22"}, environ={})
+                 "send": "1", "today": "2026-11-22"},
+                environ={}, config_file=str(empty_config))
             check("--send without an SMTP account refuses", False, "no error raised")
         except _Usage as exc:
             check("--send without an SMTP account refuses",
+                  "SMTP account" in str(exc), str(exc))
+        zero_path = Path(directory) / "participants-zero.md"
+        zero_path.write_text(PARTICIPANTS.replace("| invited |", "| scheduled |"),
+                             encoding="utf-8", newline="")
+        try:
+            run({"participants": str(zero_path), "template": template_path,
+                 "send": "1", "today": "2026-11-22"},
+                environ={}, config_file=str(empty_config))
+            check("--send with zero sendable rows and no account refuses", False,
+                  "no error raised")
+        except _Usage as exc:
+            check("--send with zero sendable rows and no account refuses",
                   "SMTP account" in str(exc), str(exc))
 
     if failures:
