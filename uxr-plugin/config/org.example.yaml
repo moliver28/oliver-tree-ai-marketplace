@@ -418,3 +418,33 @@ sync:
   enabled: false
   # Git remote name used for sync.
   remote: "origin"
+
+# -----------------------------------------------------------------------------
+# adapters: the pluggable sync half (issue 112). One entry per tracker kind.
+# tracker.kind selects the entry. module "" = declared, not built (absent-sync).
+# area: issues | kb. capabilities gate pull / push / spec-transform per entry.
+# -----------------------------------------------------------------------------
+adapters:
+  jira:
+    module: "lib/adapter_jira.py"
+    doc: "references/tracker.md"
+    area: issues
+    capabilities:
+      pull: true
+      push: true
+      spec_transform: true
+  linear:
+    module: ""
+    doc: "references/trackers-other.md"
+    area: issues
+    capabilities: {pull: true, push: true, spec_transform: true}
+  github:
+    module: ""
+    doc: "references/trackers-other.md"
+    area: issues
+    capabilities: {pull: true, push: true, spec_transform: true}
+  asana:
+    module: ""
+    doc: "references/trackers-other.md"
+    area: issues
+    capabilities: {pull: true, push: true, spec_transform: true}
