@@ -236,6 +236,47 @@
         ],
         "reason": "Recruit enforcement spec keys (issue 51, enforcement shape approved by MO 2026-11-22): the approved participants-table column sets, the locked seven-value status vocabulary, and the per-variant status-gate map added as checked constants in recruit_funnel.py, plus three pure additive checkers (header against the approved set, status against the locked vocabulary, row gates per the status-gate law). Nothing in run(), build_table(), preflight(), or reminders() calls them, so every existing output stays byte-identical; the funnel-table selftest passes unchanged and the new repo-level enforcement selftest (tests/uxr_selftests/, outside the payload) rides the smoke check-3 glob. Net-new 138 payload lines in scripts.",
         "date": "2026-11-22"
+      },
+      {
+        "wave": "W5",
+        "issue": 51,
+        "delta_lines": 670,
+        "files": [
+          "uxr-plugin/scripts/recruit_send.py",
+          "uxr-plugin/templates/workspace/recruitment/email-merge-template.example.md"
+        ],
+        "reason": "Recruitment email send MVP (issue 51, HANDOFF section 11; MO waived the policy concern): the plugin-native stdlib SMTP send script with a dry-run default (merged-message preview, no send, no stamp, no write), the invited-only sendable state machine (a send stamps DM sent (date) and advances invited to scheduled per the shipped gate map; a failed row gets no stamp), the one-recipient-per-message law (exactly one To header, never Cc or Bcc; a duplicate address sends once and later rows are reported), contact masking with the explicit show flag, the org-config recruit.email.* keys with UXR_RECRUIT_* env fallbacks, and the synthetic-only example merge template. The gate and column law is imported from recruit_funnel.py, not duplicated. No real send happens in the build; the repo carries placeholder values only. Net-new 670 payload lines (660 script + 10 template) of 23,243 (2.9 percent), inside the 10 percent cap.",
+        "date": "2026-11-22"
+      },
+      {
+        "wave": "W5",
+        "issue": 51,
+        "delta_lines": 54,
+        "files": [
+          "uxr-plugin/commands/uxr-recruit.md",
+          "uxr-plugin/config/org.example.yaml"
+        ],
+        "reason": "Email send (MVP) command-doc section and the recruit.email config keys (issue 51): one additive section after the external flow (the command, the dry-run default, the gate-law recap with the invited-only sendable state machine, the one-recipient law with contact masking, the SMTP account placement in the gitignored config or env vars, the synthetic example template path and the token rule) plus the optional DM paragraph (context plus the prep note, or nothing), the recruit_send.py Scripts-table row, and the sanctioned issue-135 item-3 list edit naming the email send in the scheduled-gate outreach list (2 lines swapped, net zero). The config example gains the recruit.email section with placeholder values only. Net-new 54 payload lines (34 command net, 20 config example); no existing wording rewritten beyond the sanctioned list edit, and the draft-only safety rule is untouched (the researcher runs the real send).",
+        "date": "2026-11-22"
+      },
+      {
+        "wave": "W5",
+        "issue": 135,
+        "delta_lines": 12,
+        "files": [
+          "uxr-plugin/scripts/recruit_funnel.py",
+          "uxr-plugin/templates/workspace/scripts/README.md"
+        ],
+        "reason": "Issue-135 item-4 fixes and the issue-53 terminology-law leftover, as folded one-liners: participant_header_issues now counts cells per column and names a duplicated approved column as 'duplicate column <name>' (detection stays fail-closed; the order check compares first occurrences, so a duplicate no longer reports as 'approved columns out of order'), its docstring names the new problem kind, and the participant_gate_lines docstring resolves the ambiguity ('withdrawn is checked first: it returns an empty list before the variant check, and the variant is checked for gated statuses'); the scripts workspace README first line rewords 'Discussion guides' to 'Interview scripts' per the MO-banned artifact word (1 line swapped, net zero lines). Net-new 12 payload lines, all in scripts (docstrings plus the duplicate-count block); the enforcement selftest gains one additive check pinning the new message (outside the payload).",
+        "date": "2026-11-22"
+      },
+      {
+        "wave": "W5",
+        "issue": 51,
+        "delta_lines": 14,
+        "files": ["uxr-plugin/scripts/recruit_send.py"],
+        "reason": "momus review fixes: parse_template now validates every brace pair, so a stray spelling (mixed case or hyphenated) fails closed per the documented law; the Message-ID domain derives from the sender address (recipient-domain IDs score spam filters); the selftest gains the env-name pin (7 pairs), two stray-token fail-closed checks, and the sender-domain Message-ID check, defines the EXIT_SELFTEST failure exit, and documents the refusal-check config precondition; the ledger prose of entry 2 now states 54. Net-new 14 payload lines (15 in, 1 out in the script; the selftest is outside the payload).",
+        "date": "2026-11-22"
       }
     ],
     "golden_path_growth": null
