@@ -6,7 +6,7 @@ Private index of reusable system assets for pointing ANY AI tool (Claude, Codex,
 
 | Asset | Path | Use |
 |---|---|---|
-| /voice plugin (canonical voice system) | `humanizer/` | Learn a voice profile with deterministic tools, rewrite copy via `/voice`, quiet tell gate on delivery. The owner's personal voice artifacts were removed from this mirror (de-personalization, 2026-11-21); the shipped plugin is fully generic. |
+| /voice plugin (canonical voice system) | `humanizer/` | Learn a voice profile with deterministic tools, rewrite copy via `/voice`, quiet tell gate on delivery; the gate also reports voice-fit to the user's clean-corpus centroid and source fidelity (`--source`, zero tokens), and `/voice learn-edit` teaches the plugin from hand-edited deliveries. The owner's personal voice artifacts were removed from this mirror (de-personalization, 2026-11-21); the shipped plugin is fully generic. |
 | Engineering workflows | `engineering/` | codebase-inspection, llm-integration, node/python debuggers, meta-decision, prompt-engineering, deliberation, iit-hci-integration. |
 | Research workflows | `research/` | grounded-citations, document-to-action-items, meeting-action-items, nlp-analyst, academic, literature-review. |
 | Prompt engineering | `engineering/prompt-engineering/` | COSTAR prompt optimization with evidence-based technique selection; explains every change it makes. |

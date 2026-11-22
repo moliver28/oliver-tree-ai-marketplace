@@ -13,6 +13,9 @@ overrides) over every sentence and writes learned/calibration.json:
   --floor hits per 1000 sentences. Each deviation is a decision for the USER
   (ban it, allow it, or add a state-file override), never an automatic rule
   change; the tool prints "decide by hand" for every flagged class.
+- index entries (when learned/clean-corpus-index.txt exists): light-edit
+  confirmations recorded by learn/edit_learning.py are scanned in addition to
+  --corpus (same counts, merged; missing files are skipped and counted).
 - deliveries (when given): the same counts over the deliveries corpus, so the
   user can compare clean writing against shipped work.
 
@@ -25,6 +28,7 @@ a clear message); 2 = bad arguments (missing path, corpus path is a file).
 import argparse
 import importlib.util
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -34,6 +38,12 @@ PLUGIN_DIR = HERE.parent                        # humanizer/
 DEFAULT_OUT = PLUGIN_DIR / "learned" / "calibration.json"
 
 SENT_SPLIT = re.compile(r"(?<=[.!?])\s+")
+
+
+def learned_dir():
+    """Per-user learned-artifact directory (VOICE_LEARNED_DIR overrides, same
+    contract as hooks/voice_tells.py learned_dir())."""
+    return Path(os.environ.get("VOICE_LEARNED_DIR", PLUGIN_DIR / "learned"))
 
 
 def load_voice_tells():
@@ -89,11 +99,32 @@ def scan_corpus(files, compiled):
     return out, sentences
 
 
+def index_entries(path):
+    """clean-corpus-index.txt entries: "<path>\\t<provenance>" lines; the path
+    column is used. Missing or non-.md/.txt paths are skipped and counted
+    (defined behavior, never fatal). Returns (sorted unique files, skipped)."""
+    p = Path(path).expanduser()
+    files, skipped = [], 0
+    if not p.is_file():
+        return files, skipped
+    for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        cand = Path(line.split("\t")[0].strip()).expanduser()
+        if cand.is_file() and cand.suffix.lower() in (".md", ".txt"):
+            files.append(cand)
+        else:
+            skipped += 1
+    return sorted(set(files)), skipped
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--corpus", required=True, help="directory of the user's real clean writing (.md/.txt)")
     ap.add_argument("--deliveries", default=None, help="optional directory of edited deliveries for comparison")
     ap.add_argument("--out", default=str(DEFAULT_OUT), help="calibration JSON path (default: the plugin's learned/calibration.json)")
+    ap.add_argument("--index", default=None, help="clean-corpus-index.txt path (default: learned/clean-corpus-index.txt; its entries are scanned in addition to --corpus)")
     ap.add_argument("--floor", type=float, default=1.0, help="deviation floor: hits per 1000 sentences that flag a class for review (default 1.0)")
     a = ap.parse_args()
     vt = load_voice_tells()
@@ -101,7 +132,16 @@ def main():
     compiled = [(re.compile(rx, re.IGNORECASE), label) for rx, label in eff["patterns"]]
 
     files = collect_files(a.corpus)
-    per_class, sentences = scan_corpus(files, compiled)
+    index_path = Path(a.index).expanduser() if a.index else learned_dir() / "clean-corpus-index.txt"
+    idx_files, idx_skipped = index_entries(index_path)
+    merged = []
+    seen = set()
+    for f in sorted(files + idx_files):
+        key = str(f.resolve())
+        if key not in seen:
+            seen.add(key)
+            merged.append(f)
+    per_class, sentences = scan_corpus(merged, compiled)
     deviations = [
         {"label": label, "per_1k_sentences": d["per_1k_sentences"], "hits": d["hits"],
          "action": "decide by hand"}
@@ -122,6 +162,7 @@ def main():
         "format": 1,
         "corpus": str(Path(a.corpus).expanduser()),
         "files": len(files),
+        "index": {"path": str(index_path), "entries": len(idx_files), "skipped": idx_skipped},
         "sentences": sentences,
         "patterns_checked": len(compiled),
         "deviation_floor_per_1k": a.floor,
@@ -132,10 +173,14 @@ def main():
         payload["deliveries"] = {"files": len(delivery_files),
                                  "sentences": delivery_sentences, "per_class": deliveries}
     out_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    if not files:
-        print(f"no .md/.txt files under {a.corpus}; calibration written with zero counts")
+    if idx_skipped:
+        print(f"index entries skipped (missing or not .md/.txt): {idx_skipped}")
+    if not merged:
+        print(f"no .md/.txt files under {a.corpus} and no readable index entries; "
+              "calibration written with zero counts")
     else:
-        print(f"calibrated {len(files)} files, {sentences} sentences against "
+        print(f"calibrated {len(merged)} files ({len(files)} corpus + {len(idx_files)} index entries), "
+              f"{sentences} sentences against "
               f"{len(compiled)} patterns: {sum(1 for d in per_class.values() if d['hits'])} classes fired, "
               f"{len(deviations)} deviations (floor {a.floor} per 1000 sentences) -> {out_path}")
     if deviations:

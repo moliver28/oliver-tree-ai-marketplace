@@ -20,6 +20,10 @@ Measured values in learned/profile.json:
 - openers: most frequent first two words of a sentence
 - passive_sentence_share: share of sentences with a passive-voice marker
 - intensifiers_per_100_words: vague-intensifier density
+- function_words (v1.1.0, issue #127 Tier 3): per-document frequency profile of
+  ~60 hardcoded English function words (unit: per-1000-words; per-document
+  mean + stddev across the samples). This is the Burrows' Delta reference
+  profile consumed by learn/acceptance_check.py --backend delta.
 - gate_pattern_hits: per-label hit counts and per-1000-sentence rates from the
   hooks/voice_tells.py regex layer (the machine register)
 
@@ -53,6 +57,16 @@ INTENSIFIER_RE = re.compile(r"\b(very|really|basically|actually|literally|defini
 PUNCT_MARKS = [(".", "period"), (",", "comma"), (";", "semicolon"), (":", "colon"),
                ("?", "question"), ("!", "exclamation"), ("\u2014", "em dash"),
                ("--", "double hyphen"), ("(", "open paren"), (")", "close paren")]
+
+# The ~60 hardcoded English function words of the Burrows' Delta profile
+# (issue #127 Tier 3). Exactly 60 entries; the single source of truth shared
+# with learn/acceptance_check.py (which imports this list).
+FUNCTION_WORDS = (
+    "the of and a to in is you that it he was for on are as with his they i "
+    "at be this have from or one had by word but not what all were we when "
+    "your can said there use an each which she do how their if will up other "
+    "about out many then them these so"
+).split()
 
 
 def load_voice_tells():
@@ -132,10 +146,18 @@ def analyze(files):
     paras, sents = [], []
     words_total = 0
     punct = {name: 0 for _, name in PUNCT_MARKS}
+    fw_rows = []  # per-document function-word frequency rows (Burrows' Delta profile)
     for f in files:
         text = f.read_text(encoding="utf-8", errors="replace")
         for mark, name in PUNCT_MARKS:
             punct[name] += text.count(mark)
+        doc_words = [w.lower() for w in WORD_RE.findall(text)]
+        counts = {w: 0 for w in FUNCTION_WORDS}
+        for w in doc_words:
+            if w in counts:
+                counts[w] += 1
+        base = len(doc_words)
+        fw_rows.append({w: counts[w] * 1000.0 / base if base else 0.0 for w in FUNCTION_WORDS})
         for para in split_paragraphs(text):
             paras.append(para)
             for s in sentences_of(para):
@@ -187,8 +209,26 @@ def analyze(files):
         "passive_sentence_share": round(passive / len(sents), 3) if sents else 0.0,
         "intensifiers_per_100_words": round(intensifiers * 100.0 / words_total, 2) if words_total else 0.0,
         "reader_address_share": round(you_hits / len(sents), 3) if sents else 0.0,
+        "function_words": function_word_profile(fw_rows),
     }
     return stats, sents
+
+
+def function_word_profile(fw_rows):
+    """Burrows' Delta reference profile: per-word mean + stddev of the
+    per-1000-words frequencies across the sample documents (population
+    stddev; a word constant across documents has stddev 0 and contributes 0
+    to a candidate's Delta)."""
+    n = len(fw_rows)
+    if not n:
+        return {"unit": "per-1000-words", "docs": 0, "words": list(FUNCTION_WORDS),
+                "mean": {}, "stddev": {}}
+    mean = {w: sum(row[w] for row in fw_rows) / n for w in FUNCTION_WORDS}
+    stddev = {w: math.sqrt(sum((row[w] - mean[w]) ** 2 for row in fw_rows) / n)
+              for w in FUNCTION_WORDS}
+    return {"unit": "per-1000-words", "docs": n, "words": list(FUNCTION_WORDS),
+            "mean": {w: round(v, 6) for w, v in mean.items()},
+            "stddev": {w: round(v, 6) for w, v in stddev.items()}}
 
 
 def gate_pattern_hits(sents, vt):

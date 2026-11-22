@@ -16,6 +16,17 @@ Two layers, both importable by gate.py (hook) and voice_check.py:
    nomic-embed-text as the fast path (warm ~13-64 ms); lazy in-process ONNX
    fallback (bge-small-en-v1.5 int8, ~35 MB, downloaded + cached on first
    use) when the daemon is absent.
+3. VOICE-FIT layer (v1.1.0, issue #127 Tier 1, attraction side): the same
+   chunk embeddings are also compared to the user's clean-corpus centroid
+   (learned/voice-centroid.json, built by voice_vector_build.py, backend-keyed
+   like the vectors). voice_fit(text) = mean over chunks of
+   cosine(chunk_embedding, centroid); absent artifact -> silently skipped
+   (fail-open, logged like the vectors). One embedding per unique text per
+   process: a chunk embedded for tell scoring is never embedded again for
+   voice-fit or source fidelity (_embed_memo + embed_cached). The gate's
+   --source fidelity check reuses the source embedding from the bounded,
+   hash-keyed disk cache learned/embed-cache.json so a repeated /voice run on
+   the same draft does not re-embed the source (ruling 1, issue #127).
 
 Learn/apply decoupling (issue #5): both layers load rule DATA from the runtime
 state file <HERMES_HOME>/state/voice-rules.json (path override: VOICE_RULES_STATE)
@@ -28,9 +39,16 @@ Runtime gate and published plugin share this ONE loading contract.
 Public API:
     find_regex_hits(text) -> list[str]
     find_vector_hits(text) -> list[str]
+    voice_fit(text) -> float | None
+    vector_scores(text) -> {"tell_hits": [...], "voice_fit": float | None}
+    vector_pass(text) -> full single-pass dict (tell hits + voice_fit + doc vector)
+    embed_cached(text, backend=None) -> (vector, backend)  # per-process memo
+    embed_source_cached(text, backend) -> vector | None    # disk-cached source embed
+    learned_dir() -> Path
     state_path() -> Path
     effective_rules() -> dict (patterns/exemplars/thresholds + provenance)
 """
+import hashlib
 import http.client
 import ipaddress
 import json
@@ -46,10 +64,21 @@ from pathlib import Path
 HOME = Path(os.environ.get("HERMES_HOME", "~/.hermes")).expanduser()
 HERE = Path(__file__).resolve().parent          # <plugin>/hooks/
 PLUGIN_DIR = HERE.parent                        # <plugin>/ (learned/ lives here)
-# Per-user vector artifacts: built by learn/voice_vector_build.py, never
-# shipped. Absent files -> vector layer skips itself (fail-open), regex stands.
-CACHE_PATH = PLUGIN_DIR / "learned" / "voice-tells-vectors.json"    # exemplar vectors, backend-keyed
-CAL_PATH = PLUGIN_DIR / "learned" / "voice-tells-calibration.json"  # per-class thresholds, backend-keyed
+# Per-user learned artifacts: built by the learn tools + /voice, never shipped.
+# VOICE_LEARNED_DIR relocates the whole directory (tests, side-by-side installs)
+# exactly like VOICE_RULES_STATE / VOICE_GATE_LOG override their sinks.
+LEARNED_DIR = Path(os.environ.get("VOICE_LEARNED_DIR", PLUGIN_DIR / "learned"))
+
+
+def learned_dir():
+    """Per-user learned-artifact directory (VOICE_LEARNED_DIR overrides)."""
+    return LEARNED_DIR
+
+
+CACHE_PATH = LEARNED_DIR / "voice-tells-vectors.json"    # exemplar vectors, backend-keyed
+CAL_PATH = LEARNED_DIR / "voice-tells-calibration.json"  # per-class thresholds, backend-keyed
+CENTROID_PATH = LEARNED_DIR / "voice-centroid.json"      # clean-corpus centroid, backend-keyed
+EMBED_CACHE_PATH = LEARNED_DIR / "embed-cache.json"      # --source embed cache, hash-keyed, bounded
 LEGACY_VEC_PATH = HOME / "state" / "voice-tells-vectors.json"
 STATE_ENV = "VOICE_RULES_STATE"   # runtime rule state override (tests, side-by-side installs)
 # Log sink resolves per call (VOICE_GATE_LOG override, tests + side-by-side installs)
@@ -354,6 +383,102 @@ def _load_calibration():
     return _cal
 
 
+_centroid = None  # loaded voice-centroid.json (backend-keyed), fail-open
+
+
+def _load_centroid():
+    global _centroid
+    if _centroid is None:
+        try:
+            loaded = json.loads(CENTROID_PATH.read_text(encoding="utf-8"))
+            _centroid = loaded if isinstance(loaded, dict) else {}
+        except Exception:
+            _centroid = {}
+    return _centroid
+
+
+def _atomic_write(path, text):
+    """Atomic artifact write: temp file in the same dir, then replace."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".part")
+    tmp.write_text(text, encoding="utf-8")
+    tmp.replace(path)
+
+
+# Per-process embed memo: one embedding per unique (backend, text) — a sentence
+# embedded for tell scoring is NOT embedded again for voice-fit or fidelity
+# (ruling 1, issue #127). Bounded; oldest entries dropped in insertion order.
+_embed_memo = {}
+EMBED_MEMO_MAX = 512
+
+
+def embed_cached(text, timeout=EMBED_TIMEOUT_S, backend=None):
+    """Memoized embed: returns (vector, resolved_backend). backend=None tries
+    the Ollama fast path then ONNX (same order as _embed) and consults the memo
+    for either; an explicit backend only hits its own memo entries."""
+    h = hashlib.sha256(text.encode("utf-8", "replace")).hexdigest()
+    if backend is not None:
+        hit = _embed_memo.get((backend, h))
+        if hit is not None:
+            return hit, backend
+    else:
+        for cand in ((["ollama"] if not _ollama_down else []) + ["onnx"]):
+            hit = _embed_memo.get((cand, h))
+            if hit is not None:
+                return hit, cand
+    vec, used = _embed(text, timeout, backend)
+    if len(_embed_memo) >= EMBED_MEMO_MAX:
+        for key in list(_embed_memo)[:len(_embed_memo) - EMBED_MEMO_MAX + 1]:
+            _embed_memo.pop(key, None)
+    _embed_memo[(used, h)] = vec
+    return vec, used
+
+
+# Source-embedding disk cache (gate --source fidelity, ruling 1): hash-keyed,
+# max 64 entries, oldest dropped in insertion order, atomic write. Key is
+# "<backend>:<sha256(text)[:16]>" — embedding spaces are backend-specific.
+_embed_cache = None
+EMBED_CACHE_MAX = 64
+
+
+def embed_source_cached(text, backend):
+    """Source embedding for the gate's --source fidelity check. Disk-cached in
+    learned/embed-cache.json: a repeated /voice run on the same draft must not
+    re-embed the source. Returns the vector, or None when no backend/embedder
+    is available (fail-open)."""
+    global _embed_cache
+    if not backend:
+        return None
+    short = hashlib.sha256(text.encode("utf-8", "replace")).hexdigest()[:16]
+    key = f"{backend}:{short}"
+    if _embed_cache is None:
+        try:
+            loaded = json.loads(EMBED_CACHE_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            loaded = {}
+        _embed_cache = loaded if (isinstance(loaded, dict)
+                                  and isinstance(loaded.get("entries"), dict)) else {"entries": {}}
+    entries = _embed_cache["entries"]
+    hit = entries.get(key)
+    if isinstance(hit, dict) and isinstance(hit.get("vec"), list):
+        _log_vec("embed_cache_hit", {"backend": backend, "key": short})
+        return hit["vec"]
+    try:
+        vec, used = embed_cached(text, backend=backend)
+    except Exception as e:
+        _log_vec("vec_skip", {"err": f"source embed: {e!r}"})
+        return None
+    if used != backend:
+        return vec  # backend switched mid-flight: usable, but not cacheable under this key
+    entries.pop(key, None)
+    entries[key] = {"vec": vec, "at": datetime.now(timezone.utc).isoformat()}
+    while len(entries) > EMBED_CACHE_MAX:
+        entries.pop(next(iter(entries)))
+    _atomic_write(EMBED_CACHE_PATH, json.dumps(_embed_cache))
+    _log_vec("embed_cache_store", {"backend": backend, "key": short})
+    return vec
+
+
 def _log_vec(event, detail):
     try:
         log = Path(os.environ.get("VOICE_GATE_LOG", str(LOG)))
@@ -557,16 +682,23 @@ def find_regex_hits(text):
     return hits
 
 
-def find_vector_hits(text):
-    """Return hits from the embedding layer; empty on any infrastructure miss.
-    Similarity is compared per class against the calibrated threshold for the
-    backend that produced the chunk embedding; state-file thresholds (issue #5)
-    override the embedded calibration per class."""
+def vector_pass(text):
+    """Single embedding pass over the chunks of text (v1.1.0, issue #127 T1).
+
+    Returns {"active": bool, "backend": str | None, "tell_hits": [str],
+             "voice_fit": float | None, "doc_vec": [float] | None}.
+    active False = the vector layer is off or unavailable (no artifacts, no
+    embedder): every consumer fails open. One chunk embed serves the tell
+    similarities, the voice-fit cosines and the document vector (per-process
+    memo via embed_cached). Embed or calibration miss on a chunk aborts the
+    scan exactly like v1.0.0 find_vector_hits (fail-open, logged)."""
+    inactive = {"active": False, "backend": None, "tell_hits": [],
+                "voice_fit": None, "doc_vec": None}
     if os.environ.get("VOICE_GATE_VECTOR", "").lower() == "off":
-        return []
+        return inactive
     cache, cal = _load_vectors(), _load_calibration()
     if not cache.get("backends"):
-        return []
+        return inactive
     eff = _effective()
     if eff["state"]["ok"] and _uncal_key[0] != eff["state"]["key"]:
         _uncal_key[0] = eff["state"]["key"]
@@ -575,18 +707,20 @@ def find_vector_hits(text):
                    if s != "embedded" and t not in cached]
         if missing:  # learned exemplars not yet vectorized: visible gap, fail-open
             _log_vec("state_uncalibrated", {"missing": len(missing), "sample": missing[0][:60]})
-    hits = []
+    centroids = _load_centroid().get("backends") or {}
+    hits, fits, vecs = [], [], []
+    backend = None
     for chunk in _chunks(text):
         try:
-            v, backend = _embed(chunk)
+            v, backend = embed_cached(chunk, backend=backend)
         except Exception as e:
             _log_vec("vec_skip", {"err": repr(e)})
-            return hits  # fail open: no embedder never blocks on its own
+            break  # fail open: no embedder never blocks on its own
         entry = cache["backends"].get(backend) or {}
         th = (cal.get("backends") or {}).get(backend, {}).get("thresholds", {})
         if not entry.get("vectors") or not th:
             _log_vec("vec_skip", {"err": f"backend '{backend}' uncalibrated"})
-            return hits
+            break
         chunk_hits = []
         for ex in entry["vectors"]:
             t = eff["thresholds"].get(ex["label"])
@@ -602,6 +736,10 @@ def find_vector_hits(text):
             _log_vec("vec_collision", {"backend": backend, "classes": len(chunk_hits),
                                        "chunk": chunk[:80]})
         hits.extend(chunk_hits)
+        cent = centroids.get(backend) or {}
+        if isinstance(cent.get("centroid"), list) and cent["centroid"]:
+            fits.append(_cosine(v, cent["centroid"]))
+        vecs.append(v)
     # dedupe labels
     seen, uniq = set(), []
     for h in hits:
@@ -609,7 +747,38 @@ def find_vector_hits(text):
         if label not in seen:
             seen.add(label)
             uniq.append(h)
-    return uniq
+    doc_vec = None
+    if vecs:
+        mean = [sum(col) / len(col) for col in zip(*vecs)]
+        norm = math.sqrt(sum(x * x for x in mean))
+        doc_vec = [x / norm for x in mean] if norm else mean
+    voice_fit = sum(fits) / len(fits) if fits else None
+    return {"active": backend is not None, "backend": backend, "tell_hits": uniq,
+            "voice_fit": voice_fit, "doc_vec": doc_vec}
+
+
+def find_vector_hits(text):
+    """Return hits from the embedding layer; empty on any infrastructure miss.
+    Similarity is compared per class against the calibrated threshold for the
+    backend that produced the chunk embedding; state-file thresholds (issue #5)
+    override the embedded calibration per class. Signature and semantics
+    unchanged from v1.0.0 (the tell part of the single vector_pass)."""
+    return vector_pass(text)["tell_hits"]
+
+
+def voice_fit(text):
+    """Attraction-side score (issue #127 Tier 1): mean over the chunks of
+    cosine(chunk_embedding, clean-corpus centroid) under the resolved backend.
+    None when the centroid artifact is absent or the embedder is unavailable
+    (fail-open, logged like the vector layer)."""
+    return vector_pass(text)["voice_fit"]
+
+
+def vector_scores(text):
+    """Convenience view over the single pass: {"tell_hits": [...],
+    "voice_fit": float | None}."""
+    vp = vector_pass(text)
+    return {"tell_hits": vp["tell_hits"], "voice_fit": vp["voice_fit"]}
 
 
 def scan(text, use_vector=True):
