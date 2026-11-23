@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0] - 2026-11-22
+### Added
+- Humanizer gap patterns in the shared scan core, each tagged `humanizer N` (43 new patterns; embedded register now 98): sycophancy (22), generic positive conclusions (25), persuasive-authority leftovers (27), signposting leftovers (28), rhetorical questions (32), sentence-opener tics (33), reassurance leftover (34), curly quotes (19), inline-header lists (16), Title Case headings (17, case-scoped so the shared IGNORECASE flag cannot defeat it), emoji decoration (18), false ranges (12). The humanizer skill's numbered families are now fully mirrored where regexable.
+- Michael-voice hard bans now mechanically scanned: north star, delight, impactful, drive impact/change/results, stakeholder value.
+- Env-configured voice-rules layer (`humanizer/hooks/voice_tells.py voice_rules_hits`, consumed by gate.py): point `DANEEL_RULES_YAML` at a named-regex YAML (same schema as the daneel style rules file) and the standing voice rules and anti-patterns ride on every scan; unset keeps the de-personalized default, fail-open. Compile semantics mirror the daneel lint engine (`make_flexible`), so one YAML source of truth drives both systems.
+- `--profile resume` (ATS profile from the humanizer skill's document-type condition logic): bullets and labeled section lines exempt from S1/S3, humanizer 16/17 hits filtered; all other prose rules in force.
+- STE S1/S2 fix: line-aware unit splitting (headings and bullet list items are not paragraph sentences; S1/S3/S5 still scan their text).
+
 ## [1.1.0] - 2026-11-21
 ### Added
 - Tier 1, attraction-side embedding scores (issue #127): `learn/voice_vector_build.py` also persists the user's clean-corpus voice centroid (`learned/voice-centroid.json`, per-document chunk embeddings, optional per-channel centroids via `--channel`); `hooks/voice_tells.py` gains `voice_fit`/`vector_scores`/`vector_pass` computed inside the same single embedding pass as the tell scan (one embed per unique text per process, shared memo). Hash guard: with unchanged corpus/exemplar/background hashes the build prints `current (hash <12 chars>), nothing rebuilt` and exits without loading the embedder.

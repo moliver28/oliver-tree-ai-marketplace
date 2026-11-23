@@ -36,6 +36,14 @@ claude plugin update uxr-plugin@oliver-tree-ai-marketplace
 
 Then one onboarding pass (`humanizer/learn/VOICE_ONBOARDING.template.md`), after which `/voice <text>` works everywhere. Consumable from any other AI tool by pointing it at `CLAUDE.md` in this repo.
 
+Runtime voice-rules layer (optional, one step): point the gate at a named-regex YAML (`pattern`, `severity`, optional `fix`, `message`, `allowlist`) per host and every scan adds those standing voice rules on top of the embedded register:
+
+```
+DANEEL_RULES_YAML=~/.hermes/scripts/daneel_style_rules.yaml python3 humanizer/hooks/gate.py --surface public < text.md
+```
+
+Resume-mode scan: add `--profile resume` (ATS exemptions per the humanizer skill's document-type condition logic: labeled section lines and Title Case headings; everything else still enforced).
+
 ## Verify
 
 ```

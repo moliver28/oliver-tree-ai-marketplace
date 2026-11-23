@@ -59,10 +59,24 @@ FIX_HINT = (
     ("testament", "Cut the inflation; state the concrete fact."),
     ("pivotal|landscape", "Cut the significance inflation; state the concrete fact."),
     ("not just", "See negative parallelism."),
+    ("humanizer 22", "Delete the praise line; open with the substantive point."),
+    ("humanizer 25", "Cut the uplift; state the concrete next fact or plan."),
+    ("humanizer 27", "Delete the authority frame; state the ordinary point plainly."),
+    ("humanizer 28", "Delete the announcement; do the thing instead of naming it."),
+    ("humanizer 32", "Replace the question with the point it was going to make."),
+    ("humanizer 33", "Delete the opener; start the sentence with its subject."),
+    ("humanizer 34", "Cut the reassurance clause; the point stands without it."),
+    ("humanizer 19", "Swap curly quotes for straight quotes."),
+    ("humanizer 16", "Fold the bullet into a sentence listing the items."),
+    ("humanizer 17", "Lowercase the heading words (sentence case) except the first."),
+    ("humanizer 18", "Delete the emoji."),
+    ("humanizer 12", "List the real items instead of the from-X-to-Y sweep."),
+    ("daneel", "Patch per the stated voice rule; the message names the repair."),
 )
 
 S1_MAX_WORDS = 20
 S2_MAX_SENT = 3
+profile = "public"  # public | resume (ATS exemptions, humanizer-skill condition profiles; set in main())
 S6_ADVERBS = r"\b(very|really|basically|actually|literally|definitely|certainly)\b"
 S4_FILLER = r"\b(in order to|it should be noted that|it is important to note that|is used to)\b"
 S3_PASSIVE = r"\b(is|are|was|were|be|been|being)\s+\w+(?:ed|en)\b"
@@ -71,19 +85,46 @@ def ste_hits(text):
     hits = []
     paras = [p for p in re.split(r"\n\s*\n", text) if p.strip()]
     for pi, para in enumerate(paras):
-        sents = re.split(r"(?<=[.!?])\s+", para.strip())
-        sents = [s for s in sents if s.strip()]
-        if len(sents) > S2_MAX_SENT:
-            hits.append(f"S2 paragraph has {len(sents)} sentences (max {S2_MAX_SENT}) (para {pi+1} near: '"
+        # Line-aware splitting: bullets, headings, and labeled lines are their own
+        # units so profiles can exempt them per the humanizer skill's condition
+        # profiles; prose lines still split into sentences normally.
+        sents = []
+        unit_flags = []  # True when the unit is a heading/bullet, not a paragraph sentence
+        bullet_lines = 0
+        for line in para.splitlines():
+            if not line.strip():
+                continue
+            is_bh = bool(re.match(r"\s*(#{1,6}\s|[-*\u2022]\s)", line))
+            if re.match(r"\s*[-*\u2022]\s", line):
+                bullet_lines += 1
+            chunks = re.split(r"(?<=[.!?])\s+", line.strip())
+            for s in chunks:
+                if s.strip():
+                    sents.append(s.strip())
+                    unit_flags.append(is_bh)
+        bullet_para = bullet_lines >= 2 or (bullet_lines >= 1 and len(sents) <= bullet_lines + 1)
+        # Headings and bullet list items are not paragraph sentences: they sit
+        # out of the S2 count on every surface; S1/S3/S5 still scan their text.
+        s2_sent_count = len([f for f in unit_flags if not f])
+        if s2_sent_count > S2_MAX_SENT and not (profile == "resume" and bullet_para):
+            hits.append(f"S2 paragraph has {s2_sent_count} sentences (max {S2_MAX_SENT}) (para {pi+1} near: '"
                         + para.strip()[:60].replace(chr(10), ' ') + "...')")
         for si, s in enumerate(sents):
             wc = len(re.findall(r"[A-Za-z0-9']+", s))
-            if wc > S1_MAX_WORDS:
+            # ATS profile: bullets and labeled section lines are exempt from S1
+            # length (subjectless fragments are the resume convention); the S3
+            # passive heuristic reads "was standardized" as passive when it is a
+            # parser-required ownership verb.
+            bullet_or_label = bool(re.match(r"\s*[-*\u2022]\s|^[A-Z][\w ]+:", s))
+            exempt = profile == "resume" and bullet_or_label
+            if wc > S1_MAX_WORDS and not exempt:
                 hits.append(f"S1 sentence over {S1_MAX_WORDS} words ({wc}) (para {pi+1}, sent {si+1} near: '"
                             + s[:60] + "...')")
             if len(re.findall(r"\b\w+ing\b", s)) >= 2:
                 hits.append(f"S5 two or more -ing forms in one sentence (para {pi+1}, sent {si+1} near: '"
                             + s[:60] + "...')")
+            if exempt:
+                continue
             for rx, tag, fixnote in (
                 (S3_PASSIVE, "S3 passive voice", "S3 passive voice detected: rewrite the clause active at that spot."),
                 (S4_FILLER, "S4 filler verb chain", "S4 filler: use the plain verb directly."),
@@ -175,11 +216,15 @@ def _advisory_signals(raw, source_path):
     return advisory
 
 def main():
+    global profile
     argv = sys.argv[1:]
     surface = "public"
     source_path = None
     if "--surface" in argv:
         i = argv.index("--surface"); surface = argv[i+1] if i+1 < len(argv) and argv[i+1] in ("chat", "public") else "public"
+        argv = [a for j, a in enumerate(argv) if j not in (i, i+1)]
+    if "--profile" in argv:
+        i = argv.index("--profile"); profile = argv[i+1] if i+1 < len(argv) and argv[i+1] in ("public", "resume") else "public"
         argv = [a for j, a in enumerate(argv) if j not in (i, i+1)]
     if "--source" in argv:
         i = argv.index("--source")
@@ -195,9 +240,23 @@ def main():
         hits = [] if surface == "chat" else tells.find_regex_hits(raw)
     except Exception:
         hits = []
+    if profile == "resume":
+        # ATS profile (humanizer skill, document-type condition logic): labeled
+        # category lines (pattern 16) and Title Case sections/titles (pattern 17)
+        # are parser convention, not tells.
+        try:
+            hits = [h for h in hits if "humanizer 16" not in h and "humanizer 17" not in h]
+        except Exception:
+            pass
     # STE always enforced, both surfaces.
     try:
         hits = list(hits) + ste_hits(raw)
+    except Exception:
+        pass
+    # Voice-rules layer (daneel_style_rules.yaml adapter): the local voice rules
+    # and anti-patterns ride on top of the humanizer scan, one source of truth.
+    try:
+        hits = list(hits) + tells.voice_rules_hits(raw)
     except Exception:
         pass
     advisory = _advisory_signals(raw, source_path)

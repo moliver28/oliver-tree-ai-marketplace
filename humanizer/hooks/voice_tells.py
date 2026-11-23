@@ -163,9 +163,107 @@ PATTERNS = [
     (r"\bwould\s+you\s+like\s+me\s+to\b", "chatbot artifact 'Would you like me to...'"),
     (r"\bi\s+hope\s+this\s+helps?\b", "chatbot artifact 'I hope this helps'"),
     (r"\bfeel\s+free\s+to\s+(?:reach\s+out|let\s+me\s+know)\b", "chatbot artifact 'feel free to...'"),
+    # humanizer gap patterns (2026-11-22 scan extension): plug the humanizer 35-pattern
+    # families the gate missed; each maps to a numbered humanizer SKILL.md pattern.
+    # 22 sycophantic/servile tone
+    (r"\byou'?re\s+absolutely\s+right\b", "humanizer 22 sycophancy 'you're absolutely right' (state the substance instead)"),
+    (r"\bgreat\s+(?:question|point)!\b", "humanizer 22 sycophancy 'great question/point!' (state the substance instead)"),
+    (r"\bexcellent\s+point\b", "humanizer 22 sycophancy 'excellent point' (state the substance instead)"),
+    (r"^\s*(?:absolutely!|certainly!|of course!)\s*$", "humanizer 22 sycophancy bare 'Absolutely!/Certainly!/Of course!' (state the substance instead)"),
+    (r"\bthat'?s\s+an\s+excellent\b", "humanizer 22 sycophancy 'that's an excellent ...'"),
+    # 25 generic positive conclusions
+    (r"\bthe\s+future\s+looks?\s+bright\b", "humanizer 25 generic positive conclusion (state the concrete next fact)"),
+    (r"\bexciting\s+times\s+(?:lie|are)\s+ahead\b", "humanizer 25 generic positive conclusion"),
+    (r"\ba\s+(?:major\s+)?step\s+in\s+the\s+right\s+direction\b", "humanizer 25 generic positive conclusion"),
+    (r"\bcontinue\s+(?:their|its)\s+journey\b", "humanizer 25 generic positive conclusion 'continue their journey'"),
+    # 27 leftovers
+    (r"\bfundamentally,?\s", "humanizer 27 persuasive authority 'fundamentally,'"),
+    (r"\bthe\s+deeper\s+(?:issue|question|point)\b", "humanizer 27 persuasive authority 'the deeper issue'"),
+    (r"\bin\s+reality,?\s", "humanizer 27 persuasive authority 'in reality,'"),
+    # 28 signposting leftovers
+    (r"\bhere'?s\s+what\s+(?:you\s+)?need\s+to\s+know\b", "humanizer 28 signpost 'here's what you need to know'"),
+    (r"\bwithout\s+further\s+ado\b", "humanizer 28 signpost 'without further ado'"),
+    (r"\blet'?s\s+break\s+(?:this|it|that)\s+down\b", "humanizer 28 signpost 'let's break this down'"),
+    (r"\blet'?s\s+explore\b", "humanizer 28 signpost 'let's explore'"),
+    (r"\bnow\s+let'?s\s+(?:look|turn)\s+(?:at|to)\b", "humanizer 28 signpost 'now let's look at'"),
+    # 32 rhetorical questions answered immediately
+    (r"\bever\s+wonder(?:ed)?\b", "humanizer 32 rhetorical question 'ever wondered' (state the point directly)"),
+    (r"\bthink\s+about\s+it:?\b", "humanizer 32 rhetorical question 'think about it'"),
+    (r"\bwhat\s+if\s+(?:i|we|you)\s+told\s+you\b", "humanizer 32 rhetorical question 'what if I told you'"),
+    # 33 sentence-opener tics
+    (r"^\s*(?:Interestingly|Importantly|Notably|Crucially|Essentially|Ultimately),\s", "humanizer 33 adverb opener (start with the substance; the sentence must earn the adverb)"),
+    (r"^\s*So,\s", "humanizer 33 sentence opener 'So,'"),
+    (r"^\s*Look,?\s", "humanizer 33 sentence opener 'Look,'"),
+    # 34 leftover
+    (r"\bthere'?s\s+nothing\s+wrong\s+with\s+(?:that|this)\b", "humanizer 34 reassurance kicker 'there's nothing wrong with that' (trust the reader)"),
+    # 19 curly quotes
+    (r"[\u201c\u201d\u2018\u2019]", "humanizer 19 curly quotation marks (use straight quotes)"),
+    # 15/16/17/18 style and formatting
+    (r"^\s*[-*]\s\*\*[^*\n]+:\*\*\s", "humanizer 16 inline-header list item '- **Header:** text' (write flowing prose)"),
+    (r"^#{1,6}\s+(?-i:[A-Z][a-z]+\s+[A-Z][a-z]+)", "humanizer 17 Title Case heading (use sentence case)"),
+    (r"[\U0001F300-\U0001FAFF\u2600-\u27BF]", "humanizer 18 emoji decoration (delete the emoji)"),
+    # 12 false ranges
+    (r"\bfrom\s+\w[\w\s]{0,20}\b\s+to\s+\b[\w\s]{0,20},?\s+from\b", "humanizer 12 false range 'from X to Y, from A to B' (list the real items)"),
+    # personal-voice hard bans (em dash, corporate speak, throat-clearing family) the list missed
+    (r"\bnorth[-\s]?star\b", "voice ban 'north star' (state the concrete goal)"),
+    (r"\bdelight(?:ed|ing)?\b", "voice ban 'delight' (state what happens, not how it feels)"),
+    (r"\bimpactful\b", "voice ban 'impactful' (name the actual effect)"),
+    (r"\bdrive\s+(?:meaningful\s+)?(?:impact|change|results)\b", "voice ban 'drive impact/change/results' (name the concrete outcome)"),
+    (r"\bstakeholder\s+value\b", "voice ban 'stakeholder value' (name whose value and what changes)"),
+    # humanizer 1/4/7 vocabulary: significance inflation and promo language that was
+    # previously vector-layer-only; these are regexable, so scan them deterministically.
+    (r"\btestament\s+to\b", "humanizer 1 significance inflation 'testament to' (state the concrete fact)"),
+    (r"\bpivotal\b", "humanizer 1 significance inflation 'pivotal' (state what changed)"),
+    (r"\bcrucial\s+(?:role|moment|step|factor)\b", "humanizer 1 significance inflation 'crucial role/moment'"),
+    (r"\b(?:underscore|highlight|highlights)s?\s+(?:its|the)\s+(?:importance|significance)\b", "humanizer 1 significance inflation 'underscores/highlights the importance'"),
+    (r"\bstand(?:s|ing)\s+the\s+test\s+of\s+time\b", "humanizer 1 significance cliché 'stands the test of time'"),
+    (r"\burges?\s+(?:visitors|readers)\b", "humanizer 4 promo-tourism 'urges visitors/readers'"),
+    (r"\bnested\b|\bmust-visit\b|\bbreathtaking\b|\bstunning\b", "humanizer 4 promotional language (state the feature plainly)"),
+    (r"\bvibrant\b", "humanizer 4 promotional language 'vibrant'"),
+    (r"\bboast(?:s|ing)?\b", "humanizer 8 copula avoidance 'boasts' (use 'has')"),
 ]
 
-_FLAGS = re.IGNORECASE
+_FLAGS = re.IGNORECASE | re.MULTILINE  # MULTILINE: opener/heading anchors match per line
+
+# ---------------- VOICE RULES LAYER (named-regex YAML adapter) ----------------
+# 2026-11-22: the tell scan adapts to a host's local voice rules and
+# anti-patterns by consuming its named-regex YAML (DANEEL_RULES_YAML), so the
+# two systems share one source of truth. When the env var is unset
+# (portable/de-personalized installs), the layer skips: fail-open.
+_RULES_YAML = os.environ.get("DANEEL_RULES_YAML")  # env-configured voice-rules layer; unset -> layer off
+
+def _load_voice_rules():
+    if not _RULES_YAML:
+        return []
+    try:
+        import yaml
+        rules = yaml.safe_load(open(_RULES_YAML)).get("rules") or {}
+        return [(rid, rule["pattern"], str(rule.get("message") or rid),
+                 [str(a) for a in (rule.get("allowlist") or [])]) for rid, rule in rules.items()]
+    except Exception:
+        return []
+
+def voice_rules_hits(text):
+    hits = []
+    for rid, pattern, message, allowlist in _load_voice_rules():
+        # Compile semantics mirror daneel_style_lint.make_flexible exactly, so the
+        # gate and the style plugin see the same rules.
+        flags = re.VERBOSE if "\n" in pattern else 0
+        if "(?-i)" not in pattern:
+            flags |= re.IGNORECASE
+        p = pattern.replace("(?-i)", "")
+        try:
+            rx = re.compile(p, flags)
+        except re.error:
+            continue
+        for m in rx.finditer(text):
+            token = m.group(0)
+            if allowlist and any(token.strip() == a for a in allowlist):
+                continue
+            near = text[max(0, m.start() - 25):m.end() + 25].replace("\n", " ")
+            hits.append(f"daneel {rid}: {message} (near: {near!r})")
+            break  # one report per rule per scan; density is the scanner's job
+    return hits
 
 # ---------------- VECTOR LAYER ----------------
 # One or more exemplar strings per tell family; paraphrases of these should hit.
@@ -782,7 +880,15 @@ def vector_scores(text):
 
 
 def scan(text, use_vector=True):
+    """Full deterministic scan: embedded regex register + optional vector layer
+    + host voice-rules YAML layer (DANEEL_RULES_YAML; skip when unset,
+    fail-open). All rules ride every caller that uses scan(): the plugin gate,
+    the Hermes pre-delivery hook, and voice_check.py."""
     hits = find_regex_hits(text)
     if use_vector and len(text) > 40:
         hits.extend(find_vector_hits(text))
+    try:
+        hits.extend(voice_rules_hits(text))
+    except Exception:
+        pass
     return hits

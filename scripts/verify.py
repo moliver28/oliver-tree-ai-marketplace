@@ -137,7 +137,7 @@ for p in data["plugins"]:
     ck(mj.get("name") == p["name"], f"manifest name matches for {p['name']}")
     ck(mj.get("version") == p.get("version"), f"version parity {p['name']} (manifest vs marketplace)")
     if p["name"] == "humanizer-voice":
-        ck(mj.get("version") == "1.1.0", f"humanizer-voice is at 1.1.0 (issue #127 tiers shipped): got {mj.get('version')}")
+        ck(mj.get("version") == "1.2.0", f"humanizer-voice is at 1.2.0 (humanizer-gap wiring shipped): got {mj.get('version')}")
     d = mj.get("description", "")
     ck(len(d) <= 256, f"description <=256 chars for {p['name']} ({len(d)})")
     ck("'" in d and "use when the user says" in d.lower(), f"description carries human trigger phrases for {p['name']}")
@@ -169,8 +169,8 @@ for p in data["plugins"]:
         if vt is not None:
             # De-personalized register: 55 patterns (the six owner-order register-36/37
             # adds are gone), 16 synthetic exemplars, and no register/owner wording in labels.
-            ck(len(vt.PATTERNS) == 55,
-               f"voice_tells embedded pattern count == 55 (de-personalized register; edit this check together with the register): got {len(vt.PATTERNS)}")
+            ck(len(vt.PATTERNS) == 98,
+               f"voice_tells embedded pattern count == 98 (55 de-personalized register + 43 humanizer-gap/voice-ban patterns, owner order 2026-11-22): got {len(vt.PATTERNS)}")
             ck(len(vt.EXEMPLARS) == 16,
                f"voice_tells embedded exemplar count == 16 (synthetic exemplar set): got {len(vt.EXEMPLARS)}")
             ck(not any(("register" in label.lower() or "owner" in label.lower()) for _p, label in vt.PATTERNS),
@@ -700,7 +700,7 @@ ck("PROVENANCE.md" in readme, "README links provenance ledger")
 # change = explicit owner approval. Zero stubs / markers enforced below.
 TOP_GROUPS = {"business", "engineering", "hobby", "research"}
 TOP_PLUGINS = {"decision-advisor", "humanizer", "uxr-plugin"}
-TOP_WHITELIST = TOP_GROUPS | TOP_PLUGINS | {"scripts", "tests"}
+TOP_WHITELIST = TOP_GROUPS | TOP_PLUGINS | {"scripts", "tests", "docs"}
 LEVEL2_WHITELIST = {
     "business": ["side-business-gtm"],
     "engineering": ["codebase-inspection", "deliberation", "iit-hci-integration", "llm-integration",
