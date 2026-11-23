@@ -51,11 +51,11 @@ def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def _section(text: str, start_marker: str, end_marker: str) -> str:
-    """The source slice between two section banners (the sync law spans the
-    syncEvents function plus its _syncFollowups/_syncPrep helpers)."""
+def _section(text: str, start_marker: str, end_marker: str | None = None) -> str:
+    """The source slice from a section banner to the next banner (the sync law
+    spans syncEvents plus its helpers; no end_marker means EOF)."""
     start = text.index(start_marker)
-    end = text.find(end_marker, start)
+    end = text.find(end_marker, start) if end_marker else -1
     return text[start:end if end != -1 else len(text)]
 
 
@@ -106,7 +106,7 @@ def _selftest() -> int:
     check("_track runs the daily cap counter over Script Properties",
           "TRACK_DAILY_CAP" in track_body and "getScriptProperties" in track_body
           and '"track_count"' in track_body, "cap counter missing")
-    form_body = _section(gs, "function onFormSubmit(", "\n// --- end of file marker")
+    form_body = _section(gs, "function onFormSubmit(")
     check("the form append passes the respondent values through _plainCell",
           "_plainCell(email)" in form_body and "_plainCell(name)" in form_body
           and "_plainCell(study)" in form_body, "unwrapped append values")
@@ -180,7 +180,7 @@ def _selftest() -> int:
     doget_body = _section(gs, "function doGet(",
                           "\n// --- calendar-timed")
     check("the click route returns a one-click interstitial",
-          '"<p>Continue to " + _esc(host)' in doget_body, "no interstitial page")
+          '"<p>Continue to " + _esc(m[1])' in doget_body, "no interstitial page")
     check("the instant meta-refresh redirector is gone",
           "http-equiv" not in doget_body, "meta-refresh still present")
     check("the unsub honors u only against a Wave-tab row (m-only is unverified)",

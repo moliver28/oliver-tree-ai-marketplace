@@ -196,8 +196,8 @@ function _compose(id, body) {
 
 // --- schedule send (#89: one-off installable time trigger) ---
 // Schedules one mergeSend pass of tabName near `when` (a Date or a text a
-// Date parses); Google picks the exact minute. The handler sends first, and
-// only a clean send deletes its trigger and property (a rerun can retry).
+// Date parses); Google picks the exact minute. The handler sends first; only
+// a clean send deletes its trigger and property (a failed fire = schedule again).
 function scheduleSend(tabName, when) {
   var at = when instanceof Date ? when : new Date(when);
   if (isNaN(at.getTime())) throw new Error("scheduleSend: `when` is not a date");
@@ -226,8 +226,9 @@ function doGet(e) {
   }
   if (p.c && p.go) { // click: log, then a one-click interstitial (the click is already counted)
     _track("click", _findById(p.c).email, "", p.c, p.go);
-    var host = (String(p.go).match(/^https?:\/\/([^\/]+)/) || ["", p.go])[1];
-    return HtmlService.createHtmlOutput("<p>Continue to " + _esc(host) + ': <a href="' + _esc(p.go) + '">' + _esc(p.go) + "</a></p>");
+    var m = String(p.go).match(/^https?:\/\/([^\/]+)/); // no http(s): no link at all
+    if (!m) return HtmlService.createHtmlOutput("<p>Unknown destination.</p>");
+    return HtmlService.createHtmlOutput("<p>Continue to " + _esc(m[1]) + ': <a href="' + _esc(p.go) + '">' + _esc(p.go) + "</a></p>");
   }
   if (p.u || p.m) { // unsubscribe: the id must name a Wave row; an m-only hit is unverified
     var lock = LockService.getScriptLock(); lock.waitLock(30000);
@@ -319,12 +320,12 @@ function _syncFollowups(matched, windowStart, now) {
   for (var k in matched) {
     if (k in seen) continue;
     var m = matched[k];
-    sheet.appendRow([new Date(m.start.getTime() + lead * HOUR_MS), m.email, FOLLOWUP_KEY, m.title, "pending", ""]);
+    sheet.appendRow([new Date(m.start.getTime() + lead * HOUR_MS), _plainCell(m.email), FOLLOWUP_KEY, _plainCell(m.title), "pending", ""]);
   }
 }
 function _stampFollowup(sheet, row, status, note) {
   sheet.getRange(row, FOLLOWUP_STATUS_COL).setValue(status);
-  if (note) sheet.getRange(row, FOLLOWUP_STATUS_COL + 1).setValue(String(note));
+  sheet.getRange(row, FOLLOWUP_STATUS_COL + 1).setValue(note ? String(note) : ""); // "" clears a stale note
 }
 function _sendFollowup(email, study) {
   var booking = _cfgText("booking_url");
@@ -355,7 +356,7 @@ function _syncPrep(matched, windowStart) {
     if (k in seen) continue;
     var m = matched[k];
     var prepWhen = new Date(m.start.getTime() - lead * HOUR_MS);
-    sheet.appendRow([prepWhen, m.title + " " + _iso(m.start), m.email, ""]);
+    sheet.appendRow([prepWhen, _plainCell(m.title + " " + _iso(m.start)), _plainCell(m.email), ""]);
     if (MailApp.getRemainingDailyQuota() > 0) _notifyPrep(m, prepWhen); // quota-gated like every send
   }
 }
