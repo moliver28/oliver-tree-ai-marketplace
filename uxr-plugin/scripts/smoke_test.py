@@ -347,7 +347,10 @@ def check_template_dashes() -> None:
         for path in sorted(templates.rglob("*"))
         if path.is_file()
         and path.suffix.lower() in _TEMPLATE_SUFFIXES
-        and any(keyword in path.as_posix().lower() for keyword in _TEMPLATE_KEYWORDS)
+        and any(
+            keyword in path.relative_to(PLUGIN_ROOT).as_posix().lower()
+            for keyword in _TEMPLATE_KEYWORDS
+        )
     ]
     if not targeted:
         record(

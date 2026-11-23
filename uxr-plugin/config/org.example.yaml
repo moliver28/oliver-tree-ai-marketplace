@@ -381,6 +381,15 @@ recruit:
     # Default merge template path (a workspace-local file); the --template
     # flag overrides it.
     template_path: ""
+    # URL of the mail-merge web app (the Google Sheets Apps Script
+    # deployment). When set, every merged recruitment email carries one
+    # unsubscribe footer line pointing at the web app's unsubscribe route.
+    # Env fallback: UXR_RECRUIT_WEBAPP_URL.
+    webapp_url: ""
+    # Append the unsubscribe footer when webapp_url is set (the default).
+    # Set false to send without the footer. Env fallback:
+    # UXR_RECRUIT_UNSUBSCRIBE.
+    unsubscribe: true
 
 # -----------------------------------------------------------------------------
 # recruiting: the CSM and Alliance Partner coordination sources (issue 50)

@@ -16,6 +16,7 @@ from _harness import bind
 
 bind("scripts.recruit_send", globals())
 
+import csv  # selftest-only import (no shipped surface)
 import tempfile  # selftest-only import (no shipped surface)
 from scripts import recruit_funnel as _funnel  # the identity pin source
 
@@ -177,7 +178,7 @@ def _selftest() -> int:
                 check(f"stray token {stray_token} fails closed", False, "no error raised")
             except _Usage:
                 check(f"stray token {stray_token} fails closed", True)
-        check("env fallback names pinned (7 values, in order)",
+        check("env fallback names pinned (9 values, in order)",
               list(ENV_FALLBACKS.values()) == [
                   "UXR_RECRUIT_SMTP_HOST",
                   "UXR_RECRUIT_SMTP_PORT",
@@ -186,6 +187,8 @@ def _selftest() -> int:
                   "UXR_RECRUIT_FROM",
                   "UXR_RECRUIT_USE_TLS",
                   "UXR_RECRUIT_TEMPLATE",
+                  "UXR_RECRUIT_WEBAPP_URL",
+                  "UXR_RECRUIT_UNSUBSCRIBE",
               ])
         check("Message-ID domain is the sender domain",
               "@team.example.com" in str(build_message(
@@ -206,6 +209,56 @@ def _selftest() -> int:
                          "show_contacts": "1", "today": "2026-11-22"}, environ={})
         check("--show-contacts shows the contact (the explicit flag)",
               "ada.example@example.com" in out, out[:200])
+
+        # --export-sheet: the approved Sheet header, one row per participant,
+        # the docstring mapping; exit 0, nothing else changes.
+        export_path = Path(directory) / "sheet-export.csv"
+        before_export = Path(participants_path).read_bytes()
+        code, out = run({"participants": participants_path, "export_sheet": str(export_path)},
+                        environ={})
+        check("the export exits 0", code == EXIT_OK, str(code))
+        check("the export writes no send report lines",
+              out.startswith("EXPORT:") and "DRY RUN" not in out, out[:120])
+        check("the export changes nothing on disk",
+              Path(participants_path).read_bytes() == before_export)
+        exported = list(csv.reader(export_path.read_text(encoding="utf-8").splitlines()))
+        expected_header = (list(_funnel.DEFAULT_WAVE_TAB_HEADERS)
+                           + list(_funnel.PARTICIPANT_COLUMNS["external"]))
+        check("the export header is the wave-tab headers + the approved columns",
+              exported[0] == expected_header, str(exported[0]))
+        check("the export carries one row per external participant",
+              len(exported) - 1 == len(external["rows"]), f"{len(exported) - 1} rows")
+        id_index = expected_header.index("participant id")
+        ada_row = next(r for r in exported[1:] if r[id_index] == "P-01")
+        check("the export maps Recipient to the contact email",
+              ada_row[expected_header.index("Recipient")] == "ada.example@example.com",
+              str(ada_row))
+        check("the export maps First name to name/pseudonym",
+              ada_row[expected_header.index("First name")] == "Ada Example", str(ada_row))
+        check("the export leaves Account Name and Booking link empty",
+              ada_row[expected_header.index("Account Name")] == ""
+              and ada_row[expected_header.index("Booking link")] == "", str(ada_row))
+        check("the export carries the status column verbatim",
+              ada_row[expected_header.index("status")] == "invited", str(ada_row))
+        kit_row = next(r for r in exported[1:] if r[id_index] == "P-04")
+        check("a Slack-only contact exports an empty Recipient",
+              kit_row[expected_header.index("Recipient")] == "", str(kit_row))
+        drifted = Path(directory) / "participants-drifted.md"
+        drifted.write_text(PARTICIPANTS.replace("| prep note |", "| prep notes |"),
+                           encoding="utf-8", newline="")
+        try:
+            run({"participants": str(drifted),
+                 "export_sheet": str(Path(directory) / "never.csv")}, environ={})
+            check("the export refuses a drifted header (exit 2)", False, "no error raised")
+        except _Usage:
+            check("the export refuses a drifted header (exit 2)", True)
+        try:
+            run({"participants": participants_path,
+                 "export_sheet": str(Path(directory) / "no-such-dir" / "never.csv")},
+                environ={})
+            check("the export refuses an unwritable path (exit 2)", False, "no error raised")
+        except _Usage:
+            check("the export refuses an unwritable path (exit 2)", True)
 
         # Exit-code law: a failed send exits 1 and stamps nothing.
         SEND_ENV = {"UXR_RECRUIT_SMTP_HOST": "smtp.example.com",
@@ -350,6 +403,67 @@ def _selftest() -> int:
         except _Usage as exc:
             check("--send with zero sendable rows and no account refuses",
                   "SMTP account" in str(exc), str(exc))
+
+        # Unsubscribe footer: rides only when unsubscribe is on (default)
+        # and a webapp URL is set; config layer and env fallbacks both work.
+        code, out = run({"participants": participants_path, "template": template_path,
+                         "today": "2026-11-22"},
+                        environ={"UXR_RECRUIT_WEBAPP_URL": "https://script.example.com/exec"},
+                        config_file=str(empty_config))
+        check("the footer rides on a webapp URL (default unsubscribe true)",
+              "To stop these emails, open: https://script.example.com/exec?u=P-01" in out,
+              out[:300])
+        code, out = run({"participants": participants_path, "template": template_path,
+                         "today": "2026-11-22"},
+                        environ={"UXR_RECRUIT_WEBAPP_URL": "https://script.example.com/exec",
+                                 "UXR_RECRUIT_UNSUBSCRIBE": "false"},
+                        config_file=str(empty_config))
+        check("unsubscribe false removes the footer", "To stop these emails" not in out)
+        code, out = run({"participants": participants_path, "template": template_path,
+                         "today": "2026-11-22"},
+                        environ={}, config_file=str(empty_config))
+        check("no webapp URL means no footer", "To stop these emails" not in out)
+        footer_config = Path(directory) / "org-footer.yaml"
+        footer_config.write_text(
+            "recruit:\n  email:\n"
+            "    webapp_url: https://config.example.com/exec\n"
+            "    smtp_host: smtp.config.example.com\n"
+            "    from_address: team@example.com\n",
+            encoding="utf-8",
+        )
+        code, out = run({"participants": participants_path, "template": template_path,
+                         "today": "2026-11-22"},
+                        environ={}, config_file=str(footer_config))
+        check("a config webapp_url alone adds the footer",
+              "To stop these emails, open: https://config.example.com/exec?u=P-01" in out,
+              out[:300])
+        values, source = load_send_settings(environ={}, config_file=str(footer_config))
+        check("config recruit.email values load (config layer regression pin)",
+              values["webapp_url"] == "https://config.example.com/exec"
+              and values["smtp_host"] == "smtp.config.example.com"
+              and source == "config recruit.email.*", f"{values} {source}")
+        off_config = Path(directory) / "org-unsub-off.yaml"
+        off_config.write_text(
+            "recruit:\n  email:\n"
+            "    webapp_url: https://config.example.com/exec\n"
+            "    unsubscribe: false\n",
+            encoding="utf-8",
+        )
+        code, out = run({"participants": participants_path, "template": template_path,
+                         "today": "2026-11-22"}, environ={}, config_file=str(off_config))
+        check("config unsubscribe false removes the footer", "To stop these emails" not in out)
+        port_config = Path(directory) / "org-port.yaml"
+        port_config.write_text(
+            "recruit:\n  email:\n"
+            "    smtp_host: smtp.config.example.com\n"
+            "    smtp_port: 587\n"
+            "    from_address: team@example.com\n",
+            encoding="utf-8",
+        )
+        values, source = load_send_settings(
+            environ={"UXR_RECRUIT_SMTP_PORT": "2525"}, config_file=str(port_config))
+        check("an example-file port resets so the env port applies",
+              values["smtp_port"] == "2525", f"{values} {source}")
 
     if failures:
         print(f"selftest FAILED ({len(failures)})")

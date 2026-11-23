@@ -27,7 +27,7 @@ Per-row report lines carry id, status, and outcome; contact values are
 masked by default and shown only with ``--show-contacts``.
 
 The gate and column law is imported from ``scripts/recruit_funnel.py``
-(the same approved column sets, the locked seven-value status
+(the same approved column sets, the locked eight-value status
 vocabulary, and the per-variant gate map). Internal-flow rows carry no
 approved address column, so the MVP send serves the external table and
 reports internal rows in one summary line.
@@ -39,20 +39,38 @@ characters read as one underscore (``name/pseudonym`` becomes
 ``{{name_pseudonym}}``). A token matching no approved column stops the
 run before anything is sent.
 
-Exit codes: 0 full success (a dry run, or a real send with no failed
-rows), 1 a real send failed for at least one row, 2 usage or unreadable
-input (missing files, drifted table header, unknown template token, no
-SMTP account configured for ``--send``).
+Sheet export: ``--export-sheet <out.csv>`` writes the external table to
+CSV under the approved Sheet shape -- no send, no stamp, no template.
+The header is ``recruit_funnel.DEFAULT_WAVE_TAB_HEADERS`` plus every
+approved external participant column, one row per participant: the
+wave-tab columns mirror the cells (``First name`` = ``name/pseudonym``,
+``Recipient`` = the first email in ``contact``, empty when it holds
+none; ``Email Sent`` = ``DM sent (date)``; ``Email Source`` =
+``source (panel/channel)``; ``Account Name``/``Booking link`` stay
+empty), the participant columns follow verbatim, and a drifted header
+or unreadable input exits 2.
+
+Unsubscribe footer: when ``recruit.email.unsubscribe`` is true (the
+default) and ``recruit.email.webapp_url`` is set (env fallbacks
+``UXR_RECRUIT_UNSUBSCRIBE`` / ``UXR_RECRUIT_WEBAPP_URL``), every merged
+body gains ``To stop these emails, open: <webapp_url>?u=<participant
+id>``; otherwise nothing changes.
+
+Exit codes: 0 full success (a dry run, an export, or a real send with
+no failed rows), 1 a real send failed for at least one row, 2 usage or
+unreadable input (missing files, drifted table header, unknown template
+token, no SMTP account configured for ``--send``).
 
 Usage::
 
     python scripts/recruit_send.py --participants <participants.md>
         --template <merge-template.md> [--send] [--show-contacts]
-        [--today <YYYY-MM-DD>]
+        [--export-sheet <out.csv>] [--today <YYYY-MM-DD>]
 """
 
 from __future__ import annotations
 
+import csv
 import os
 import re
 import smtplib
@@ -71,6 +89,7 @@ if str(PLUGIN_ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT / "scripts"))
 
 from scripts.recruit_funnel import (  # noqa: E402  (the shared recruit law)
+    DEFAULT_WAVE_TAB_HEADERS,
     PARTICIPANT_COLUMNS,
     participant_gate_lines,
     participant_header_issues,
@@ -112,6 +131,8 @@ ENV_FALLBACKS: dict[str, str] = {
         "from_address",
         "use_tls",
         "template_path",
+        "webapp_url",
+        "unsubscribe",
     )
 }
 
@@ -148,12 +169,16 @@ def load_send_settings(
         recruit = load_config(user_file=config_file).get("recruit")
         email = recruit.get("email") if isinstance(recruit, dict) else None
         if isinstance(email, dict):
+            for key in values:
+                raw = email.get(key)
+                if raw is not None and str(raw).strip() != "":
+                    values[key] = str(raw).strip()
             # The example file's documentation defaults (smtp_port 587,
             # use_tls true) are not user configuration. Reset any value that
             # still equals the bare example file, so the env fallbacks can
-            # supply it (found by the 2026-11-23 mail-merge test wave: an
-            # env-only account connected to the example port instead of the
-            # env port).
+            # supply it (found in the 2026-11-23 mail-merge test wave; the
+            # wave-2 branch restored the config-to-values load this reset
+            # presumes -- without it the config layer stayed dead).
             fd, bare_path = tempfile.mkstemp(suffix=".yaml")
             os.close(fd)
             os.unlink(bare_path)  # a read sentinel: the bare load must see no user file
@@ -395,6 +420,58 @@ def merge_template(subject: str, body: str, row: dict) -> tuple[str, str, list[s
     return merged_subject, merged_body, empty_tokens
 
 
+def unsubscribe_footer(settings: dict, row: dict) -> str:
+    """The one-line unsubscribe footer for a merged body, or ``""`` when off.
+
+    Rides only when ``unsubscribe`` is on (absent means true) and a
+    webapp URL and the row's participant id both exist.
+    """
+    off = str(settings.get("unsubscribe") or "").strip().lower() in (
+        "false",
+        "0",
+        "no",
+        "off",
+    )
+    webapp = str(settings.get("webapp_url") or "").strip()
+    identifier = str(row.get("participant id") or "").strip()
+    if off or not webapp or not identifier:
+        return ""
+    separator = "&" if "?" in webapp else "?"
+    return f"To stop these emails, open: {webapp}{separator}u={identifier}"
+
+
+def export_sheet(path_value: str, table: dict) -> str:
+    """Write the external table to CSV under the approved Sheet header.
+
+    Header and mapping per the module docstring. Returns the report
+    line; an unwritable path raises usage.
+    """
+    header = list(DEFAULT_WAVE_TAB_HEADERS) + list(PARTICIPANT_COLUMNS["external"])
+    rows: list[list[str]] = []
+    for table_row in table["rows"]:
+        row, _extra = row_map(table["header"], table_row["cells"])
+        address = _EMAIL_RE.search(str(row.get("contact") or ""))
+        mirror = {
+            "Account Name": "",
+            "First name": str(row.get("name/pseudonym") or ""),
+            "Last name": "",
+            "Recipient": address.group(0) if address else "",
+            "Email Sent": str(row.get("DM sent (date)") or ""),
+            "Booking link": "",
+            "Email Source": str(row.get("source (panel/channel)") or ""),
+        }
+        rows.append([mirror.get(name) or str(row.get(name) or "") for name in header])
+    out_path = Path(path_value).expanduser()
+    try:
+        with out_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(header)
+            writer.writerows(rows)
+    except OSError as exc:
+        raise _Usage(f"export file cannot be written: {exc}") from None
+    return f"EXPORT: wrote {len(rows)} external participant rows to {out_path}"
+
+
 def build_message(
     from_address: str, address: str, subject: str, body: str
 ) -> EmailMessage:
@@ -522,10 +599,11 @@ def run(
     if not participants_value:
         raise _Usage("--participants <participants.md> is required")
     settings, settings_source = load_send_settings(environ, config_file)
+    export_value = str(args.get("export_sheet") or "").strip()
     template_value = str(args.get("template") or "").strip() or str(
         settings.get("template_path") or ""
     ).strip()
-    if not template_value:
+    if not template_value and not export_value:
         raise _Usage(
             "--template <merge-template.md> is required (or set "
             "recruit.email.template_path / UXR_RECRUIT_TEMPLATE)"
@@ -536,9 +614,10 @@ def run(
         raise _Usage(f"participants file not found: {participants_path}")
     with participants_path.open("r", encoding="utf-8", newline="") as handle:
         text = handle.read()  # newline='': the file's own endings survive to the stamp
-    template_path = Path(template_value).expanduser()
-    if not template_path.is_file():
-        raise _Usage(f"template file not found: {template_path}")
+    if not export_value:
+        template_path = Path(template_value).expanduser()
+        if not template_path.is_file():
+            raise _Usage(f"template file not found: {template_path}")
     try:
         today = (
             date.fromisoformat(str(args.get("today")).strip())
@@ -568,6 +647,8 @@ def run(
             "no approved external participants table found (the header must "
             f"match the approved {SEND_VARIANT} column set)"
         )
+    if export_value:
+        return EXIT_OK, _scrub(export_sheet(export_value, external_table) + "\n")
     subject, body = parse_template(template_path.read_text(encoding="utf-8"), SEND_VARIANT)
 
     header_lower = [cell.strip().lower() for cell in external_table["header"]]
@@ -605,8 +686,9 @@ def run(
             )
     for item in plan:
         merged_subject, merged_body, empty_tokens = merge_template(subject, body, item["row"])
+        footer = unsubscribe_footer(settings, item["row"])
         item["subject"] = merged_subject
-        item["body"] = merged_body
+        item["body"] = (merged_body + "\n\n" + footer + "\n") if footer else merged_body
         item["empty_note"] = (
             " (empty value: " + ", ".join("{{" + t + "}}" for t in empty_tokens) + ")"
             if empty_tokens
@@ -683,7 +765,12 @@ def main(argv: list[str] | None = None) -> int:
 
     flags: dict[str, str] = {}
     index = 0
-    flag_names = {"--participants": "participants", "--template": "template", "--today": "today"}
+    flag_names = {
+        "--participants": "participants",
+        "--template": "template",
+        "--today": "today",
+        "--export-sheet": "export_sheet",
+    }
     switches = {"--send": "send", "--show-contacts": "show_contacts"}
     while index < len(args):
         token = args[index]
