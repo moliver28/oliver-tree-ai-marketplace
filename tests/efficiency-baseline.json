@@ -349,6 +349,16 @@
     ],
     "reason": "Source-registry content wave (Unit 6; MO gate 2026-11-22 confirm, full go): 161 one-file-per-entry store files plus the central law + 109-row condition index (about 730 lines of registry content), the per-surface Grounding pointer lines and the workspace CLAUDE.md law paragraph (about 210 lines across 24 files), the 86-line web-tool nudge hook, and the standalone citations check in checklist_gate.py. The wave is markdown content plus one hook and one gate-check block - no new runtime modules; the acceptance scaffolding (evals + offline selftest) lives under tests/, outside the payload. The recorded floor (23,243, recorded 2026-11-21) predates the W5 merges (#134, #136, #138, #140); per the repo convention the floor moves and justifications clear at the next release PR, where the tree stands at 26,144 lines.",
     "date": "2026-11-22"
+   },
+   {
+    "wave": "registry-lens3",
+    "issue": "acceptance-pass",
+    "delta_lines": 2,
+    "files": [
+     "uxr-plugin/agents/hcd-researcher.md (lens 3 registry-first clause)"
+    ],
+    "reason": "Acceptance-pass residual of the source-registry wave (grounding-reliance law, design item 12): review lens 3 now names the grounding registry first - references/research-sources.md routes to one file per source under references/sources/, web tools only when no registered page covers the claim. +2 payload lines in the one hash-pinned reviewer file; re-pinned by the recorded PASS tuning run (runs/2026-11-22-registry-lens3, F1 0.28, p0 recall 1.00).",
+    "date": "2026-11-22"
    }
   ],
   "golden_path_growth": null
