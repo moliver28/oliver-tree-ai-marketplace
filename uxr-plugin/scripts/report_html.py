@@ -31,6 +31,7 @@ import re
 import sys
 from html import escape as html_escape
 from pathlib import Path
+import json
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 REFERENCES_DIR = SCRIPTS_DIR.parent / "references"
@@ -392,8 +393,26 @@ def cmd_render(source_value: str, target_value: str) -> int:
     return EXIT_OK
 
 
+MCP_SURFACE = {
+    "description": (
+        "report_html.py render: turn a Markdown report deliverable plus front "
+        "matter into one self-contained HTML file (no external assets, "
+        "byte-identical on two runs)."),
+    "argv_prefix": ["render"],
+    "flags": [
+        {"name": "md", "kind": "positional", "type": "string", "required": True,
+         "help": "path to the report markdown"},
+        {"name": "html", "kind": "positional", "type": "string", "required": True,
+         "help": "path to write the HTML file"},
+    ],
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
+    if args and args[0] == "--print-mcp-surface":
+        print(json.dumps(MCP_SURFACE))
+        return EXIT_OK
     if not args:
         print(__doc__.strip().splitlines()[0])  # terse bare-run pointer; -h prints the full doc
         return EXIT_OK

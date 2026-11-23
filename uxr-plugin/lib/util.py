@@ -65,8 +65,16 @@ def resolve(path) -> Path:
             return Path(path)
 
 
+#: Universal default root (MO ruling 2026-11-22): one convention on every
+#: OS and every interface. UXR_RESEARCH_DIRS and paths.research_root both
+#: override it; existing workspaces keep working wherever they live.
+DEFAULT_RESEARCH_ROOT = "~/uxr-workspaces"
+
+
 def research_roots(config: dict | None, environ=None) -> list[str]:
-    """Candidate research roots: UXR_RESEARCH_DIRS entries, then the config path."""
+    """Candidate research roots: UXR_RESEARCH_DIRS entries, then the config
+    path, then the universal ~/uxr-workspaces default (overridable, never
+    forced when an override exists)."""
     environ = os.environ if environ is None else environ
     roots: list[str] = []
     for part in str(environ.get(ENV_RESEARCH_DIRS) or "").split(os.pathsep):
@@ -78,6 +86,8 @@ def research_roots(config: dict | None, environ=None) -> list[str]:
             root = value.get("research_root")
             if isinstance(root, str) and root.strip():
                 roots.append(root)
+    if not roots:
+        roots.append(DEFAULT_RESEARCH_ROOT)
     return roots
 
 

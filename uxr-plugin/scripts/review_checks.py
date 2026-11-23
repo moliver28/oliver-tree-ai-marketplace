@@ -889,8 +889,25 @@ PD and-or PM: Sam Chen and-or Dana Patel
 """
 
 
+MCP_SURFACE = {
+    "description": (
+        "review_checks.py check: run the interview-script hard-rule checker on "
+        "one file. Exit 0 clean, 1 warnings, 2 unparseable, 3 a hard rule is "
+        "broken; findings print on stdout. The review loop saves nothing "
+        "before this passes."),
+    "argv_prefix": ["check"],
+    "flags": [
+        {"name": "path", "kind": "positional", "type": "string", "required": True,
+         "help": "path to the interview script file"},
+    ],
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
+    if args and args[0] == "--print-mcp-surface":
+        print(json.dumps(MCP_SURFACE))
+        return 0
     if not args:
         print(__doc__.strip().splitlines()[0])  # terse bare-run pointer; full doc in this file
         return EXIT_UNPARSEABLE

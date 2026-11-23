@@ -32,8 +32,9 @@ Exit codes, for every subcommand:
 
     0  success (install: written, or a no-op as described above;
        status: the config entry exists and answers a real handshake)
-    1  not found (install/uninstall: no config file for the harness, or
-       auto found no harness; status: no config or no uxr entry)
+    1  not found (auto found no harness config; uninstall/status found no
+       config file or no uxr entry; install with an explicit --harness
+       creates a missing config instead, with a printed notice)
     2  status only: an entry exists but the handshake failed
     3  unsupported harness (hermes in this release)
     4  the config file exists but could not be parsed or written
@@ -123,7 +124,10 @@ def _read_bytes(path: Path) -> bytes:
 
 
 def _newline_of(raw: bytes) -> str:
-    return "\r\n" if b"\r\n" in raw else "\n"
+    """CRLF only when it is the dominant newline, never for a stray one."""
+    crlf = raw.count(b"\r\n")
+    lf = raw.count(b"\n")
+    return "\r\n" if crlf and crlf * 2 > lf else "\n"
 
 
 def _write_preserving(path: Path, text: str, raw: bytes) -> None:
@@ -315,6 +319,8 @@ def install(harness: str, force: bool = False, dry_run: bool = False,
 
 def _install_json(path: Path, entry: dict, kind: str, force: bool, dry_run: bool) -> int:
     raw, data = _read_config_from_path(path)
+    if not raw:
+        print(f"notice: no {kind}-style config file found; creating a new one at {path}")
     current = _json_get_entry(data, kind)
     if current is not None and not force:
         if current == entry:
@@ -337,6 +343,8 @@ def _install_toml(path: Path, entry: dict, force: bool, dry_run: bool) -> int:
     table = f"mcp_servers.{SERVER_NAME}"
     block = toml_entry_block()
     raw, text = _read_config_from_path(path)
+    if not raw:
+        print(f"notice: no codex config.toml found; creating a new one at {path}")
     existing = _toml_block_text(text, table)
     if existing is not None and not force:
         if existing == block.strip():
@@ -367,7 +375,9 @@ def _read_config_from_path(path: Path) -> tuple[bytes, object]:
         raw = b""
     if path.suffix == ".json":
         return raw, (_json_load(raw, path) if raw else {})
-    return raw, (raw.decode("utf-8") if raw else "")
+    # TOML surgery runs on normalized LF text; the write re-expands to
+    # the file's own newline style, so a CRLF file never gains a stray \r.
+    return raw, (raw.decode("utf-8").replace("\r\n", "\n") if raw else "")
 
 
 def uninstall(harness: str, dry_run: bool = False, home: Path | None = None) -> int:
@@ -460,10 +470,14 @@ def _handshake(command: list[str]) -> tuple[bool, str]:
                         "params": {"protocolVersion": HANDSHAKE_PROTOCOL_VERSION,
                                    "capabilities": {},
                                    "clientInfo": {"name": "uxr-install-status", "version": "1"}}}
-        proc.stdin.write(json.dumps(init_request) + "\n")
-        proc.stdin.write(json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}) + "\n")
-        proc.stdin.write(json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}) + "\n")
-        proc.stdin.flush()
+        try:
+            proc.stdin.write(json.dumps(init_request) + "\n")
+            proc.stdin.write(json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}) + "\n")
+            proc.stdin.write(json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}) + "\n")
+            proc.stdin.flush()
+        except (OSError, ValueError) as exc:
+            proc.kill()
+            return False, f"cannot speak to the configured server ({exc})"
         if not reader_done.wait(timeout=HANDSHAKE_TIMEOUT_SECONDS):
             proc.kill()
             return False, f"no response within {HANDSHAKE_TIMEOUT_SECONDS}s"
@@ -552,22 +566,40 @@ def status(harness: str, home: Path | None = None) -> int:
 
 
 def _toml_command(block: str) -> list[str] | None:
-    """Minimal command/args extraction from one [mcp_servers.uxr] table."""
+    """Minimal command/args extraction from one [mcp_servers.uxr] table.
+
+    Tolerates a hand-edited multi-line args array: the value is whatever
+    follows ``args = [`` until the accumulated text parses as JSON.
+    """
     command = None
     args: list[str] | None = None
+    collecting: list[str] | None = None
     for line in block.splitlines():
+        if collecting is not None:
+            collecting.append(line)
+            candidate = "\n".join(collecting).split("=", 1)[1].strip()
+            try:
+                args = json.loads(candidate)
+                collecting = None
+            except ValueError:
+                continue
+            continue
         match = re.match(r"^\s*command\s*=\s*(.+?)\s*$", line)
         if match:
             try:
                 command = json.loads(match.group(1))
             except ValueError:
                 return None
+            continue
         match = re.match(r"^\s*args\s*=\s*(\[.*\])\s*$", line)
         if match:
             try:
                 args = json.loads(match.group(1))
             except ValueError:
                 return None
+            continue
+        if re.match(r"^\s*args\s*=\s*\[", line):
+            collecting = [line]
     if not isinstance(command, str) or not isinstance(args, list) \
             or not all(isinstance(a, str) for a in args):
         return None

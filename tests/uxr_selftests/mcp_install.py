@@ -132,6 +132,43 @@ def _selftest() -> int:
         rc, _out = _run(install.status, "codex", home=home)
         check("codex: status after uninstall reports missing (exit 1)", rc == 1)
 
+        # --- CRLF safety: a CRLF config.toml must survive a forced replace ---
+        crlf_home = Path(td) / "crlf-home"
+        crlf = crlf_home / ".codex" / "config.toml"
+        crlf.parent.mkdir(parents=True)
+        crlf.write_bytes(b'[foreign]\r\nkey = 1\r\n\r\n[mcp_servers.uxr]\r\n'
+                         b'command = "old"\r\nargs = []\r\n')
+        rc, _out = _run(install.install, "codex", home=crlf_home, force=True)
+        raw = crlf.read_bytes()
+        try:
+            import tomllib
+            parsed_toml = tomllib.loads(raw.decode("utf-8"))
+            parses = True
+        except Exception:
+            parsed_toml, parses = {}, False
+        check("codex: a forced replace on a CRLF config stays valid TOML, keeps "
+              "CRLF, and never emits \\r\\r\\n",
+              rc == 0 and parses and b"\r\r\n" not in raw
+              and raw.count(b"\r\n") >= 4
+              and parsed_toml.get("mcp_servers", {}).get("uxr", {}).get("command")
+              and "foreign" in parsed_toml, repr(raw[:80]))
+        check("_newline_of: a stray CRLF does not flip a whole LF file",
+              install._newline_of(b"a\nb\n\r\n") == "\n"
+              and install._newline_of(b"a\r\nb\r\n") == "\r\n")
+
+        # --- TOML status tolerates a hand-edited multi-line args array ---
+        block = '[mcp_servers.uxr]\ncommand = "py"\nargs = [\n  "one",\n  "two"\n]\n'
+        check("_toml_command: a multi-line args array still resolves the command",
+              install._toml_command(block) == ["py", "one", "two"],
+              repr(install._toml_command(block)))
+
+        # --- install from nothing prints a clear creation notice ---
+        notice_home = Path(td) / "notice-home"
+        rc, out = _run(install.install, "claude-code", home=notice_home)
+        check("install with no existing config prints the creation notice and exits 0",
+              rc == 0 and "creating a new one" in out
+              and (notice_home / ".claude.json").is_file(), repr(out)[:160])
+
         # --- claude-code (flat JSON, user scope) ---
         cc = home / ".claude.json"
         _seed_json(cc, {"mcpServers": {"foreign": {"command": "keepme"}},

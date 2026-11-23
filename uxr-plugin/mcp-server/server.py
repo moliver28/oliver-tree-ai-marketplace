@@ -7,16 +7,28 @@ plugin's deterministic scripts without importing any of them. Protocol
 facts this server implements (verified against modelcontextprotocol.io on
 2026-11-22):
 
-- stdio transport: messages are single JSON-RPC objects delimited by
-  newlines, UTF-8 encoded, with no embedded newlines; the server never
-  writes anything to stdout that is not a protocol message and keeps all
-  diagnostics on stderr.
-- initialize handshake era (protocol versions ``2025-06-18`` and
-  ``2025-11-25``; the client's requested version is echoed when supported,
-  otherwise the newest supported one is returned). The 2026-07-28 revision
-  moved to per-request versioning and is out of scope for this phase.
-- ``instructions`` is a top-level field of the initialize result; it is
-  mirrored inside ``serverInfo`` for hosts that read it there.
+- stdio transport, both eras. The 2026-07-28 revision keeps the same stdio
+  binding (newline-delimited UTF-8 JSON-RPC, nothing but protocol messages
+  on stdout, diagnostics on stderr) and replaces the handshake with
+  per-request metadata: each request carries
+  ``_meta["io.modelcontextprotocol/protocolVersion"]`` plus
+  ``io.modelcontextprotocol/clientCapabilities``; an unsupported version is
+  rejected with ``-32022`` carrying ``data.supported``; ``server/discover``
+  answers a ``DiscoverResult`` with ``supportedVersions``. Legacy revisions
+  ``2025-06-18`` and ``2025-11-25`` keep the ``initialize`` handshake; an
+  ``initialize`` request selects legacy semantics for the process, per the
+  spec's dual-era rule ("a request carrying modern per-request _meta is
+  served statelessly; an initialize request selects legacy semantics").
+- Tool schemas are DERIVED, not hand-maintained: every script ships a
+  declarative ``MCP_SURFACE`` table (its own argument surface), and this
+  server reads the table out of the script source via ``ast`` at first use,
+  builds the JSON Schema for ``tools/list``, and builds argv from the same
+  table for ``tools/call``. ``scripts/gen_mcp_docs.py`` renders docs from
+  the same registry, so docs cannot drift from code. A selftest cross-
+  checks each table against the parser's flag literals.
+- ``instructions`` (a UXR/HCD domain summary) sits at the top level of the
+  legacy initialize result (and inside ``serverInfo`` for hosts that read
+  it there) and in the modern discover result.
 
 Binding laws inherited from docs/ARCHITECTURE.md: script stdout is passed
 through verbatim (the caller never recomputes a number a script printed);
@@ -28,8 +40,10 @@ Stdlib only; no network access. Exit 0 on stdin EOF.
 
 from __future__ import annotations
 
+import ast
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -41,46 +55,60 @@ PROMPTS_DIR = PLUGIN_ROOT / "prompts"
 COMMANDS_DIR = PLUGIN_ROOT / "commands"
 MANIFEST_PATH = PLUGIN_ROOT / ".claude-plugin" / "plugin.json"
 
-#: Newest initialize-handshake revisions this server speaks. 2025-06-18 is
-#: the seed revision the CLI harnesses negotiate today; 2025-11-25 is the
-#: newest revision of the same era (verified 2026-11-22). The 2026-07-28
-#: per-request era is intentionally out of scope for Phase 1.
-SUPPORTED_PROTOCOL_VERSIONS = ("2025-06-18", "2025-11-25")
-FALLBACK_PROTOCOL_VERSION = "2025-11-25"
+#: Curated tool set, in tools/list order: one tool per shipped script.
+TOOL_ORDER = [
+    "scaffold_workspace", "build_body", "parse_shorthand", "roster_apply",
+    "recruit_funnel", "classify", "report_html", "deck_render", "uxr_stats",
+    "review_checks",
+]
+
+#: Protocol eras (see module docstring). LEGACY_PROTOCOL_VERSIONS are the
+#: initialize-handshake revisions; MODERN_PROTOCOL_VERSION is the per-request
+#: era served statelessly.
+LEGACY_PROTOCOL_VERSIONS = ("2025-06-18", "2025-11-25")
+LEGACY_FALLBACK_VERSION = "2025-11-25"
+MODERN_PROTOCOL_VERSION = "2026-07-28"
+
+KEY_VERSION = "io.modelcontextprotocol/protocolVersion"
+KEY_CLIENT_CAPABILITIES = "io.modelcontextprotocol/clientCapabilities"
+KEY_SERVER_INFO = "io.modelcontextprotocol/serverInfo"
 
 SERVER_NAME = "uxr-plugin"
 SERVER_TITLE = "UXR plugin: research operations scripts"
 SCRIPT_TIMEOUT_SECONDS = 60
 STDERR_TAIL_CHARS = 2000
+RESOURCE_NAME_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 PARSE_ERROR = -32700
 INVALID_REQUEST = -32600
 METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
 INTERNAL_ERROR = -32603
+UNSUPPORTED_PROTOCOL_VERSION = -32022
 
 INSTRUCTIONS = (
     "uxr-plugin turns your agent into a research operations assistant for UX "
     "research (UXR) work with product managers, designers, and engineers. "
     "Vocabulary: a study is one research project (one ticket, one spec, one "
     "workspace); the spec is a JSON file that is the source of truth and the "
-    "ticket body is a rendering of it; a workspace is the local study folder; "
-    "a roster is the recruit list with fixed statuses; a phase is a workflow "
-    "status with a readiness gate; a gate is where the assistant stops and "
-    "waits for the user. Principles: (1) the spec is the source of truth - "
-    "content flows interview to spec to validated render to tracker, never "
-    "hand-patched; (2) code owns rules, the model owns judgment - every tool "
-    "here runs a deterministic script and its stdout is authoritative, so "
-    "print script output verbatim and never recompute a number a script "
-    "printed; (3) drafts, never sends - nothing in this server posts, "
-    "publishes, or mails anything external; the user sends; (4) hooks fail "
-    "open, exclusions fail closed - do-not-contact and participant-privacy "
-    "checks block the action when they cannot run. Tools cover the study "
-    "lifecycle: workspace scaffolding, spec-to-ticket-body rendering, edit "
-    "shorthand parsing, roster updates, recruitment funnel tables, reply and "
-    "method classification, HTML report rendering, deck generation, usage "
-    "stats, and interview-script hard-rule checks. Resources expose the "
-    "plugin's reference documents and prompt fragments; prompts expose the "
+    "ticket body is a rendering of it; a workspace is the local study folder "
+    "(the universal default root is ~/uxr-workspaces/<slug>/); a roster is "
+    "the recruit list with fixed statuses; a phase is a workflow status with "
+    "a readiness gate; a gate is where the assistant stops and waits for the "
+    "user. Principles: (1) the spec is the source of truth - content flows "
+    "interview to spec to validated render to tracker, never hand-patched; "
+    "(2) code owns rules, the model owns judgment - every tool here runs a "
+    "deterministic script and its stdout is authoritative, so print script "
+    "output verbatim and never recompute a number a script printed; (3) "
+    "drafts, never sends - nothing in this server posts, publishes, or mails "
+    "anything external; the user sends; (4) hooks fail open, exclusions fail "
+    "closed - do-not-contact and participant-privacy checks block the action "
+    "when they cannot run. Tools cover the study lifecycle: workspace "
+    "scaffolding, spec-to-ticket-body rendering, edit shorthand parsing, "
+    "roster updates, recruitment funnel tables, reply and method "
+    "classification, HTML report rendering, deck generation, usage stats, "
+    "and interview-script hard-rule checks. Resources expose the plugin's "
+    "reference documents and prompt fragments; prompts expose the "
     "slash-command templates. Paths passed to tools should be absolute; "
     "scripts resolve their own configuration from the plugin root."
 )
@@ -100,370 +128,221 @@ def plugin_version() -> str:
         return "0.0.0"
 
 
+class _RpcError(Exception):
+    """A JSON-RPC error to send back to the caller."""
+
+    def __init__(self, code: int, message: str, data=None):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.data = data
+
+
+def _server_info() -> dict:
+    return {
+        "name": SERVER_NAME,
+        "title": SERVER_TITLE,
+        "version": plugin_version(),
+        "instructions": INSTRUCTIONS,
+    }
+
+
 # ---------------------------------------------------------------------------
-# tool registry: one tool per shipped script, schemas read from the scripts
+# derivation layer: tool schemas and argv come from the scripts' tables
 # ---------------------------------------------------------------------------
 
-_STR = {"type": "string"}
-_BOOL = {"type": "boolean"}
-_INT = {"type": "integer", "minimum": 1}
-_STR_LIST = {"type": "array", "items": {"type": "string"}}
-
-TOOLS = [
-    {
-        "name": "scaffold_workspace",
-        "description": (
-            "scaffold_workspace.py: derive a study slug, scaffold a workspace "
-            "folder from the template, look up a workspace by ticket, render "
-            "its overview, append outreach journal entries, or validate a "
-            "recruitment table. Set 'subcommand' and only the flags that "
-            "subcommand uses."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "additionalProperties": False,
-            "required": ["subcommand"],
-            "properties": {
-                "subcommand": {
-                    "type": "string",
-                    "enum": ["slug", "scaffold", "lookup-workspace",
-                             "render-overview", "append-outreach-entry",
-                             "validate-recruitment"],
-                },
-                "title": {**_STR, "description": "slug: study title"},
-                "quarter": {**_STR, "description": "slug: quarter tag (example 2026-Q4)"},
-                "max_body": {**_INT, "description": "slug: max overview body words (default 50)"},
-                "template": {**_STR, "description": "scaffold: path to the workspace template"},
-                "target": {**_STR, "description": "scaffold: target workspace folder"},
-                "mapping": {**_STR, "description": "scaffold: JSON object of {{TOKEN}} fill values"},
-                "readme": {**_STR, "description": "path to the research-root README index"},
-                "spec": {**_STR, "description": "scaffold/render-overview: path to the spec JSON"},
-                "no_commit": {**_BOOL, "description": "scaffold: skip the git commit step"},
-                "ticket": {**_STR, "description": "lookup-workspace/render-overview: ticket key"},
-                "log_path": {**_STR, "description": "append-outreach-entry: outreach log file"},
-                "date": {**_STR, "description": "append-outreach-entry: entry date (YYYY-MM-DD)"},
-                "name": {**_STR, "description": "append-outreach-entry: recruit name"},
-                "slot": {**_STR_LIST, "description": "append-outreach-entry: slot rows (repeatable)"},
-                "hold": {**_STR_LIST, "description": "append-outreach-entry: hold rows (repeatable)"},
-                "channel": {**_STR, "description": "append-outreach-entry/validate-recruitment: channel"},
-                "status_from": {**_STR, "description": "append-outreach-entry: status before"},
-                "status_to": {**_STR, "description": "append-outreach-entry: status after"},
-                "notes": {**_STR, "description": "append-outreach-entry: notes text"},
-                "action": {**_STR, "description": "append-outreach-entry: action taken"},
-                "path": {**_STR, "description": "validate-recruitment: recruitment table file"},
-                "method": {**_STR, "description": "validate-recruitment: research method"},
-            },
-        },
-    },
-    {
-        "name": "build_body",
-        "description": (
-            "build_body.py: render a study spec into the tracker ticket body. "
-            "Pass the spec JSON in 'stdin'; the rendered body comes back on "
-            "stdout (markdown, html, or ADF JSON). Exit 3 means the spec "
-            "failed validation; a validation failure makes zero tracker calls."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "additionalProperties": False,
-            "required": ["stdin"],
-            "properties": {
-                "stdin": {**_STR, "description": "the study spec JSON document"},
-            },
-        },
-    },
-    {
-        "name": "parse_shorthand",
-        "description": (
-            "parse_shorthand.py: parse one edit-shorthand request into a JSON "
-            "delta. Pass '{\"kind\": \"roster|hypotheses|assumptions|resources\", "
-            "\"op\": \"+=|~=|=\", \"arg\": \"<pipe string>\"}' in 'stdin'."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "additionalProperties": False,
-            "required": ["stdin"],
-            "properties": {
-                "stdin": {**_STR, "description": "the shorthand request JSON"},
-            },
-        },
-    },
-    {
-        "name": "roster_apply",
-        "description": (
-            "roster_apply.py: apply recruitment ops to the study spec, "
-            "validate, re-render the body, and write the spec and body files "
-            "(or nothing on any failure). The only write path the recruit "
-            "command uses against the spec."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "additionalProperties": False,
-            "required": ["spec", "ops", "out"],
-            "properties": {
-                "spec": {**_STR, "description": "path to the study spec JSON"},
-                "ops": {**_STR, "description": "ops JSON inline, or @path to an ops file"},
-                "out": {**_STR, "description": "path to write the rendered body JSON"},
-                "dry_run": {**_BOOL, "description": "apply nothing; report only"},
-            },
-        },
-    },
-    {
-        "name": "recruit_funnel",
-        "description": (
-            "recruit_funnel.py: print the fixed nine-row recruitment funnel "
-            "table, run the wave preflight (BLOCK lines for repeat recruits), "
-            "draft nudge reminders, or check a V1 draft. Computes only; "
-            "nothing is sent."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "spec": {**_STR, "description": "path to the study spec JSON (required unless check_draft)"},
-                "wave": {**_STR, "description": "wave name for the this-wave columns"},
-                "funnel_data": {**_STR, "description": "path to the funnel JSON export"},
-                "check_draft": {**_STR, "description": "path to a V1 draft to check"},
-                "today": {**_STR, "description": "today as YYYY-MM-DD (defaults to the real clock)"},
-                "preflight": {**_BOOL, "description": "run the wave preflight"},
-                "status": {**_BOOL, "description": "print the status summary"},
-                "reminder": {**_BOOL, "description": "draft nudge reminders"},
-            },
-        },
-    },
-    {
-        "name": "classify",
-        "description": (
-            "classify.py: deterministic classifiers. 'intent' routes a user "
-            "request, 'reply' classes a recruit reply, 'method' picks the "
-            "method shape from research questions, 'decision' checks the "
-            "decision shape, 'route-finding' routes a review finding."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "additionalProperties": False,
-            "required": ["subcommand"],
-            "properties": {
-                "subcommand": {
-                    "type": "string",
-                    "enum": ["intent", "reply", "method", "decision", "route-finding"],
-                },
-                "text": {**_STR, "description": "intent/reply/decision: the plain input text"},
-                "prefix": {**_STR, "description": "intent: prefix label for the verdict"},
-                "rqs": {**_STR, "description": "method: research questions, semicolon or newline separated"},
-                "category": {**_STR, "description": "route-finding: finding category"},
-            },
-        },
-    },
-    {
-        "name": "report_html",
-        "description": (
-            "report_html.py render: turn a Markdown report deliverable plus "
-            "front matter into one self-contained HTML file (no external "
-            "assets, byte-identical on two runs)."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "additionalProperties": False,
-            "required": ["md", "html"],
-            "properties": {
-                "md": {**_STR, "description": "path to the report markdown"},
-                "html": {**_STR, "description": "path to write the HTML file"},
-            },
-        },
-    },
-    {
-        "name": "deck_render",
-        "description": (
-            "deck_render.py: outline JSON in, .pptx out. 'lint' prints one "
-            "FAIL line per overflow or overlap; 'render' lints first and "
-            "writes nothing on any FAIL. A deck is always regenerated from "
-            "the outline; an existing file is never edited."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "additionalProperties": False,
-            "required": ["subcommand", "outline"],
-            "properties": {
-                "subcommand": {"type": "string", "enum": ["lint", "render"]},
-                "outline": {**_STR, "description": "path to the outline JSON"},
-                "out": {**_STR, "description": "render: path for the .pptx output"},
-            },
-        },
-    },
-    {
-        "name": "uxr_stats",
-        "description": (
-            "uxr_stats.py: read-only journal and analytics rollup. Reads the "
-            "state directory from UXR_STATE_DIR or paths.state_dir in the "
-            "plugin config; prints the table, or one JSON object with 'json'."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "json": {**_BOOL, "description": "print one JSON object"},
-                "days": {**_INT, "description": "restrict the journal to the last N days"},
-            },
-        },
-    },
-    {
-        "name": "review_checks",
-        "description": (
-            "review_checks.py check: run the interview-script hard-rule "
-            "checker on one file. Exit 0 clean, 1 warnings, 2 unparseable, "
-            "3 a hard rule is broken; findings print on stdout. The review "
-            "loop saves nothing before this passes."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "additionalProperties": False,
-            "required": ["path"],
-            "properties": {
-                "path": {**_STR, "description": "path to the interview script file"},
-            },
-        },
-    },
-]
-
-_TOOL_NAMES = {tool["name"] for tool in TOOLS}
+def _tool_list() -> list[dict]:
+    """tools/list entries: name, description, and the derived inputSchema."""
+    return [{k: tool[k] for k in ("name", "description", "inputSchema")}
+            for tool in get_registry().values()]
 
 
-def _flag(name: str) -> str:
-    """snake_case tool argument to the script's --dashed flag."""
-    return "--" + name.replace("_", "-")
+def script_surface(name: str) -> dict:
+    """Read one script's MCP_SURFACE table out of its source via ast.
 
-
-def _tool_argv(tool: str, args: dict) -> tuple[list[str], str | None]:
-    """Translate tool arguments into [script, ...argv] plus stdin text.
-
-    Derived from each script's hand-rolled argument parser; returns
-    ``(argv, stdin_text)``. Raises ``ValueError`` with a caller-facing
-    message when an argument has the wrong type.
+    The table is the script's own declaration of its argument surface; the
+    script also self-reports it at runtime via
+    ``python <script> --print-mcp-surface``. Reading the literal here keeps
+    the derivation free of imports (a script's module imports load its
+    dependencies) and free of subprocess cost.
     """
-    if tool == "scaffold_workspace":
-        argv = [str(args["subcommand"])]
-        text_flags = ("title", "quarter", "max_body", "template", "target",
-                      "mapping", "readme", "spec", "ticket", "log_path",
-                      "date", "name", "channel", "status_from", "status_to",
-                      "notes", "action", "path", "method")
-        for flag in text_flags:
-            value = args.get(flag)
-            if value in (None, ""):
-                continue
-            if flag == "max_body":
-                if not isinstance(value, int):
-                    raise ValueError("max_body must be an integer")
-                argv += [_flag(flag), str(value)]
-            else:
-                if not isinstance(value, str):
-                    raise ValueError(f"{flag} must be a string")
-                argv += [_flag(flag), value]
-        if args.get("no_commit"):
-            argv.append("--no-commit")
-        for flag in ("slot", "hold"):
-            value = args.get(flag) or []
-            if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
-                raise ValueError(f"{flag} must be an array of strings")
-            for item in value:
-                argv += [_flag(flag), item]
-        return argv, None
+    path = SCRIPTS_DIR / f"{name}.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+                isinstance(target, ast.Name) and target.id == "MCP_SURFACE"
+                for target in node.targets):
+            return ast.literal_eval(node.value)
+    raise _RpcError(INTERNAL_ERROR, f"{name}.py declares no MCP_SURFACE table")
 
-    if tool in ("build_body", "parse_shorthand"):
-        text = args.get("stdin")
-        if not isinstance(text, str):
-            raise ValueError("stdin must be a string")
-        return [], text
 
-    if tool == "roster_apply":
-        for flag in ("spec", "ops", "out"):
-            value = args.get(flag)
-            if not isinstance(value, str) or not value.strip():
-                raise ValueError(f"{flag} is required and must be a string")
-        argv = ["--spec", args["spec"], "--ops", args["ops"], "--out", args["out"]]
-        if args.get("dry_run"):
-            argv.append("--dry-run")
-        return argv, None
+def _property_schema(entry: dict) -> dict:
+    """JSON Schema for one declared argument."""
+    kind = entry.get("type", "string")
+    if entry.get("repeat"):
+        return {"type": "array", "items": {"type": "string"}}
+    if kind == "integer":
+        return {"type": "integer", "minimum": 1}
+    if kind == "boolean":
+        return {"type": "boolean"}
+    description = entry.get("help") or f"script argument {entry.get('flag', entry['name'])}"
+    subs = entry.get("subs") or []
+    if subs:
+        description += f" (applies to: {', '.join(subs)})"
+    return {"type": "string", "description": description}
 
-    if tool == "recruit_funnel":
-        argv = []
-        for flag in ("spec", "wave", "funnel_data", "check_draft", "today"):
-            value = args.get(flag)
-            if value in (None, ""):
-                continue
-            if not isinstance(value, str):
-                raise ValueError(f"{flag} must be a string")
-            argv += [f"--{flag.replace('_', '-')}", value]
-        for flag in ("preflight", "status", "reminder"):
-            if args.get(flag):
-                argv.append(f"--{flag}")
-        return argv, None
 
-    if tool == "classify":
-        sub = args.get("subcommand")
-        argv = [str(sub)]
-        if sub in ("intent", "reply", "decision"):
-            text = args.get("text")
-            if not isinstance(text, str) or not text.strip():
-                raise ValueError(f"{sub} needs text")
-            argv += [text]
-            if sub == "intent" and args.get("prefix"):
-                if not isinstance(args["prefix"], str):
-                    raise ValueError("prefix must be a string")
-                argv += ["--prefix", args["prefix"]]
-        elif sub == "method":
-            rqs = args.get("rqs")
-            if not isinstance(rqs, str) or not rqs.strip():
-                raise ValueError("method needs rqs")
-            argv += ["--rqs", rqs]
-        elif sub == "route-finding":
-            category = args.get("category")
-            if not isinstance(category, str) or not category.strip():
-                raise ValueError("route-finding needs category")
-            argv += ["--category", category]
-        else:
-            raise ValueError("subcommand must be intent, reply, method, decision, or route-finding")
-        return argv, None
+def derive_schema(surface: dict) -> dict:
+    """Build the tools/list inputSchema from one script's table."""
+    properties: dict = {}
+    required: list[str] = []
+    sub = surface.get("subcommand")
+    if sub:
+        properties[sub["name"]] = {
+            "type": "string",
+            "enum": list(sub["values"]),
+            "description": "the script subcommand to run",
+        }
+        if sub.get("required"):
+            required.append(sub["name"])
+    for entry in surface.get("flags", []):
+        properties[entry["name"]] = _property_schema(entry)
+        if entry.get("required") and not entry.get("subs"):
+            required.append(entry["name"])
+    for entry in surface.get("switches", []):
+        properties[entry["name"]] = _property_schema(entry)
+    stdin = surface.get("stdin")
+    if stdin:
+        properties[stdin["name"]] = {
+            "type": "string",
+            "description": stdin.get("help", "text piped to the script's stdin"),
+        }
+        if stdin.get("required"):
+            required.append(stdin["name"])
+    return {"type": "object", "additionalProperties": False,
+            "properties": properties, "required": required}
 
-    if tool == "report_html":
-        for flag in ("md", "html"):
-            value = args.get(flag)
-            if not isinstance(value, str) or not value.strip():
-                raise ValueError(f"{flag} is required and must be a string")
-        return ["render", args["md"], args["html"]], None
 
-    if tool == "deck_render":
-        sub = args.get("subcommand")
-        outline = args.get("outline")
-        if sub not in ("lint", "render"):
-            raise ValueError("subcommand must be lint or render")
-        if not isinstance(outline, str) or not outline.strip():
-            raise ValueError("outline is required and must be a string")
-        if sub == "lint":
-            return ["lint", outline], None
-        out = args.get("out")
-        if not isinstance(out, str) or not out.strip():
-            raise ValueError("render needs out")
-        return ["render", outline, out], None
+def build_argv(surface: dict, arguments: dict) -> tuple[list[str], str | None]:
+    """Translate tool arguments into ``[script, ...argv]`` plus stdin text.
 
-    if tool == "uxr_stats":
-        argv = []
-        if args.get("json"):
-            argv.append("--json")
-        days = args.get("days")
-        if days is not None:
-            if not isinstance(days, int) or isinstance(days, bool) or days < 1:
-                raise ValueError("days must be a positive integer")
-            argv += ["--days", str(days)]
-        return argv, None
+    Derived from the same table as the schema; every mismatch between the
+    caller's arguments and the declared surface raises ``ValueError`` with a
+    caller-facing message (surfaced as ``-32602``).
+    """
+    if not isinstance(arguments, dict):
+        raise ValueError("arguments must be an object")
+    argv = list(surface.get("argv_prefix", []))
+    sub_name = (surface.get("subcommand") or {}).get("name")
+    sub_value = None
+    if sub_name:
+        sub_value = arguments.get(sub_name)
+        if not isinstance(sub_value, str) or not sub_value:
+            raise ValueError(f"{sub_name} is required and must be a string")
+        if sub_value not in surface["subcommand"]["values"]:
+            raise ValueError(
+                f"{sub_name} must be one of: {', '.join(surface['subcommand']['values'])}")
+        argv.append(sub_value)
+    for entry in surface.get("flags", []):
+        positional = entry.get("kind") == "positional"
+        argv.extend(_flag_tokens(entry, arguments, sub_value, positional=positional))
+    for entry in surface.get("switches", []):
+        argv.extend(_flag_tokens(entry, arguments, sub_value, positional=False))
+    stdin_text = None
+    stdin = surface.get("stdin")
+    if stdin:
+        stdin_text = arguments.get(stdin["name"])
+        if stdin.get("required") and not isinstance(stdin_text, str):
+            raise ValueError(f"{stdin['name']} is required and must be a string")
+    return argv, stdin_text
 
-    if tool == "review_checks":
-        path = args.get("path")
-        if not isinstance(path, str) or not path.strip():
-            raise ValueError("path is required and must be a string")
-        return ["check", path], None
 
-    raise ValueError(f"unknown tool: {tool}")
+def _flag_tokens(entry: dict, arguments: dict, sub_value: str | None,
+                 positional: bool) -> list[str]:
+    """argv tokens for one declared argument, validated against its table."""
+    name = entry["name"]
+    subs = entry.get("subs") or []
+    if subs and sub_value is not None and sub_value not in subs:
+        return []  # declared for other subcommands; ignore silently
+    value = arguments.get(name)
+    required = entry.get("required", False)
+    if positional:
+        if not isinstance(value, str) or not value.strip():
+            if required:
+                raise ValueError(f"{name} is required and must be a string")
+            return []
+        return [value]
+    kind = entry.get("type", "string")
+    if kind == "boolean":
+        if value is None or value is False:
+            if required:
+                raise ValueError(f"{name} is required")
+            return []
+        if not isinstance(value, bool):
+            raise ValueError(f"{name} must be a boolean")
+        return [entry["flag"]]
+    if kind == "integer":
+        if value is None:
+            if required:
+                raise ValueError(f"{name} is required")
+            return []
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError(f"{name} must be an integer")
+        if value < 1:
+            raise ValueError(f"{name} must be a positive integer")
+        return [entry["flag"], str(value)]
+    if entry.get("repeat"):
+        if value is None:
+            if required:
+                raise ValueError(f"{name} is required")
+            return []
+        if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+            raise ValueError(f"{name} must be an array of strings")
+        tokens: list[str] = []
+        for item in value:
+            tokens += [entry["flag"], item]
+        return tokens
+    if value is None or (isinstance(value, str) and not value.strip()):
+        if required:
+            raise ValueError(f"{name} is required and must be a string")
+        return []
+    if not isinstance(value, str):
+        raise ValueError(f"{name} must be a string")
+    return [entry["flag"], value]
+
+
+_REGISTRY: dict | None = None
+
+
+def get_registry() -> dict:
+    """The derived tool registry, built once per process (lazy)."""
+    global _REGISTRY
+    if _REGISTRY is None:
+        registry = {}
+        for name in TOOL_ORDER:
+            surface = script_surface(name)
+            registry[name] = {
+                "name": name,
+                "description": surface.get("description", name),
+                "inputSchema": derive_schema(surface),
+                "surface": surface,
+            }
+        _REGISTRY = registry
+    return _REGISTRY
+
+
+# ---------------------------------------------------------------------------
+# tools/call
+# ---------------------------------------------------------------------------
+
+def _as_text(value) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", "replace")
+    return str(value)
+
+
+def _error_result(message: str) -> dict:
+    return {"content": [{"type": "text", "text": message}], "isError": True}
 
 
 def call_tool(name: str, arguments: dict) -> dict:
@@ -472,22 +351,24 @@ def call_tool(name: str, arguments: dict) -> dict:
     Script stdout is passed through verbatim. A nonzero exit is reported
     with ``isError: true`` and the stderr tail; a timeout is reported the
     same way. No shell interpolation: the script always runs as
-    ``[sys.executable, script, ...argv]``.
+    ``[sys.executable, script, ...argv]`` with ``PYTHONIOENCODING=utf-8``
+    pinned so non-ASCII output survives any platform locale.
     """
-    if name not in _TOOL_NAMES:
+    tool = get_registry().get(name)
+    if tool is None:
         raise _RpcError(INVALID_PARAMS, f"Unknown tool: {name}")
     if arguments is None:
         arguments = {}
-    if not isinstance(arguments, dict):
-        raise _RpcError(INVALID_PARAMS, "arguments must be an object")
     script = SCRIPTS_DIR / f"{name}.py"
     if not script.is_file():
         raise _RpcError(INTERNAL_ERROR, f"script missing on disk: {script.name}")
     try:
-        argv, stdin_text = _tool_argv(name, arguments)
+        argv, stdin_text = build_argv(tool["surface"], arguments)
     except ValueError as exc:
         raise _RpcError(INVALID_PARAMS, str(exc)) from exc
     command = [sys.executable, str(script), *argv]
+    env = dict(os.environ)
+    env["PYTHONIOENCODING"] = "utf-8"
     try:
         completed = subprocess.run(
             command,
@@ -497,6 +378,7 @@ def call_tool(name: str, arguments: dict) -> dict:
             encoding="utf-8",
             errors="replace",
             timeout=SCRIPT_TIMEOUT_SECONDS,
+            env=env,
         )
     except subprocess.TimeoutExpired as exc:
         tail = ""
@@ -513,16 +395,6 @@ def call_tool(name: str, arguments: dict) -> dict:
     tail = (completed.stderr or completed.stdout or "")[-STDERR_TAIL_CHARS:]
     message = tail or f"{name}: exited {completed.returncode} with no output"
     return _error_result(message)
-
-
-def _as_text(value) -> str:
-    if isinstance(value, bytes):
-        return value.decode("utf-8", "replace")
-    return str(value)
-
-
-def _error_result(message: str) -> dict:
-    return {"content": [{"type": "text", "text": message}], "isError": True}
 
 
 # ---------------------------------------------------------------------------
@@ -576,19 +448,22 @@ def list_resources() -> list[dict]:
 
 
 def read_resource(uri: str) -> dict:
-    """One resource document; raises _RpcError(-32602) on unknown URIs."""
+    """One resource document; raises _RpcError(-32602) on unknown URIs.
+
+    The name segment must match ``^[A-Za-z0-9_-]+$``: no separators, no
+    traversal, no drive-relative forms like ``C:foo``.
+    """
     if not isinstance(uri, str) or not uri.startswith("uxr://"):
         raise _RpcError(INVALID_PARAMS, f"unsupported uri: {uri!r}")
     kind, _, name = uri[len("uxr://"):].partition("/")
-    if not name or "/" in name or "\\" in name or ".." in name:
+    if kind not in ("references", "fragments") or not name \
+            or not RESOURCE_NAME_RE.match(name):
         raise _RpcError(INVALID_PARAMS, f"unknown resource uri: {uri}")
     if kind == "references":
         path = REFERENCES_DIR / f"{name}.md"
-    elif kind == "fragments":
+    else:
         known = _fragment_paths().get(name)
         path = known if known is not None else None
-    else:
-        path = None
     if path is None or not path.is_file():
         raise _RpcError(INVALID_PARAMS, f"unknown resource uri: {uri}")
     return {
@@ -609,8 +484,8 @@ def _front_matter(text: str) -> tuple[dict, str]:
             body = "\n".join(lines[index + 1:]).strip("\n")
             return mapping, body
         line = lines[index]
-        key, _, value = line.partition(":")
-        if not _:
+        key, sep, value = line.partition(":")
+        if not sep:
             continue
         value = value.strip()
         if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
@@ -650,17 +525,8 @@ def get_prompt(name: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# JSON-RPC dispatch
+# JSON-RPC dispatch, both eras
 # ---------------------------------------------------------------------------
-
-class _RpcError(Exception):
-    """A JSON-RPC error to send back to the caller."""
-
-    def __init__(self, code: int, message: str):
-        super().__init__(message)
-        self.code = code
-        self.message = message
-
 
 def _capabilities() -> dict:
     return {
@@ -671,35 +537,117 @@ def _capabilities() -> dict:
 
 
 def initialize_result(requested_version) -> dict:
-    """The initialize result: echo the client's supported version, else the
-    newest supported one."""
-    version = requested_version if requested_version in SUPPORTED_PROTOCOL_VERSIONS \
-        else FALLBACK_PROTOCOL_VERSION
-    server_info = {
-        "name": SERVER_NAME,
-        "title": SERVER_TITLE,
-        "version": plugin_version(),
-        "instructions": INSTRUCTIONS,
-    }
+    """Legacy initialize result: echo the client's supported version, else
+    the newest legacy revision this server speaks."""
+    version = requested_version if requested_version in LEGACY_PROTOCOL_VERSIONS \
+        else LEGACY_FALLBACK_VERSION
     return {
         "protocolVersion": version,
         "capabilities": _capabilities(),
-        "serverInfo": server_info,
+        "serverInfo": _server_info(),
         "instructions": INSTRUCTIONS,
     }
 
 
-def handle_request(method: str, params) -> dict:
-    """Dispatch one JSON-RPC request; returns the result object or raises."""
+def discover_result() -> dict:
+    """Modern server/discover result (2026-07-28 DiscoverResult)."""
+    return {
+        "resultType": "complete",
+        "supportedVersions": [MODERN_PROTOCOL_VERSION],
+        "capabilities": _capabilities(),
+        "_meta": {KEY_SERVER_INFO: {k: v for k, v in _server_info().items()
+                                    if k != "instructions"}},
+        "instructions": INSTRUCTIONS,
+    }
+
+
+def _modern_result(payload: dict) -> dict:
+    """Wrap one legacy-shaped result payload for the modern era: every
+    result carries ``resultType: "complete"`` plus the serverInfo ``_meta``."""
+    wrapped = {"resultType": "complete"}
+    wrapped.update(payload)
+    return wrapped
+
+
+def _modern_version_of(params: dict) -> str | None:
+    """The per-request protocol version, or None when the request carries no
+    modern metadata (a legacy-era request)."""
+    meta = params.get("_meta")
+    if isinstance(meta, dict) and isinstance(meta.get(KEY_VERSION), str):
+        return meta[KEY_VERSION]
+    return None
+
+
+def handle_request(method: str, params, era: dict) -> dict:
+    """Dispatch one JSON-RPC request; returns the result object or raises.
+
+    ``era`` is the per-connection session state (``era["mode"]`` is None,
+    "legacy", or "modern"). Era selection follows the spec's dual-era rule:
+    an ``initialize`` request selects legacy semantics for the process; a
+    request carrying a modern per-request version is served statelessly.
+    """
     params = params or {}
     if not isinstance(params, dict):
         raise _RpcError(INVALID_PARAMS, "params must be an object")
     if method == "initialize":
+        era["mode"] = "legacy"
         return initialize_result(params.get("protocolVersion"))
+    requested = _modern_version_of(params)
+    if method == "server/discover" and requested is None and era["mode"] is None:
+        raise _RpcError(INVALID_PARAMS,
+                        "server/discover requires the modern per-request "
+                        f"_meta {KEY_VERSION} field (or send initialize first "
+                        "for a legacy session)")
+    if requested is not None:
+        meta = params.get("_meta") or {}
+        if not isinstance(meta.get(KEY_CLIENT_CAPABILITIES), dict):
+            raise _RpcError(
+                INVALID_PARAMS,
+                f"modern requests must carry _meta {KEY_CLIENT_CAPABILITIES}")
+        if requested != MODERN_PROTOCOL_VERSION:
+            raise _RpcError(
+                UNSUPPORTED_PROTOCOL_VERSION, "Unsupported protocol version",
+                data={"supported": [MODERN_PROTOCOL_VERSION], "requested": requested})
+        return _handle_modern(method, params)
+    if era["mode"] == "legacy":
+        return _handle_legacy(method, params)
+    if method == "ping":
+        return {}
+    raise _RpcError(
+        INVALID_PARAMS,
+        "no session: send initialize (legacy) or a per-request "
+        f"_meta {KEY_VERSION} (modern) before {method}")
+
+
+def _handle_modern(method: str, params: dict) -> dict:
+    if method == "server/discover":
+        return discover_result()
+    if method == "ping":
+        return {"resultType": "complete"}
+    if method == "tools/list":
+        return _modern_result({"tools": _tool_list()})
+    if method == "tools/call":
+        tool = params.get("name")
+        if not isinstance(tool, str) or not tool:
+            raise _RpcError(INVALID_PARAMS, "tools/call needs a tool name")
+        return _modern_result(call_tool(tool, params.get("arguments")))
+    if method == "resources/list":
+        return _modern_result({"resources": list_resources()})
+    if method == "resources/read":
+        uri = params.get("uri")
+        return _modern_result({"contents": [read_resource(uri)]})
+    if method == "prompts/list":
+        return _modern_result({"prompts": list_prompts()})
+    if method == "prompts/get":
+        return _modern_result(get_prompt(params.get("name")))
+    raise _RpcError(METHOD_NOT_FOUND, f"Method not found: {method}")
+
+
+def _handle_legacy(method: str, params: dict) -> dict:
     if method == "ping":
         return {}
     if method == "tools/list":
-        return {"tools": TOOLS}
+        return {"tools": _tool_list()}
     if method == "tools/call":
         tool = params.get("name")
         if not isinstance(tool, str) or not tool:
@@ -717,27 +665,32 @@ def handle_request(method: str, params) -> dict:
     raise _RpcError(METHOD_NOT_FOUND, f"Method not found: {method}")
 
 
-def dispatch(message: dict) -> dict | None:
+def dispatch(message, era: dict | None = None) -> dict | None:
     """One inbound JSON-RPC message to its outbound response, or None.
 
     Notifications (no id) never get a response; unknown methods with an id
     get -32601; responses to server requests (we send none) are ignored.
     """
+    if era is None:
+        era = {"mode": None}
     if not isinstance(message, dict):
         return _error_response(None, INVALID_REQUEST, "Invalid Request")
     method = message.get("method")
     has_id = "id" in message
     if method is None:
-        if has_id and "result" in message or has_id and "error" in message:
+        if (has_id and "result" in message) or (has_id and "error" in message):
             return None  # a response to a server request; none are sent
         return _error_response(message.get("id"), INVALID_REQUEST, "Invalid Request")
     if not has_id:
         return None  # a notification; never answered
     request_id = message["id"]
     try:
-        result = handle_request(method, message.get("params"))
+        result = handle_request(method, message.get("params"), era)
     except _RpcError as exc:
-        return _error_response(request_id, exc.code, exc.message)
+        error = {"code": exc.code, "message": exc.message}
+        if exc.data is not None:
+            error["data"] = exc.data
+        return {"jsonrpc": "2.0", "id": request_id, "error": error}
     except Exception as exc:  # keep serving no matter what one request does
         _log(f"{method} failed: {exc!r}")
         return _error_response(request_id, INTERNAL_ERROR, "Internal error")
@@ -745,9 +698,8 @@ def dispatch(message: dict) -> dict | None:
 
 
 def _error_response(request_id, code: int, message: str) -> dict:
-    response = {"jsonrpc": "2.0", "id": request_id,
-                "error": {"code": code, "message": message}}
-    return response
+    return {"jsonrpc": "2.0", "id": request_id,
+            "error": {"code": code, "message": message}}
 
 
 def _write(message: dict) -> None:
@@ -764,6 +716,7 @@ def serve(read_stream=None) -> int:
     """
     stream = read_stream if read_stream is not None else sys.stdin
     _log(f"starting ({plugin_version()}); scripts at {SCRIPTS_DIR}")
+    era = {"mode": None}
     for raw in stream:
         line = raw.strip() if isinstance(raw, str) else raw.decode("utf-8", "replace").strip()
         if not line:
@@ -774,7 +727,7 @@ def serve(read_stream=None) -> int:
             _log(f"parse error: {exc}")
             _write(_error_response(None, PARSE_ERROR, "Parse error"))
             continue
-        response = dispatch(message)
+        response = dispatch(message, era)
         if response is not None:
             _write(response)
     return 0
