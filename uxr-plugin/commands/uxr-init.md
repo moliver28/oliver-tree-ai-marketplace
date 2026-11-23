@@ -65,7 +65,8 @@ Steps:
 6. Show the plan and wait. One message with: ticket key and URL (or
    `no ticket`), status, folder path, UXR, group, sync target
    (`workspace.remote`, or `local only` when unset), and the file tree
-   the template creates (`00-overview.md`, `CLAUDE.md`, `.gitignore`,
+   the template creates (`00-overview.md`, `method-selection.md`,
+   `CLAUDE.md`, `.gitignore`,
    `.claude/settings.json`, `.sessions/`, `analysis/`, `deliverables/`,
    `interviews/`, `recruitment/`, `scripts/`, `sources/` with one folder
    per source type plus `interviews/`). End with exactly
@@ -91,6 +92,14 @@ Steps:
    row (the `item_url(<KEY>)` value). `--no-ticket` sends `TBD` for every
    ticket field except the title and slug. Exit 3 from the script: show
    its stderr and stop without retrying; exit 2: fix the invocation.
+
+7b. Sync the canonical set. Run
+   `python "${CLAUDE_PLUGIN_ROOT}/hooks/workspace_sync.py" sync-references --workspace "<research_root>/<slug>"`
+   and print its one-line result. The sync set carries the three checklist
+   files (`method-selection`, `qual-interviews`, `quant-surveys`) and the
+   writing-rules registry from the plugin's canonical copies; a workspace
+   edit later stays a recorded local override and is never clobbered by a
+   re-sync. A failure only warns in one line and never blocks the scaffold.
 
 8. Run the gitignore gate:
 
