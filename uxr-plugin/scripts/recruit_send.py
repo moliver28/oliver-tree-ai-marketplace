@@ -57,6 +57,7 @@ import os
 import re
 import smtplib
 import sys
+import tempfile
 from datetime import date
 from email.message import EmailMessage
 from email.utils import formatdate, make_msgid
@@ -147,11 +148,25 @@ def load_send_settings(
         recruit = load_config(user_file=config_file).get("recruit")
         email = recruit.get("email") if isinstance(recruit, dict) else None
         if isinstance(email, dict):
-            for key in values:
-                raw = email.get(key)
-                if raw is not None and str(raw).strip() != "":
-                    values[key] = str(raw).strip()
-                    from_config = True
+            # The example file's documentation defaults (smtp_port 587,
+            # use_tls true) are not user configuration. Reset any value that
+            # still equals the bare example file, so the env fallbacks can
+            # supply it (found by the 2026-11-23 mail-merge test wave: an
+            # env-only account connected to the example port instead of the
+            # env port).
+            fd, bare_path = tempfile.mkstemp(suffix=".yaml")
+            os.close(fd)
+            os.unlink(bare_path)  # a read sentinel: the bare load must see no user file
+            bare = load_config(environ={}, user_file=bare_path).get("recruit")
+            bare_email = bare.get("email") if isinstance(bare, dict) else None
+            if isinstance(bare_email, dict):
+                for key in values:
+                    if (
+                        values[key] is not None
+                        and str(bare_email.get(key)).strip() == values[key]
+                    ):
+                        values[key] = None
+            from_config = any(v is not None for v in values.values())
     except Exception:  # config absent or unreadable: the env fallbacks apply
         pass
     from_env = False

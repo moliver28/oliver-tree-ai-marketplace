@@ -359,6 +359,17 @@
     ],
     "reason": "Acceptance-pass residual of the source-registry wave (grounding-reliance law, design item 12): review lens 3 now names the grounding registry first - references/research-sources.md routes to one file per source under references/sources/, web tools only when no registered page covers the claim. +2 payload lines in the one hash-pinned reviewer file; re-pinned by the recorded PASS tuning run (runs/2026-11-22-registry-lens3, F1 0.28, p0 recall 1.00).",
     "date": "2026-11-22"
+   },
+   {
+    "wave": "mailmerge-fix",
+    "issue": "w5-test-wave",
+    "delta_lines": 33,
+    "files": [
+     "uxr-plugin/scripts/recruit_send.py (env-precedence fix in load_send_settings)",
+     "tests/uxr_selftests/recruit_send.py (regression pin: env port beats example default)"
+    ],
+    "reason": "Mail-merge test wave fix: the example file's documentation defaults (smtp_port 587, use_tls true) reached the config layer through load_config's example+user merge and shadowed the UXR_RECRUIT_* env fallbacks, so an env-only account connected to the example port instead of the env port. load_send_settings now resets any config value that still equals the bare example file before the env fill, and the source line reports only layers that actually supplied a value. Regression pin added to the selftest. Payload delta measured 33 lines (script +20, selftest +13), all inside the two named files.",
+    "date": "2026-11-23"
    }
   ],
   "golden_path_growth": null

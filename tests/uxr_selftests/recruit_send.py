@@ -317,6 +317,19 @@ def _selftest() -> int:
         check("an injected empty config carries no account values",
               not values["smtp_host"] and not values["from_address"],
               f"source={source} host={values['smtp_host']}")
+        # Regression (2026-11-23 mail-merge test wave): the example file's
+        # documentation defaults (smtp_port 587, use_tls true) must not
+        # shadow the env fallbacks — an env-only account must resolve the
+        # env port, not the example port.
+        values, source = load_send_settings(
+            environ={"UXR_RECRUIT_SMTP_HOST": "smtp.example.com",
+                     "UXR_RECRUIT_SMTP_PORT": "1",
+                     "UXR_RECRUIT_FROM": "team@example.com"},
+            config_file=str(empty_config),
+        )
+        check("env port beats the example-file default",
+              values["smtp_port"] == "1" and values["use_tls"] is None,
+              f"source={source} port={values['smtp_port']} tls={values['use_tls']}")
         try:
             run({"participants": participants_path, "template": template_path,
                  "send": "1", "today": "2026-11-22"},
