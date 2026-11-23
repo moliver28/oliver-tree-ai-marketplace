@@ -57,6 +57,21 @@ GAP_WORDINGS = (
     "no checklist ships for <method> yet",
     "insufficient external evidence",
 )
+#: The gap line as the A0.5 law actually prescribes writing it - the placeholder
+#: filled with the landscape method's name. The literal-only form contradicted
+#: the shipped plugin law, so a compliant gap line failed its own harness
+#: (acceptance run 2026-11-22-acceptance, case G2).
+_GAP_LINE_RE = re.compile(r"no checklist ships for .+? yet", re.IGNORECASE)
+#: A trailing provenance annotation - a parenthetical naming a path, a registry
+#: id, or a URL. A served quote carrying one still traces to served text.
+_ANNOTATION_PAREN_RE = re.compile(r"\([^()]*(?:/|R-\d|A-\d|https?://)[^()]*\)")
+#: Citation furniture: straight and curly double quotation marks around a quoted
+#: served span, and a "fetched page: <url>" provenance tail after it.
+_QUOTES_RE = re.compile(r"[\u201c\u201d\"]")
+_FETCHED_TAIL_RE = re.compile(r"\s*[\u2014\u2013-]\s*fetched page: \S+", re.IGNORECASE)
+#: The markdown bullet a reply line may carry ahead of its quoted span; the
+#: served text carries no bullet, and the wrapper is not content.
+_LEADING_BULLET_RE = re.compile(r"^\s*[-*]\s+")
 
 #: Transcript tool-call markers the order parser accepts (one line each).
 TOOL_CALL_RE = re.compile(
@@ -131,27 +146,44 @@ def negative_order_ok(transcript: str) -> bool:
 
 
 def _served_leaf_union() -> str:
-    """The union of every shipped entry's leaf lines (assertion c corpus)."""
+    """The union of every shipped entry's leaf lines (assertion c corpus).
+
+    The central file is served text too - it carries the grounding law and the
+    condition index, the primary carriers a compliant reply quotes - so its
+    whole text joins the corpus beside the entry leaves.
+    """
     parts: list[str] = []
+    central = PLUGIN_ROOT / "references" / "research-sources.md"
     sources = PLUGIN_ROOT / "references" / "sources"
-    if sources.is_dir():
-        for path in sorted(sources.glob("*.md")):
-            try:
-                parts.append(path.read_text(encoding="utf-8", errors="replace"))
-            except OSError:
-                continue
+    for path in (central, *sorted(sources.glob("*.md"))) if central.is_file() else sorted(sources.glob("*.md")):
+        try:
+            parts.append(path.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            continue
     return base._normalized("\n".join(parts))
 
 
 def _trace_or_gap(output: str, corpus: str) -> bool:
-    """Assertion (c): every method-law line traces to served text or a gap wording."""
+    """Assertion (c): every method-law line traces to served text or a gap wording.
+
+    A served quote with a trailing provenance annotation still traces (the
+    annotation parenthetical is stripped before containment), and the gap line
+    counts in its prescribed filled form (``_GAP_LINE_RE``), not only with the
+    literal placeholder.
+    """
     for line in output.splitlines():
         low = base._normalized(line)
         if not low or ("law" not in low and "rule" not in low and "method" not in low):
             continue
-        if low in corpus:
+        cleaned = _LEADING_BULLET_RE.sub(" ", line)
+        cleaned = _QUOTES_RE.sub(" ", _ANNOTATION_PAREN_RE.sub(" ", cleaned))
+        cleaned = _FETCHED_TAIL_RE.sub(" ", cleaned)
+        cleaned_norm = base._normalized(cleaned)
+        if cleaned_norm in corpus or low in corpus:
             continue
         if any(base._normalized(g) in low for g in GAP_WORDINGS):
+            continue
+        if _GAP_LINE_RE.search(low):
             continue
         return False
     return True
@@ -170,6 +202,9 @@ def prepare(run_dir: str | None = None) -> int:
             f"{base.DISPATCH_PREFIX}\n\nCase {case['id']} on surface {case['surface']}.\n"
             f"Fixture: {json.dumps(case['fixture'], ensure_ascii=False)}\n"
             f"Steps:\n- " + "\n- ".join(case["steps"]) + "\n"
+            "The scored reply carries the researcher-facing answer only; keep "
+            "run-record narration (phase logs, assertion bookkeeping, step "
+            "accounting) in the transcript file.\n"
             "Follow the grounding law: consult registered sources page-first; "
             "cite the URL with the claim. Workspace-artifact-only steps run no search."
         )
@@ -188,6 +223,11 @@ def score(run_dir: str, workspace: str | None = None) -> int:
     failures: list[str] = []
     corpus = _served_leaf_union()
     cases = json.loads(EVALS_JSON.read_text(encoding="utf-8"))["cases"]
+    # The case's own dispatch text (fixture + steps) is served context: a reply
+    # echoing the question it was asked is not invention.
+    for case in cases:
+        corpus += " " + base._normalized(json.dumps(case.get("fixture", {}), ensure_ascii=False))
+        corpus += " " + base._normalized(" ".join(case.get("steps", [])))
     for case in cases:
         cid = case["id"]
         reply = out_dir / f"case-{cid}.txt"
