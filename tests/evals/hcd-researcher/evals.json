@@ -23,6 +23,11 @@
           "location": "hypotheses[1].text",
           "text": "Internal dashboards show 40 percent faster time-to-first-plan."
         }
+      ],
+      "verified": [
+        "Support sees a steady trickle of 'where is my project plan?' tickets in each account's first week.",
+        "5 internal participants",
+        "Do we ship the left-navigation timeline entry or invest in a guided tour?"
       ]
     },
     {
@@ -39,6 +44,12 @@
           "location": "research_questions[1]",
           "text": "How many users click the header toolbar versus the left navigation each week?"
         }
+      ],
+      "verified": [
+        "Support sees a steady trickle of 'where is my project plan?' tickets in each account's first week.",
+        "5 internal participants",
+        "New project managers who find the timeline in their first session build a plan in that session.",
+        "Do we ship the left-navigation timeline entry or invest in a guided tour?"
       ]
     },
     {
@@ -55,6 +66,12 @@
           "location": "session_length",
           "text": "30 minutes, plus 15 minutes on the billing dashboard for the payments team"
         }
+      ],
+      "verified": [
+        "Support sees a steady trickle of 'where is my project plan?' tickets in each account's first week.",
+        "5 internal participants",
+        "New project managers who find the timeline in their first session build a plan in that session.",
+        "A navigation change increases first-session timeline discovery more than a guided tour."
       ]
     },
     {
@@ -71,6 +88,12 @@
           "location": "hypotheses[0].text",
           "text": "Users obviously prefer the header toolbar, and this study will confirm the placement."
         }
+      ],
+      "verified": [
+        "Support sees a steady trickle of 'where is my project plan?' tickets in each account's first week.",
+        "5 internal participants",
+        "New project managers who find the timeline in their first session build a plan in that session.",
+        "Do we ship the left-navigation timeline entry or invest in a guided tour?"
       ]
     },
     {
@@ -87,6 +110,12 @@
           "location": "decision",
           "text": "Should we change the timeline entry point?"
         }
+      ],
+      "verified": [
+        "Support sees a steady trickle of 'where is my project plan?' tickets in each account's first week.",
+        "5 internal participants",
+        "New project managers who find the timeline in their first session build a plan in that session.",
+        "A navigation change increases first-session timeline discovery more than a guided tour."
       ]
     },
     {
@@ -103,6 +132,11 @@
           "location": "sample_size",
           "text": "5 internal participants, plus 200 survey responses from the product-announcement list"
         }
+      ],
+      "verified": [
+        "Support sees a steady trickle of 'where is my project plan?' tickets in each account's first week.",
+        "New project managers who find the timeline in their first session build a plan in that session.",
+        "A navigation change increases first-session timeline discovery more than a guided tour."
       ]
     },
     {
@@ -119,6 +153,11 @@
           "location": "hypotheses[2].text",
           "text": "Industry research shows navigation changes beat guided tours for discovery."
         }
+      ],
+      "verified": [
+        "Support sees a steady trickle of 'where is my project plan?' tickets in each account's first week.",
+        "5 internal participants",
+        "New project managers who find the timeline in their first session build a plan in that session."
       ]
     },
     {
@@ -135,6 +174,12 @@
           "location": "research_questions[0]",
           "text": "How do power users organize their project sidebar in week three?"
         }
+      ],
+      "verified": [
+        "Support sees a steady trickle of 'where is my project plan?' tickets in each account's first week.",
+        "5 internal participants",
+        "New project managers who find the timeline in their first session build a plan in that session.",
+        "Do we ship the left-navigation timeline entry or invest in a guided tour?"
       ]
     },
     {
@@ -151,6 +196,13 @@
           "location": "5 of 5 participants found the timeline within two minutes",
           "text": "- 9 of 10 participants abandoned the setup wizard in the first session [S:s1]"
         }
+      ],
+      "verified": [
+        "The header toolbar is where first-week users look for planning features",
+        "the left navigation change would not meet them where they look",
+        "First-session planning",
+        "Share the report with the support team leads",
+        "sources_cited: [s1, s2]"
       ]
     },
     {
@@ -167,6 +219,12 @@
           "location": "Participants reached the timeline from the left navigation without help",
           "text": "- Participants never noticed the header toolbar entry, challenging the placement hypothesis [S:s2]"
         }
+      ],
+      "verified": [
+        "verdict: Supported",
+        "Both entry points were reached in session",
+        "Share the report with the support team leads",
+        "sources_cited: [s2]"
       ]
     },
     {
@@ -183,6 +241,12 @@
           "location": "Participants read the timeline labels without prompting",
           "text": "- Moving the entry point will cut where-is-my-plan tickets by half across all accounts [S:s1]"
         }
+      ],
+      "verified": [
+        "The timeline labels carried the meaning for first-week users",
+        "without a guided tour in session",
+        "Share the report with the support team leads",
+        "sources_cited: [s1]"
       ]
     },
     {
@@ -199,6 +263,11 @@
           "location": "Share the report with the support team leads",
           "text": "- Pull 20 contacts from the support ticket queue and mail them the survey for the follow-up study"
         }
+      ],
+      "verified": [
+        "the entry point placement carries the outcome",
+        "every session where the timeline was found",
+        "sources_cited: [s1, s2]"
       ]
     }
   ]
