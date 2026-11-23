@@ -10,6 +10,8 @@ run reads that config and never asks again; the flow rules live in
 rules, the calculator default, the privacy rule, the workspace git rule,
 and the org-chart rule). Read that reference before the first question.
 
+Grounding: no registered sources serve this command (record-keeping; search is a tool, not a ritual). Index: `references/research-sources.md`.
+
 Input: `$ARGUMENTS`. `--recheck` runs the full interview even when a saved
 config exists. No argument uses the saved path when it exists.
 

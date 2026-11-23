@@ -21,6 +21,8 @@ table from `scripts/recruit_funnel.py`.
 
 ## Inputs
 
+Grounding: consult registered sources in `references/sources/` (for this command: R-01 recruiting, R-15 ops); page-first lookup; cite the URL with the claim. Index: `references/research-sources.md`.
+
 `$ARGUMENTS` is `<KEY>` with any of: `--recruit=<name>`, `--reply=<name>`,
 `--level=i|ii|iii` (default `ii`), `--allow=<eventId>`, `--keep=<eventId>`,
 `--window=<N>` (default 14, max 60), `--external`, `--coordinate`,

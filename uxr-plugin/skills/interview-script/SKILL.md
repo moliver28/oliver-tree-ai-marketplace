@@ -21,6 +21,8 @@ until the script is done; never sends or shares anything.
    `.claude/agents/<name>.md` first when one exists, otherwise the
    plugin's `agents/<name>.md`.
 
+Grounding: consult registered sources in `references/sources/` (for this skill: R-01 interview pages, R-04 COREQ); page-first lookup; cite the URL with the claim. Index: `references/research-sources.md`.
+
 ## Flow
 
 ### 1. Inputs

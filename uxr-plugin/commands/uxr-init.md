@@ -8,6 +8,8 @@ fixed folder set, and git rules that keep participant data out of version
 control. Every later command (`recruit`, `debrief`, `report`, `deck`,
 `trace`) finds its files here.
 
+Grounding: no registered sources serve this command; no search runs — the law paragraph lands in the workspace CLAUDE.md. Index: `references/research-sources.md`.
+
 Input: `$ARGUMENTS`. Exactly one of:
 
 - `<KEY>` - a ticket key (bare numbers resolve per `references/tracker.md`).

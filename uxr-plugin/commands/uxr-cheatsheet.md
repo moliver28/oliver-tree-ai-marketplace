@@ -12,6 +12,8 @@ role cards, FAQ - are never rewritten by the validator.
 
 ## Inputs
 
+Grounding: no registered sources serve this command (record-keeping; search is a tool, not a ritual). Index: `references/research-sources.md`.
+
 `$ARGUMENTS` may carry `--check` (validate only, no fix offer, no
 write) or `--dry-run` (validate, show the fixes that would apply,
 write nothing). Without flags the command runs the full check, show,

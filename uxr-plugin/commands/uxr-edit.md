@@ -12,6 +12,8 @@ tracker fields resolve through `lib/field_map.py`. One run makes at most one
 
 ## Inputs
 
+Grounding: no registered sources serve this command (record-keeping; search is a tool, not a ritual). Index: `references/research-sources.md`.
+
 `$ARGUMENTS` takes one of three shapes:
 
 1. `<KEY>` alone: read the ticket, show it, and ask what to change.

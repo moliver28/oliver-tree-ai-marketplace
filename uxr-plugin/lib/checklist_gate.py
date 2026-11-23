@@ -40,6 +40,15 @@ content absent; enforcement is a command-side decision via the
 no shorthand and an empty ``fix``. The checklist directory is a
 parameter, so a different canonical location is a config change, not a
 rewrite.
+
+The citation check (build item 12) is the second, standalone-invocable
+CLI form: ``citations --workspace <dir>`` loads every shipped checklist
+item, treats an item as outside-knowledge iff its Source field names an
+``R-``/``A-`` registry id, and requires that item's ``path:`` evidence
+artifact to carry a source line (a URL or a registry id). Registry ids
+resolve against the ``references/sources/`` DIRECTORY; an unresolved id
+prints a WARNING and never fails the check (promotion never renames).
+Additive to the probe vocabulary - ``check`` behavior is unchanged.
 """
 
 from __future__ import annotations
@@ -66,13 +75,26 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 #: files, so every lookup prints the absent line until MO confirms the item set.
 CHECKLIST_DIR = PLUGIN_ROOT / "references" / "checklists"
 
+#: The source-registry store (design decision 7): one entry file per id.
+#: Every scripted lookup targets this DIRECTORY, never one big file.
+SOURCES_DIR = PLUGIN_ROOT / "references" / "sources"
+
 #: The one line shape a checklist item may take.
 ITEM_RE = re.compile(
     r"^- \[ \] (\S+) (.+?)\. Evidence: (.+?)\. \(Source: (.+?)\)\s*$"
 )
 
+#: Gate citation predicate (review F5): an item is outside-knowledge if and
+#: only if its Source field names a registry id (an ``R-`` or ``A-`` token).
+#: Grep-checkable, zero classifier variance.
+REGISTRY_ID_RE = re.compile(r"\b[RA]-\d{1,3}\b")
+
+#: A source line in an evidence artifact: a URL or a registry id.
+SOURCE_LINE_RE = re.compile(r"(https?://|\b[RA]-\d{1,3}\b)")
+
 USAGE = """usage:
   python lib/checklist_gate.py check --type <type> --spec <spec.json> --workspace <dir> [--json]
+  python lib/checklist_gate.py citations --workspace <dir> [--json]
 
 A missing spec file counts as an empty spec (spec probes fail closed).
 Exit codes: 0 pass (or no checklist for the type), 1 not ready, 2 usage."""
@@ -182,6 +204,115 @@ def absent_line(check_type_name: str, result: dict | None = None) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# the gate citation check (build item 12; standalone-invocable)
+# ---------------------------------------------------------------------------
+
+
+def check_citations(
+    workspace: Path | None,
+    checklists_dir: Path | None = None,
+) -> dict:
+    """The citation check over every shipped checklist item.
+
+    An item is outside-knowledge iff its Source field names a registry id
+    (``REGISTRY_ID_RE``). For each outside-knowledge item whose evidence
+    is a ``path:`` probe, the workspace artifact must carry a source line
+    (a URL or a registry id token) - decision 7's "source line (URL) on
+    outside-knowledge items". The check targets the ``references/sources/``
+    DIRECTORY: every registry id the items or the checked artifacts name
+    is resolved against ``SOURCES_DIR``; an id the store does not hold is
+    a WARNING, never a failure (review F8; promotion never renames - a
+    promoted A-entry becomes a new ``R-`` id and its A-file is removed, so
+    recorded artifacts keep resolving). Additive to design decision 4:
+    the probe vocabulary and the evidence-presence law are unchanged.
+
+    Returns ``{"items", "ok", "missing", "warnings"}``; never raises.
+    """
+    result: dict = {"items": [], "ok": True, "missing": [], "warnings": []}
+    try:
+        base = checklists_dir if checklists_dir is not None else CHECKLIST_DIR
+        if not base.is_dir():
+            return result
+        items: list[dict] = []
+        for path in sorted(base.glob("*.md")):
+            items.extend(load_items(path))
+        result["items"] = items
+        if not items:
+            return result
+        named_ids: set[str] = set()
+        missing: list[dict] = []
+        for item in items:
+            named_ids.update(REGISTRY_ID_RE.findall(item["source"]))
+            if not REGISTRY_ID_RE.search(item["source"]):
+                continue
+            evidence = item["evidence"].strip()
+            kind, _, name = evidence.partition(":")
+            if kind != "path" or not name.strip() or workspace is None:
+                continue  # no artifact target; grounding rides the preamble law
+            try:
+                target = workspace / name.strip()
+                if not (target.is_file() and target.stat().st_size > 0):
+                    missing.append({"item": item["id"], "evidence": evidence, "fix": ""})
+                    continue
+                text = target.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                missing.append({"item": item["id"], "evidence": evidence, "fix": ""})
+                continue
+            named_ids.update(REGISTRY_ID_RE.findall(text))
+            if not SOURCE_LINE_RE.search(text):
+                missing.append(
+                    {
+                        "item": item["id"],
+                        "evidence": evidence,
+                        "fix": "add a source line: a URL or a registry id",
+                    }
+                )
+        store_ids = {p.stem for p in SOURCES_DIR.glob("*.md")} if SOURCES_DIR.is_dir() else set()
+        warnings = sorted(i for i in named_ids if i not in store_ids)
+        result["missing"] = missing
+        result["warnings"] = warnings
+        result["ok"] = not missing
+        return result
+    except Exception as exc:  # a gate never crashes a command
+        result["ok"] = False
+        result["missing"] = [{"item": "gate", "evidence": f"crashed: {exc}", "fix": ""}]
+        return result
+
+
+def _cli_citations(rest: list[str]) -> int:
+    workspace_arg: str | None = None
+    as_json = False
+    index = 0
+    while index < len(rest):
+        arg = rest[index]
+        if arg == "--workspace" and index + 1 < len(rest):
+            workspace_arg = rest[index + 1]
+            index += 2
+            continue
+        if arg == "--json":
+            as_json = True
+            index += 1
+            continue
+        print(f"citations: unknown or incomplete argument {arg!r}\n\n{USAGE}", file=sys.stderr)
+        return 2
+    if not workspace_arg:
+        print(f"citations: --workspace is required\n\n{USAGE}", file=sys.stderr)
+        return 2
+    workspace = Path(workspace_arg).expanduser()
+    result = check_citations(workspace)
+    if as_json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        for warning in result["warnings"]:
+            print(f"warning: {warning} not in references/sources/")
+        for entry in result["missing"]:
+            print(f"missing: {entry['item']} (evidence: {entry['evidence']})")
+        if not result["missing"]:
+            print("citations OK")
+    return 0 if result["ok"] else 1
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -248,6 +379,12 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         except OSError as exc:
             print(f"check: {exc}", file=sys.stderr)
+            return 2
+    if args and args[0] == "citations":
+        try:
+            return _cli_citations(args[1:])
+        except OSError as exc:
+            print(f"citations: {exc}", file=sys.stderr)
             return 2
     print(USAGE)
     return 2

@@ -20,6 +20,8 @@ gate, preview, create. Three model calls on the golden path (phases 2, 3–5,
 
 `fast`/`retro` win over the other paths.
 
+Grounding: consult registered sources in `references/sources/` (for this command: R-01 method pages); page-first lookup; cite the URL with the claim. Index: `references/research-sources.md`.
+
 ## Setup (once)
 
 1. Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - and follow it.
