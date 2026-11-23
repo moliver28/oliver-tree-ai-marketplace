@@ -1,9 +1,10 @@
 """Checklist gate self-test: the loader, the probe vocabulary, the CLI law, and the standing-mandate predicates (issue 53).
 
 Binds ``lib/checklist_gate.py`` and drives it against a temporary
-checklist directory (the canonical directory ships empty in W4), plus
-the two ``ask_*`` predicates the standing mandates ride in
-``lib/phase_gates.SPEC_CHECKS``.
+checklist directory (the canonical directory ships the confirmed
+53-content item set; the absent-line law is exercised against an empty
+directory override), plus the two ``ask_*`` predicates the standing
+mandates ride in ``lib/phase_gates.SPEC_CHECKS``.
 """
 from _harness import bind
 
@@ -145,13 +146,28 @@ def _selftest() -> int:
                 code = main(list(args))
             return code, buffer.getvalue(), err.getvalue()
 
-        # the W4 canonical directory is empty: every type prints the absent line, exit 0
+        # the shipped canonical directory carries the confirmed 53-content item set
+        for type_name, want in (("method-selection", 5), ("qual-interviews", 29),
+                                ("quant-surveys", 32)):
+            shipped = load_items(CHECKLIST_DIR / f"{type_name}.md")
+            check(f"the shipped {type_name} checklist parses {want} items",
+                  len(shipped) == want, f"found {len(shipped)}")
         code, out, _err = cli("check", "--type", "qual-interviews", "--spec", str(spec_file), "--workspace", str(tmp))
-        check("the CLI prints the absent line and exits 0 with no shipped checklist content",
-              code == 0 and out.strip() == "no checklist for type qual-interviews",
-              f"code={code} out={out!r}")
-        # a parameterized directory drives the populated cases
+        check("the CLI runs the shipped canonical checklist instead of the absent line",
+              code == 1 and "no checklist for type" not in out,
+              f"code={code} out={out[:80]!r}")
+        # an empty directory override keeps the absent law: missing file prints it, exit 0
         import lib.checklist_gate as _cgate  # selftest-only handle for the dir override
+        saved_dir = _cgate.CHECKLIST_DIR
+        try:
+            _cgate.CHECKLIST_DIR = empty_dir
+            code, out, _err = cli("check", "--type", "qual-interviews", "--spec", str(spec_file), "--workspace", str(tmp))
+            check("the CLI prints the absent line and exits 0 for an empty checklist directory",
+                  code == 0 and out.strip() == "no checklist for type qual-interviews",
+                  f"code={code} out={out!r}")
+        finally:
+            _cgate.CHECKLIST_DIR = saved_dir
+        # a parameterized directory drives the populated cases
         saved_dir = _cgate.CHECKLIST_DIR
         try:
             _cgate.CHECKLIST_DIR = checklists

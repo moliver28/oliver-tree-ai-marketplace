@@ -359,6 +359,19 @@
     ],
     "reason": "Acceptance-pass residual of the source-registry wave (grounding-reliance law, design item 12): review lens 3 now names the grounding registry first - references/research-sources.md routes to one file per source under references/sources/, web tools only when no registered page covers the claim. +2 payload lines in the one hash-pinned reviewer file; re-pinned by the recorded PASS tuning run (runs/2026-11-22-registry-lens3, F1 0.28, p0 recall 1.00).",
     "date": "2026-11-22"
+   },
+   {
+    "wave": "53-content",
+    "issue": 53,
+    "delta_lines": 221,
+    "files": [
+     "uxr-plugin/references/checklists/method-selection.md",
+     "uxr-plugin/references/checklists/qual-interviews.md",
+     "uxr-plugin/references/checklists/quant-surveys.md",
+     "uxr-plugin/references/writing-rules.md"
+    ],
+    "reason": "The confirmed 66-item checklist content set (MO 2026-11-23 ruling, tweak applied): the shared method-selection stage A0 (5 items), the qualitative interviews block (29 items), the quantitative surveys block (32 items), byte-exact from the confirmed note in the loader-parsed line shape with executor tags and optional tails, plus the writing-rules registry (26 seed rules in five families; ids stable forever, appending never renumbers). One MO-ruled append-only exception: the A1.4 line gains the format-law Source clause the confirmed line lacked, so the unchanged loader parses all 66. Loader parse and probe vocabulary unchanged; the enrolled checklist_gate selftest swaps its W4 empty-directory placeholder for the shipped-content law and keeps the absent-line check on an empty-directory override.",
+    "date": "2026-11-22"
    }
   ],
   "golden_path_growth": null
