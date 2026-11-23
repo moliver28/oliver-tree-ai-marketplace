@@ -25,6 +25,8 @@ This script computes; the ``recruit`` command writes. Four jobs:
 - ``--check-draft <file>``: the V1 check. Passes only when the draft body
   keeps ``{{First name}}`` and ``{{Booking link}}`` and contains no
   ``http`` (a mail tool that rewrites links would redirect the URL).
+- ``--prep <csv>``: one prep brief per Prep-tab export row; an empty
+  export prints ``no prep briefs``.
 
 Output never contains an email address: every printed line is scrubbed as
 a final safety net even though the funnel data itself carries emails.
@@ -42,6 +44,7 @@ preflight blocked.
 
 from __future__ import annotations
 
+import csv
 import json
 import re
 import sys
@@ -588,6 +591,38 @@ def check_draft_v1(path_value: str) -> tuple[int, list[str]]:
     return EXIT_OK, ["V1 OK: draft keeps {{First name}} and {{Booking link}}, no http"]
 
 
+def prep_briefs(path_value: str) -> list[str]:
+    """One brief line per Prep-tab export row (``when | event | items``).
+
+    The email column never prints; unreadable input raises usage; no
+    rows yields ``no prep briefs``.
+    """
+    path = Path(path_value).expanduser()
+    if not path.is_file():
+        raise _Usage(f"prep file not found: {path}")
+    try:
+        with path.open("r", encoding="utf-8", newline="") as handle:
+            rows = list(csv.reader(handle))
+    except OSError as exc:
+        raise _Usage(f"prep file cannot be read ({path}): {exc}") from None
+    if not rows:
+        return ["no prep briefs"]
+    header = [cell.strip().lower() for cell in rows[0]]
+    if not {"when", "event", "items"} <= set(header):
+        raise _Usage("prep export needs the when, event, and items columns")
+    picks = {name: header.index(name) for name in ("when", "event", "items")}
+    lines: list[str] = []
+    for row in rows[1:]:
+        if not any(cell.strip() for cell in row):
+            continue
+        cells = {
+            name: (row[index] if index < len(row) else "").strip()
+            for name, index in picks.items()
+        }
+        lines.append(f"{cells['when']} | {cells['event']} | {cells['items']}")
+    return lines or ["no prep briefs"]
+
+
 # ---------------------------------------------------------------------------
 # workspace participants-table enforcement (issue 51): additive checks.
 # Pure helpers for the recruit flow and the repo-level enforcement module;
@@ -681,6 +716,10 @@ def run(args: dict[str, str], config: dict | None = None) -> tuple[int, str]:
         v1_code, v1_lines = check_draft_v1(check_draft)
         return v1_code, "\n".join(v1_lines) + "\n"
 
+    prep_value = str(args.get("prep") or "").strip()
+    if prep_value:
+        return EXIT_OK, scrub("\n".join(prep_briefs(prep_value))) + "\n"
+
     spec_value = str(args.get("spec") or "").strip()
     if not spec_value:
         raise _Usage("--spec <path.spec.json> is required")
@@ -743,6 +782,7 @@ def main(argv: list[str] | None = None) -> int:
         "--wave": "wave",
         "--funnel-data": "funnel_data",
         "--check-draft": "check_draft",
+        "--prep": "prep",
         "--today": "today",
     }
     switches = {"--preflight": "preflight", "--status": "status", "--reminder": "reminder"}

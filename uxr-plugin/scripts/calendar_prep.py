@@ -26,10 +26,15 @@ working session; config ``calendar.movable_keywords``. Everything else is
 never an event with an external attendee; classification order makes the
 override impossible for those.
 
+``--dump <file>`` adds one more saved calendar dump; repeat it once per
+calendar. The dumps' events are read after the positional file's, and
+``pick_slots`` unions each day's busy intervals with overlap dedup
+before picking, so availability spans calendars; one dump is unchanged.
+
 Usage::
 
-    python scripts/calendar_prep.py <events.json> [--manager <names or emails>]
-        [--keep <id>] [--allow <id>]
+    python scripts/calendar_prep.py <events.json> [--dump <events.json>]...
+        [--manager <names or emails>] [--keep <id>] [--allow <id>]
     python scripts/calendar_prep.py <events.json> --pick [--level i|ii|iii]
         [--session-minutes <N>] [--slots <3-5>]   (W2: the slot picker)
 
@@ -477,6 +482,7 @@ def main(argv: list[str] | None = None) -> int:
     keep: list[str] = []
     allow: list[str] = []
     managers: list[str] = []
+    dumps: list[str] = []
     options: dict[str, str] = {}
     positional: list[str] = []
     index = 0
@@ -485,6 +491,13 @@ def main(argv: list[str] | None = None) -> int:
         if token == "--pick":
             options["--pick"] = "1"
             index += 1
+            continue
+        if token == "--dump":
+            if index + 1 >= len(args):
+                print(f"calendar_prep: {token} needs a value", file=sys.stderr)
+                return EXIT_USAGE
+            dumps.append(args[index + 1])
+            index += 2
             continue
         if token in ("--manager", "--keep", "--allow", "--level", "--session-minutes", "--slots"):
             if index + 1 >= len(args):
@@ -504,17 +517,22 @@ def main(argv: list[str] | None = None) -> int:
         positional.append(token)
         index += 1
 
-    if len(positional) != 1:
+    if len(positional) > 1 or (not positional and not dumps):
         print(
-            "usage: calendar_prep.py <events.json> [--manager <names or emails>] "
-            "[--keep <id>] [--allow <id>] [--pick [--level i|ii|iii] "
-            "[--session-minutes <N>] [--slots <3-5>]]",
+            "usage: calendar_prep.py <events.json> [--dump <events.json>]... "
+            "[--manager <names or emails>] [--keep <id>] [--allow <id>] "
+            "[--pick [--level i|ii|iii] [--session-minutes <N>] [--slots <3-5>]]",
             file=sys.stderr,
         )
         return EXIT_USAGE
 
     try:
-        events = _load_events(Path(positional[0]).expanduser())
+        events: list[dict] = []
+        sources = ([Path(positional[0]).expanduser()] if positional else []) + [
+            Path(value).expanduser() for value in dumps
+        ]
+        for source in sources:
+            events.extend(_load_events(source))
     except _Usage as exc:
         print(f"calendar_prep: {exc}", file=sys.stderr)
         return EXIT_USAGE

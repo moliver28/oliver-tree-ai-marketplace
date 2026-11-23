@@ -235,6 +235,41 @@ def _selftest() -> int:
         check("the funnel table still renders with the eight-value vocabulary",
               code == EXIT_OK and "| Fit |" in output, f"code={code}")
 
+        # --prep: the printer over a Prep-tab export (the mail-merge wave).
+        prep_file = tmp_path / "prep.csv"
+        prep_file.write_text(
+            "when,event,email,items\n"
+            "2026-11-24 10:00,Session with Ada,ada@example.com,study title; consent form\n"
+            "2026-11-25 13:00,Session with Rook,rook@example.com,prototype link\n",
+            encoding="utf-8",
+        )
+        code, output = run({"prep": str(prep_file)}, config={})
+        check("--prep exits 0", code == EXIT_OK, f"code={code}")
+        check("--prep prints one brief per row",
+              output.count("|") >= 4
+              and "2026-11-24 10:00 | Session with Ada | study title; consent form" in output
+              and "2026-11-25 13:00 | Session with Rook | prototype link" in output,
+              output)
+        check("--prep never prints the email column",
+              "@" not in output, output)
+        empty_prep = tmp_path / "prep-empty.csv"
+        empty_prep.write_text("when,event,email,items\n", encoding="utf-8")
+        code, output = run({"prep": str(empty_prep)}, config={})
+        check("an empty prep export prints one no-prep-briefs line and exits 0",
+              code == EXIT_OK and output.strip() == "no prep briefs", output)
+        header_prep = tmp_path / "prep-header.csv"
+        header_prep.write_text("time,person\n", encoding="utf-8")
+        try:
+            run({"prep": str(header_prep)}, config={})
+            check("a prep export without the needed columns raises usage", False)
+        except _Usage:
+            check("a prep export without the needed columns raises usage", True)
+        try:
+            run({"prep": str(tmp_path / "no-such-prep.csv")}, config={})
+            check("a missing prep file raises usage", False)
+        except _Usage:
+            check("a missing prep file raises usage", True)
+
     if failures:
         print(f"selftest FAILED ({len(failures)})")
         return EXIT_SELFTEST
