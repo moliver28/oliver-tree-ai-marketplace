@@ -393,6 +393,19 @@
     ],
     "reason": "The survey mode of the checker (the survey-script skill review loop, note section The survey skill counterpart step 6): four checks over the survey-instrument-<KEY>.md shape - burden count (section declares K, holds M; total against the **Burden budget** line), routing-map parse (every conditional question mapped, every landing real, no dead ends), coverage map (every RQ map row carries a digit in the Survey Qs column, warn), alternatives count (two to five per core question with the kept winner recorded) - plus the shared em-dash block and the structure exit 2 law. Exit codes copy check (0/1/2/3); check output byte-identical; the enrolled review_checks selftest gains the survey-mode coverage additively (items 14 and 15) and keeps all existing checks.",
     "date": "2026-11-22"
+   },
+   {
+    "wave": "53-content",
+    "issue": 53,
+    "delta_lines": 115,
+    "files": [
+     "uxr-plugin/templates/workspace/method-selection.md",
+     "uxr-plugin/commands/uxr-init.md",
+     "uxr-plugin/commands/uxr-report.md",
+     "uxr-plugin/hooks/workspace_sync.py"
+    ],
+    "reason": "The A0 entry-stage wiring (design decisions 2, 3, and 6): the workspace template for the method-selection record the A0 items probe (classification table on the NN/g axes, method + alternatives, spec record, routing line with the named-gap wording; no template tokens), listed in the init plan tree so uxr-new workspaces get it through the scaffold copy; step 7b syncs the canonical set (three checklists + writing-rules registry) through the new SYNC_SET / sync_references plugin-to-workspace copy with recorded-local-override law (absent copies, identical unchanged, differing kept as an override; never clobbers, never deletes); the report phase 0 gate now runs the method-selection check before the type check with record-gap semantics (the one call site; the debrief per-session gate stays untouched).",
+    "date": "2026-11-22"
    }
   ],
   "golden_path_growth": null
