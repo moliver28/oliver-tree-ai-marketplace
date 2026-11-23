@@ -419,6 +419,16 @@
     ],
     "reason": "The autonomy switch (note section The execution loop and the autonomy switch): the checklists.autonomy config key (execute | approve, default execute) beside checklists.enforcement, one REQUIRED_KEYS line mirroring the enforcement pattern; the sanctioned output-only loader change attaches the nearest ### group heading and the Executor default to each item JSON (parse unchanged, ITEM_RE unchanged); the pause plan joins the gate module - [human] and [draft] items pause in both modes, approve adds one pause per group boundary where the runner presents the group summary, the artifact links, and the missing list and waits for one go-ahead word - exposed as the pauses CLI (exit 0 plan, 2 usage; absent type prints the absent line). check and citations behavior unchanged. The MO tweak 2026-11-23 critical-decision law rides the tag rules: the human keeps every critical decision; [draft] drafts when context is available, never invents; [human] is never automated.",
     "date": "2026-11-22"
+   },
+   {
+    "wave": "53-content",
+    "issue": 53,
+    "delta_lines": 12,
+    "files": [
+     "uxr-plugin/CHANGELOG.md (the [0.6.0] section)"
+    ],
+    "reason": "Release triple 0.5.0 to 0.6.0 for the confirmed checklist content wave: the [0.6.0] CHANGELOG section (12 lines) records the three checklists, the writing-rules registry, the survey skill, the survey checker mode, the autonomy switch, the method-selection artifact with the A0 entry wiring, and the content selftest. plugin.json, marketplace.json, and the README currently-v line carry the same version; net payload growth is the 12 release-note lines.",
+    "date": "2026-11-22"
    }
   ],
   "golden_path_growth": null
