@@ -9,11 +9,17 @@ unsubscribe), runs the send pass under ``LockService`` inside ``mergeSend``,
 names all ten Config-tab cells, and writes the screener confirmation text
 ``Book your session:``; that the sync section carries the pending-only
 cancellation guard (a vanished match cancels a ``pending`` row, a ``sent``
-row gets a note, never a resend); and that ``uxr-plugin/google/README.md``
-carries the SETUP law (paste into Extensions > Apps Script, Deploy > New
-deployment > Web app, "Execute as: me", "Who has access: Anyone") and the
-``syncEvents`` trigger step. Pure stdlib; rides the smoke check-3 glob;
-parity enrollment is out of scope (W2 adapters precedent).
+row gets a note, never a resend); that the task 9b fix pass holds (the
+``_plainCell`` formula-injection guard on every appended value, the
+``e.source.getTitle()`` form API, the per-row try/catch and quota gate in
+the due-send loop, the send-first ``sendScheduled`` ordering, cancelled
+rows never blocking re-created events, the one-click click interstitial,
+the unsub id-row match guard, and the ``TRACK_DAILY_CAP`` counter); and
+that ``uxr-plugin/google/README.md`` carries the SETUP law (paste into
+Extensions > Apps Script, Deploy > New deployment > Web app, "Execute as:
+me", "Who has access: Anyone") and the ``syncEvents`` trigger step. Pure
+stdlib; rides the smoke check-3 glob; parity enrollment is out of scope
+(W2 adapters precedent).
 """
 from pathlib import Path
 
@@ -23,7 +29,7 @@ README = ROOT / "uxr-plugin" / "google" / "README.md"
 
 EXIT_OK = 0        # all checks passed
 EXIT_SELFTEST = 3  # selftest failure exit (runner convention)
-LOC_BUDGET = 400   # plan Task 1: .gs lines incl. comments
+LOC_BUDGET = 420   # plan Task 1 set 400; the 9b fix pass raised it to 420
 
 FUNCTIONS = ("mergeSend", "scheduleSend", "doGet", "syncEvents", "setupScreener")
 ROUTES = ("?o=", "?c=", "?u=")
@@ -88,6 +94,29 @@ def _selftest() -> int:
     check("mergeSend skips stamped rows (never double-send)",
           "continue" in send_body and "stamp" in send_body, "no skip path")
 
+    # Task 9b fix 1: the formula-injection guard on every appended value.
+    check("the .gs declares _plainCell(", "function _plainCell(" in gs,
+          "guard helper missing")
+    check("_plainCell covers the six formula prefixes (= + - @ tab CR LF)",
+          "/^[=+\\-@\\t\\r\\n]/" in gs and """? "'" + t : t""" in gs,
+          "prefix set or quote branch drifted")
+    track_body = _section(gs, "function _track(", "\nfunction _findById(")
+    check("_track passes every appended value through _plainCell",
+          track_body.count("_plainCell(") >= 4, str(track_body.count("_plainCell(")))
+    check("_track runs the daily cap counter over Script Properties",
+          "TRACK_DAILY_CAP" in track_body and "getScriptProperties" in track_body
+          and '"track_count"' in track_body, "cap counter missing")
+    form_body = _section(gs, "function onFormSubmit(", "\n// --- end of file marker")
+    check("the form append passes the respondent values through _plainCell",
+          "_plainCell(email)" in form_body and "_plainCell(name)" in form_body
+          and "_plainCell(study)" in form_body, "unwrapped append values")
+
+    # Task 9b fix 2: the submit event carries the Form on e.source.
+    check("the study name reads e.source.getTitle()",
+          "e.source.getTitle()" in form_body, "form API call missing")
+    check("the nonexistent getFormTitle API is gone",
+          "getFormTitle" not in gs, "bad API still present")
+
     sync_law = _section(gs, "function syncEvents(",
                         "// --- screener Form")
     check("syncEvents reads calendar_name and event_regex from Config",
@@ -102,8 +131,20 @@ def _selftest() -> int:
           '"prep_on"' in sync_law and '"prep_lead_hours"' in sync_law,
           "prep gate not read")
     check("due pending Followups rows send and stamp sent",
-          '"followup_hours"' in sync_law and 'setValue("sent")' in sync_law,
+          '"followup_hours"' in sync_law
+          and '_stampFollowup(sheet, i + 2, "sent"' in sync_law,
           "no due-row send path")
+    check("every sync send gates on the remaining daily quota",
+          "MailApp.getRemainingDailyQuota() > 0" in sync_law,
+          "no quota gate")
+    # Task 9b fix 5: one bad row never wedges the pass.
+    check("the due-send wraps the send in a per-row try/catch",
+          "catch (err)" in sync_law and '"failed"' in sync_law,
+          "no per-row failure isolation")
+    check("an exhausted quota skips with a note and stays pending",
+          '"skipped: daily quota exhausted"' in sync_law
+          and '_stampFollowup(sheet, i + 2, "pending"' in sync_law,
+          "quota skip not recorded")
     # Pending-only cancellation guard: a vanished match cancels a pending row;
     # a sent row gets a Tracking note only - never a resend, never a rewrite.
     check("a vanished match cancels only pending rows",
@@ -111,8 +152,40 @@ def _selftest() -> int:
           "no pending-only cancellation guard")
     check("a sent row with a vanished match gets a note, never a resend",
           '"event removed after send"' in sync_law
-          and 'setValue("sent")' not in sync_law.split('"event removed after send"')[0],
+          and '_stampFollowup(sheet, i + 2, "sent"'
+          not in sync_law.split('"event removed after send"')[0],
           "resend risk on vanished events")
+    # Task 9b fix 7: cancelled rows never block a re-created event.
+    check("a cancelled Followups row never seeds the seen set",
+          'if (status === "cancelled") continue;' in sync_law
+          and sync_law.index('if (status === "cancelled") continue;')
+          < sync_law.index("seen[key] = true;"),
+          "cancelled rows still block re-appends")
+    prep_body = _section(gs, "function _syncPrep(", "// --- screener Form")
+    check("a cancelled prep row never seeds the seen set",
+          'indexOf("[cancelled] ") === 0) continue;' in prep_body
+          and prep_body.index('indexOf("[cancelled] ") === 0) continue;')
+          < prep_body.index("seen[key] = true;"),
+          "cancelled prep rows still block re-appends")
+
+    # Task 9b fix 6: the scheduled handler sends first, cleans up on success.
+    sched_body = _section(gs, "function sendScheduled(",
+                          "\n// --- web app routes")
+    check("sendScheduled runs mergeSend before the trigger cleanup",
+          "mergeSend(" in sched_body and "deleteProperty" in sched_body
+          and sched_body.index("mergeSend(") < sched_body.index("deleteProperty"),
+          "cleanup runs before the send")
+
+    # Task 9b fix 10: the web-app abuse surfaces.
+    doget_body = _section(gs, "function doGet(",
+                          "\n// --- calendar-timed")
+    check("the click route returns a one-click interstitial",
+          '"<p>Continue to " + _esc(host)' in doget_body, "no interstitial page")
+    check("the instant meta-refresh redirector is gone",
+          "http-equiv" not in doget_body, "meta-refresh still present")
+    check("the unsub honors u only against a Wave-tab row (m-only is unverified)",
+          "!!who.email" in doget_body and '"unverified"' in doget_body,
+          "no id-row match guard")
 
     for cell in CONFIG_CELLS:
         check(f"the .gs names the Config cell {cell}",
@@ -129,6 +202,13 @@ def _selftest() -> int:
     check("the SETUP doc carries the tracking-limits paragraph",
           "image proxy" in readme and "not trackable" in readme,
           "limits paragraph missing")
+    check("the SETUP doc states the write-side bounds (interstitial, "
+          "unverified unsub, 500/day cap)",
+          "continuation page" in readme and "`unverified`" in readme
+          and "500 rows a day" in readme, "write-side limits missing")
+    check("the SETUP doc carries the Followups note column law",
+          "`failed`" in readme and "`note`" in readme,
+          "failed/note schema missing")
 
     if failures:
         print(f"selftest FAILED ({len(failures)})")

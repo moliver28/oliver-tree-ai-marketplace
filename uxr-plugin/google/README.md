@@ -67,7 +67,11 @@ opens do not log. The proxy can also log an open before anyone reads. Treat
 opens as a rough signal. Clicks and unsubscribes are direct events. The script
 logs only what the web app sees: opens, clicks, unsubscribes, and calendar
 cancellations. No script can watch a mailbox from outside. Deletes and trash
-moves are not trackable.
+moves are not trackable. The write side is bounded too. A tracked click opens
+a continuation page with one Continue link, so no click jumps straight to an
+arbitrary page. An unsubscribe request is honored from the link's row id; a
+request that carries only the address is honored with an `unverified` note.
+Tracking accepts at most 500 rows a day; extra hits are logged, not appended.
 
 ## Tabs and columns
 
@@ -75,7 +79,7 @@ moves are not trackable.
 |---|---|---|
 | Wave | `Tracking ID` `Email` `Name` `Study` `Subject` `Body` `Email Sent` | one row per recipient; the merge stamps `Email Sent` |
 | Tracking | `date` `route` `email` `study` `target` `note` | routes: `open` `click` `unsub` `cancelled` |
-| Followups | `when` `email` `template_key` `study` `status` | status: `pending` `sent` `cancelled` |
+| Followups | `when` `email` `template_key` `study` `status` `note` | status: `pending` `sent` `cancelled` `failed`; `note` holds a send error or a quota-skip reason |
 | Prep | `when` `event` `email` `items` | a cancelled event prefixes the event cell with `[cancelled]` |
 | Config | `name` `value` | one row per setting; the first run creates it |
 
@@ -100,9 +104,12 @@ moves are not trackable.
 matches `event_regex` create a follow-up at `followup_hours` after the start.
 The contact is the event guest who is not you. Delete the event, or rename it
 away from the regex, and pending follow-ups are cancelled. Sent follow-ups stay
-sent. The follow-up carries the booking link when `booking_url` is set. With
-`prep_on` on, the script adds a Prep row at `prep_lead_hours` before the start
-and emails you the brief. Fill the `items` cell before the session.
+sent. The follow-up carries the booking link when `booking_url` is set. Every
+send checks the daily quota first: a failed send stamps its row `failed` with
+the error in `note`, and an exhausted quota skips with a note and retries on
+the next pass. With `prep_on` on, the script adds a Prep row at
+`prep_lead_hours` before the start and emails you the brief. Fill the `items`
+cell before the session.
 
 ## Screener and booking
 

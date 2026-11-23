@@ -15,21 +15,22 @@
  * binds. Every send pass runs under one LockService script lock, so an
  * overlapping trigger cannot double-send.
  * Tab law lives in google/README.md: Wave (merge rows), Tracking
- * (date|route|email|study|target|note; routes open|click|unsub|cancelled),
- * Followups (when|email|template_key|study|status: pending|sent|cancelled),
- * Prep (when|event|email|items), Config (name in column A, value in B).
+ * (date|route|email|study|target|note; routes open|click|unsub|cancelled,
+ * appends capped at TRACK_DAILY_CAP per day), Followups (when|email|
+ * template_key|study|status: pending|sent|cancelled|failed|note), Prep, Config.
  */
 var WAVE_TAB = "Wave", TRACKING_TAB = "Tracking", FOLLOWUPS_TAB = "Followups";
 var PREP_TAB = "Prep", CONFIG_TAB = "Config";
 var WAVE_HEADERS = ["Tracking ID", "Email", "Name", "Study", "Subject", "Body", "Email Sent"];
 var TRACKING_HEADERS = ["date", "route", "email", "study", "target", "note"];
-var FOLLOWUP_HEADERS = ["when", "email", "template_key", "study", "status"];
+var FOLLOWUP_HEADERS = ["when", "email", "template_key", "study", "status", "note"];
 var PREP_HEADERS = ["when", "event", "email", "items"];
 var FOLLOWUP_KEY = "followup";  // template_key stamped on rows syncEvents creates
 var FOLLOWUP_STATUS_COL = 5;    // 1-based column of status on Followups
 var HOUR_MS = 3600 * 1000;
 var SCAN_BACK_HOURS = 48;       // events older than this are never re-matched
 var SCAN_AHEAD_HOURS = 14 * 24;
+var TRACK_DAILY_CAP = 500;      // Script-Property daily cap on Tracking appends
 // The Config tab carries one row per setting: label in column A (the name
 // below), value in column B. The first run creates the tab automatically.
 var CONFIG_DEFAULTS = {
@@ -60,10 +61,18 @@ function _cfg(name) {
 }
 function _cfgText(name) { return String(_cfg(name) == null ? "" : _cfg(name)).trim(); }
 function _cfgFlag(name) { var v = _cfg(name); return v === "" || v == null ? CONFIG_DEFAULTS[name] === true : v === true || String(v).toLowerCase() === "true"; }
-function _cfgNum(name) { var n = Number(_cfg(name)); return isNaN(n) ? Number(CONFIG_DEFAULTS[name]) : n; }
+// An empty B cell counts as unset, never Number("").
+function _cfgNum(name) { var raw = _cfg(name); if (raw == null || String(raw).trim() === "") raw = CONFIG_DEFAULTS[name]; return isNaN(Number(raw)) ? Number(CONFIG_DEFAULTS[name]) : Number(raw); }
+// A leading = + - @ tab or newline would parse as a formula; the quote keeps it text.
+function _plainCell(v) { var t = String(v == null ? "" : v); return /^[=+\-@\t\r\n]/.test(t) ? "'" + t : t; }
 function _track(route, email, study, target, note) {
+  var props = PropertiesService.getScriptProperties(), day = _fmt(_now()).substring(0, 10);
+  var n = props.getProperty("track_day") === day ? Number(props.getProperty("track_count") || 0) : 0;
+  if (n >= TRACK_DAILY_CAP) { Logger.log("track cap reached: " + route + " hit logged, not appended"); return; }
+  props.setProperty("track_day", day).setProperty("track_count", String(n + 1));
   _ensureTab(TRACKING_TAB, TRACKING_HEADERS).appendRow(
-    [_fmt(_now()), route, email || "", study || "", target || "", note || ""]);
+    [_fmt(_now()), route, _plainCell(email || ""), _plainCell(study || ""),
+      _plainCell(target || ""), _plainCell(note || "")]);
 }
 function _findById(id) {
   var sheet = ss().getSheetByName(WAVE_TAB);
@@ -187,8 +196,8 @@ function _compose(id, body) {
 
 // --- schedule send (#89: one-off installable time trigger) ---
 // Schedules one mergeSend pass of tabName near `when` (a Date or a text a
-// Date parses); Google picks the exact minute. The handler deletes its
-// trigger and property after firing.
+// Date parses); Google picks the exact minute. The handler sends first, and
+// only a clean send deletes its trigger and property (a rerun can retry).
 function scheduleSend(tabName, when) {
   var at = when instanceof Date ? when : new Date(when);
   if (isNaN(at.getTime())) throw new Error("scheduleSend: `when` is not a date");
@@ -199,13 +208,13 @@ function scheduleSend(tabName, when) {
 function sendScheduled(e) {
   var props = PropertiesService.getScriptProperties();
   var uid = e && e.triggerUid, tabName = uid ? props.getProperty(uid) : null;
+  mergeSend(tabName || WAVE_TAB);
   if (uid) {
     props.deleteProperty(uid);
     ScriptApp.getProjectTriggers().forEach(function (t) {
       if (t.getUniqueId() === uid) ScriptApp.deleteTrigger(t);
     });
   }
-  mergeSend(tabName || WAVE_TAB);
 }
 
 // --- web app routes (one deployment, "Who has access: Anyone") ---
@@ -215,15 +224,18 @@ function doGet(e) {
     _track("open", _findById(p.o).email, "", p.o, "pixel fetched");
     return ContentService.createTextOutput("");
   }
-  if (p.c && p.go) { // click: log, then meta-refresh to the destination
+  if (p.c && p.go) { // click: log, then a one-click interstitial (the click is already counted)
     _track("click", _findById(p.c).email, "", p.c, p.go);
-    return HtmlService.createHtmlOutput('<meta http-equiv="refresh" content="0; url=' + _esc(p.go) + '">');
+    var host = (String(p.go).match(/^https?:\/\/([^\/]+)/) || ["", p.go])[1];
+    return HtmlService.createHtmlOutput("<p>Continue to " + _esc(host) + ': <a href="' + _esc(p.go) + '">' + _esc(p.go) + "</a></p>");
   }
-  if (p.u) { // unsubscribe: mark Tracking, confirm on the page
+  if (p.u || p.m) { // unsubscribe: the id must name a Wave row; an m-only hit is unverified
     var lock = LockService.getScriptLock(); lock.waitLock(30000);
     try {
-      var who = _findById(p.u);
-      _track("unsub", who.email || p.m || "", who.study, p.u, "unsubscribed");
+      var who = p.u ? _findById(p.u) : {email: "", study: ""};
+      var claimed = String(p.m || "").trim();
+      var ok = !!who.email && (!claimed || claimed.toLowerCase() === who.email.toLowerCase());
+      _track("unsub", who.email || claimed, who.study, p.u || "", ok ? "unsubscribed" : "unverified");
     } finally {
       lock.releaseLock();
     }
@@ -237,10 +249,11 @@ function doGet(e) {
 // and event_regex from Config, scans the matched calendar inside the scan
 // window, then, under one LockService script lock: a new match appends a
 // Followups row at start + followup_hours; a due pending row sends and is
-// stamped "sent"; a vanished match cancels rows - a pending row is stamped
-// "cancelled" and Tracking logs route "cancelled", a sent row gets a Tracking
-// note only (the pending-only cancellation guard never re-sends or rewrites).
-// Prep rows exist only when prep_on is true.
+// stamped "sent"; every send checks quota first, a failed send stamps the
+// row "failed" with the error in note, an exhausted quota skips with a note
+// and the next pass retries; a vanished match cancels rows - a pending row
+// is stamped "cancelled" and Tracking logs route "cancelled", a sent row
+// gets a Tracking note only; Prep rows exist only when prep_on is true.
 function syncEvents() {
   var name = _cfgText("calendar_name"), pattern = _cfgText("event_regex");
   if (!name || !pattern) return;
@@ -284,10 +297,10 @@ function _syncFollowups(matched, windowStart, now) {
   for (var i = 0; i < rows.length; i++) {
     var when = _asDate(rows[i][0]);
     if (!when) continue;
-    var evStart = new Date(when.getTime() - lead * HOUR_MS);
-    var key = _iso(evStart);
-    seen[key] = true;
     var status = String(rows[i][4]).trim() || "pending";
+    var evStart = new Date(when.getTime() - lead * HOUR_MS), key = _iso(evStart);
+    if (status === "cancelled") continue; // a cancelled row never blocks a re-created event
+    seen[key] = true;
     var email = String(rows[i][1]).trim(), study = String(rows[i][3]).trim();
     var gone = !(key in matched) && evStart.getTime() >= windowStart.getTime();
     if (gone && status === "pending") {
@@ -296,15 +309,22 @@ function _syncFollowups(matched, windowStart, now) {
     } else if (gone && status === "sent") {
       _track("cancelled", email, study, key, "event removed after send");
     } else if (!gone && status === "pending" && when.getTime() <= now.getTime()) {
-      if (email && !_isUnsubscribed(email)) _sendFollowup(email, study); // unsub: suppressed, never retried
-      sheet.getRange(i + 2, FOLLOWUP_STATUS_COL).setValue("sent");
+      if (!email || _isUnsubscribed(email)) _stampFollowup(sheet, i + 2, "sent", ""); // unsub: never retried
+      else if (MailApp.getRemainingDailyQuota() > 0) {
+        try { _sendFollowup(email, study); _stampFollowup(sheet, i + 2, "sent", ""); }
+        catch (err) { _stampFollowup(sheet, i + 2, "failed", err); } // one bad row never wedges the pass
+      } else _stampFollowup(sheet, i + 2, "pending", "skipped: daily quota exhausted"); // retried next pass
     }
   }
   for (var k in matched) {
     if (k in seen) continue;
     var m = matched[k];
-    sheet.appendRow([new Date(m.start.getTime() + lead * HOUR_MS), m.email, FOLLOWUP_KEY, m.title, "pending"]);
+    sheet.appendRow([new Date(m.start.getTime() + lead * HOUR_MS), m.email, FOLLOWUP_KEY, m.title, "pending", ""]);
   }
+}
+function _stampFollowup(sheet, row, status, note) {
+  sheet.getRange(row, FOLLOWUP_STATUS_COL).setValue(status);
+  if (note) sheet.getRange(row, FOLLOWUP_STATUS_COL + 1).setValue(String(note));
 }
 function _sendFollowup(email, study) {
   var booking = _cfgText("booking_url");
@@ -321,11 +341,10 @@ function _syncPrep(matched, windowStart) {
   for (var i = 0; i < rows.length; i++) {
     var when = _asDate(rows[i][0]);
     if (!when) continue;
-    var evStart = new Date(when.getTime() + lead * HOUR_MS);
-    var key = _iso(evStart);
-    seen[key] = true;
+    var evStart = new Date(when.getTime() + lead * HOUR_MS), key = _iso(evStart);
     var label = String(rows[i][1]);
-    if (label.indexOf("[cancelled] ") === 0) continue;
+    if (label.indexOf("[cancelled] ") === 0) continue; // never blocks a re-created event
+    seen[key] = true;
     if (!(key in matched) && evStart.getTime() >= windowStart.getTime()) {
       // Prep rows carry no status column, so the cancelled mark is a prefix.
       sheet.getRange(i + 2, 2).setValue("[cancelled] " + label);
@@ -337,7 +356,7 @@ function _syncPrep(matched, windowStart) {
     var m = matched[k];
     var prepWhen = new Date(m.start.getTime() - lead * HOUR_MS);
     sheet.appendRow([prepWhen, m.title + " " + _iso(m.start), m.email, ""]);
-    _notifyPrep(m, prepWhen);
+    if (MailApp.getRemainingDailyQuota() > 0) _notifyPrep(m, prepWhen); // quota-gated like every send
   }
 }
 function _notifyPrep(m, prepWhen) {
@@ -380,7 +399,8 @@ function _setCfg(name, value) {
   sheet.appendRow([name, value]);
 }
 // Form submit: write the respondent to the Wave tab with a fresh Tracking ID.
-// Subject and Body stay empty; the researcher merges before sending.
+// Subject and Body stay empty; the researcher merges before sending. Values
+// go through _plainCell: an answer starting = + - @ lands as text, not a formula.
 function onFormSubmit(e) {
   var response = e && e.response;
   var lock = LockService.getScriptLock(); lock.waitLock(30000);
@@ -391,8 +411,8 @@ function onFormSubmit(e) {
         if (!name && /name/i.test(item.getItem().getTitle())) name = String(item.getResponse());
       });
     }
-    var study = response ? response.getFormTitle() : "";
-    _ensureTab(WAVE_TAB, WAVE_HEADERS).appendRow([_newId(), email, name, study, "", "", ""]);
+    var study = e && e.source ? String(e.source.getTitle() || "") : "";
+    _ensureTab(WAVE_TAB, WAVE_HEADERS).appendRow([_newId(), _plainCell(email), _plainCell(name), _plainCell(study), "", "", ""]);
   } finally {
     lock.releaseLock();
   }

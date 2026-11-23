@@ -3,9 +3,11 @@
 Text-level checks: the recruit command's status-gate section lists
 `cancelled` (lowercase, exact spelling) with the needs-nothing gate,
 the workspace participants template carries `cancelled` in its locked
-vocabulary line plus the leaves-only-by-the-recruit-flow rule, and
-``scripts/recruit_funnel.py`` carries the eighth locked status. Rides
-the smoke check-3 glob.
+vocabulary line plus the leaves-only-by-the-recruit-flow rule, step 12
+names both cancellation stores with the right spelling per store
+(lowercase on the workspace table, capital-C ``Cancelled`` on the spec
+roster through ``roster_apply.py``), and ``scripts/recruit_funnel.py``
+carries the eighth locked status. Rides the smoke check-3 glob.
 """
 from _harness import bind
 
@@ -46,6 +48,18 @@ def _selftest() -> int:
     check("the command's external step 12 reads the Tracking export and batch-applies",
           "Tracking tab export CSV" in COMMAND and "one `roster_apply.py` batch" in COMMAND
           and "one re-invite" in COMMAND)
+    # Step 12 names both cancellation stores with the right spelling per store:
+    # the workspace table is lowercase, the spec roster (roster_apply.py's
+    # allowed-status list) is capitalized, so a lowercase roster write exits 3.
+    check("step 12 spells lowercase cancelled on the workspace table",
+          "`cancelled` (lowercase) in the workspace participants table" in COMMAND,
+          COMMAND[COMMAND.find("Tracking tab export"):][:400])
+    check("step 12 spells capital-C Cancelled on the spec roster",
+          "`Cancelled` (capital C) on the spec roster" in COMMAND,
+          COMMAND[COMMAND.find("Tracking tab export"):][:400])
+    check("step 12 never routes a lowercase write through roster_apply",
+          "a lowercase write exits 3" in COMMAND,
+          COMMAND[COMMAND.find("Tracking tab export"):][:400])
     check("the command's external step 7 points at the google screener setup",
           "google/README.md" in COMMAND and "screener form" in COMMAND)
     check("the command's Inputs carry --prep=<csv>", "--prep=<csv>" in COMMAND)

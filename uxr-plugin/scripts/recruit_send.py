@@ -39,22 +39,17 @@ characters read as one underscore (``name/pseudonym`` becomes
 ``{{name_pseudonym}}``). A token matching no approved column stops the
 run before anything is sent.
 
-Sheet export: ``--export-sheet <out.csv>`` writes the external table to
-CSV under the approved Sheet shape -- no send, no stamp, no template.
-The header is ``recruit_funnel.DEFAULT_WAVE_TAB_HEADERS`` plus every
-approved external participant column, one row per participant: the
-wave-tab columns mirror the cells (``First name`` = ``name/pseudonym``,
-``Recipient`` = the first email in ``contact``, empty when it holds
-none; ``Email Sent`` = ``DM sent (date)``; ``Email Source`` =
-``source (panel/channel)``; ``Account Name``/``Booking link`` stay
-empty), the participant columns follow verbatim, and a drifted header
-or unreadable input exits 2.
+Sheet export: ``--export-sheet`` writes the external table to CSV -- no
+send, no stamp, no template. The header is the ``DEFAULT_WAVE_TAB_HEADERS``
+funnel columns plus every approved external participant column (the cells
+mirror per ``export_sheet``; a drifted header exits 2). This CSV is the
+funnel wave shape, not the Google Wave tab: the merge Sheet must match
+the ``google/README.md`` shape, and the column mapping is the researcher's.
 
 Unsubscribe footer: when ``recruit.email.unsubscribe`` is true (the
 default) and ``recruit.email.webapp_url`` is set (env fallbacks
-``UXR_RECRUIT_UNSUBSCRIBE`` / ``UXR_RECRUIT_WEBAPP_URL``), every merged
-body gains ``To stop these emails, open: <webapp_url>?u=<participant
-id>``; otherwise nothing changes.
+``UXR_RECRUIT_UNSUBSCRIBE`` / ``UXR_RECRUIT_WEBAPP_URL``), every merged body
+gains ``...?u=<participant id>&m=<urlencoded address>``; else nothing changes.
 
 Exit codes: 0 full success (a dry run, an export, or a real send with
 no failed rows), 1 a real send failed for at least one row, 2 usage or
@@ -80,6 +75,7 @@ from datetime import date
 from email.message import EmailMessage
 from email.utils import formatdate, make_msgid
 from pathlib import Path
+from urllib.parse import quote
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 if str(PLUGIN_ROOT) not in sys.path:
@@ -422,9 +418,9 @@ def merge_template(subject: str, body: str, row: dict) -> tuple[str, str, list[s
 
 def unsubscribe_footer(settings: dict, row: dict) -> str:
     """The one-line unsubscribe footer for a merged body, or ``""`` when off.
-
-    Rides only when ``unsubscribe`` is on (absent means true) and a
-    webapp URL and the row's participant id both exist.
+    Rides only when ``unsubscribe`` is on (absent means true) and a webapp
+    URL and the row's participant id both exist; the ``u``/``m`` pair names
+    the recipient for the web-app unsubscribe route.
     """
     off = str(settings.get("unsubscribe") or "").strip().lower() in (
         "false",
@@ -436,8 +432,10 @@ def unsubscribe_footer(settings: dict, row: dict) -> str:
     identifier = str(row.get("participant id") or "").strip()
     if off or not webapp or not identifier:
         return ""
+    match = _EMAIL_RE.search(str(row.get("contact") or ""))
+    pair = "&m=" + quote(match.group(0), safe="") if match else ""
     separator = "&" if "?" in webapp else "?"
-    return f"To stop these emails, open: {webapp}{separator}u={identifier}"
+    return f"To stop these emails, open: {webapp}{separator}u={identifier}{pair}"
 
 
 def export_sheet(path_value: str, table: dict) -> str:

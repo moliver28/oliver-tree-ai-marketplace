@@ -151,8 +151,11 @@ on a wave tab.
 12. **Replies.** Every later run: find booking-page bookings and add each
     booker as `Scheduled` in one `roster_apply.py` batch. Read the
     Tracking tab export CSV (date, route, email, study, target, note).
-    Batch-apply `cancelled` to every participant with a `cancelled`
-    route in it, using one `roster_apply.py` batch. Draft one re-invite
+    Two stores carry a cancellation, with different spellings: write
+    `cancelled` (lowercase) in the workspace participants table, and
+    `Cancelled` (capital C) on the spec roster through `roster_apply.py`;
+    its allowed-status list is capitalized, so a lowercase write exits 3
+    and writes nothing. Use one batch per store. Draft one re-invite
     nudge per cancelled row.
 13. **Prep briefs.** With `--prep=<csv>`, print the prep briefs with
     `python "${CLAUDE_PLUGIN_ROOT}/scripts/recruit_funnel.py" --prep <csv>`.

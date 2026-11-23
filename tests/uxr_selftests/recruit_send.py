@@ -410,8 +410,9 @@ def _selftest() -> int:
                          "today": "2026-11-22"},
                         environ={"UXR_RECRUIT_WEBAPP_URL": "https://script.example.com/exec"},
                         config_file=str(empty_config))
-        check("the footer rides on a webapp URL (default unsubscribe true)",
-              "To stop these emails, open: https://script.example.com/exec?u=P-01" in out,
+        check("the footer carries the u/m pair (id + urlencoded address)",
+              "To stop these emails, open: https://script.example.com/exec?u=P-01"
+              "&m=ada.example%40example.com" in out,
               out[:300])
         code, out = run({"participants": participants_path, "template": template_path,
                          "today": "2026-11-22"},
@@ -434,8 +435,9 @@ def _selftest() -> int:
         code, out = run({"participants": participants_path, "template": template_path,
                          "today": "2026-11-22"},
                         environ={}, config_file=str(footer_config))
-        check("a config webapp_url alone adds the footer",
-              "To stop these emails, open: https://config.example.com/exec?u=P-01" in out,
+        check("a config webapp_url alone adds the footer (u/m pair)",
+              "To stop these emails, open: https://config.example.com/exec?u=P-01"
+              "&m=ada.example%40example.com" in out,
               out[:300])
         values, source = load_send_settings(environ={}, config_file=str(footer_config))
         check("config recruit.email values load (config layer regression pin)",

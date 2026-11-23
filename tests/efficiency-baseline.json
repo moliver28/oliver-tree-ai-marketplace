@@ -3,19 +3,19 @@
  "convention": "Shipped payload lines = git-tracked files under uxr-plugin/ with suffix .py, .md, .yaml, or .yml, excluding uxr-plugin/tests/**; a line ends at \\n and a non-empty file without a trailing newline counts one final line (git numstat counting). The loc-account.py 'R1 shipped EX-tests' convention applied as an absolute snapshot of the tree instead of a diff. Per-dir lines group by the first path segment below uxr-plugin/; root-level files group under 'root'.",
  "payload": {
   "growth_tolerance_lines": 0,
-  "total_lines": 28378,
+  "total_lines": 28386,
   "per_dir": {
    "agents": 509,
-   "commands": 1917,
+   "commands": 1920,
    "config": 548,
    "docs": 71,
-   "google": 118,
+   "google": 125,
    "hooks": 3119,
    "lib": 5015,
    "prompts": 275,
    "references": 5263,
    "root": 214,
-   "scripts": 10440,
+   "scripts": 10438,
    "skills": 534,
    "templates": 355
   }
@@ -445,11 +445,11 @@
    {
     "wave": "mailmerge-w2",
     "issue": "#91/#92",
-    "delta_lines": 118,
+    "delta_lines": 125,
     "files": [
      "uxr-plugin/google/README.md"
     ],
-    "reason": "The Google mail-merge engine lands at uxr-plugin/google/ (MO-commissioned #91 tracking, #92 event-timed follow-ups; authored in this repository, architecture informed by Google's Apache-2.0 mail-merge sample, no code copied). The gate's suffix convention (.py/.md/.yaml/.yml) counts only the 118-line SETUP doc google/README.md; the 399-line mail-merge.gs sits outside the counted suffixes and is named here so every shipped line stays accounted for.",
+    "reason": "The Google mail-merge engine lands at uxr-plugin/google/ (MO-commissioned #91 tracking, #92 event-timed follow-ups; authored in this repository, architecture informed by Google's Apache-2.0 mail-merge sample, no code copied). The gate's suffix convention (.py/.md/.yaml/.yml) counts only the SETUP doc google/README.md; the mail-merge.gs engine sits outside the counted suffixes and is named here so every shipped line stays accounted for. Measured 125 lines after the momus 9b fix pass added the write-side limit sentences and the Followups note/failed schema rows (was 118 at 81d3a8f).",
     "date": "2026-11-23"
    },
    {
@@ -465,13 +465,13 @@
    {
     "wave": "mailmerge-w2",
     "issue": "#89",
-    "delta_lines": 99,
+    "delta_lines": 97,
     "files": [
      "uxr-plugin/scripts/recruit_send.py",
      "uxr-plugin/config/org.example.yaml",
      "uxr-plugin/scripts/smoke_test.py"
     ],
-    "reason": "Sheet export and the unsubscribe footer on the SMTP path (mail-merge wave 2): --export-sheet writes the external participants table to CSV under the approved Sheet column names for the Google hand-off, and the merged body gains the one-line unsubscribe footer when recruit.email.unsubscribe is on and recruit.email.webapp_url is set; the two new keys are documented in the example with their UXR_RECRUIT_* env fallbacks, and the smoke check-3 glob rides the existing config-example validation (no new surface).",
+    "reason": "Sheet export and the unsubscribe footer on the SMTP path (mail-merge wave 2): --export-sheet writes the external participants table to CSV under the approved Sheet column names for the Google hand-off, and the merged body gains the one-line unsubscribe footer when recruit.email.unsubscribe is on and recruit.email.webapp_url is set; the two new keys are documented in the example with their UXR_RECRUIT_* env fallbacks, and the smoke check-3 glob rides the existing config-example validation (no new surface). Measured 97 after the momus 9b fix pass: the footer URL carries the u/m pair (id + urlencoded address), the export docstring states the funnel-vs-Google-Wave-tab shapes plainly, and the docstring trim kept the branch net Python at +150 including smoke_test.py (was 99 at 81d3a8f).",
     "date": "2026-11-23"
    },
    {
@@ -498,12 +498,12 @@
    {
     "wave": "mailmerge-w2",
     "issue": "#91/#92",
-    "delta_lines": 12,
+    "delta_lines": 15,
     "files": [
      "uxr-plugin/commands/uxr-recruit.md",
      "uxr-plugin/templates/workspace/recruitment/participants.md"
     ],
-    "reason": "Recruit command and template text for the shipped features: the vocabulary line and the gate list carry cancelled, external step 7 points at the google/README.md screener setup, step 12 reads the Tracking export CSV and batch-applies cancelled with one roster_apply.py batch plus one re-invite nudge per row, step 13 prints the prep briefs, the Inputs carry --prep=<csv>, and the Scripts table rows name --export-sheet and --prep.",
+    "reason": "Recruit command and template text for the shipped features: the vocabulary line and the gate list carry cancelled, external step 7 points at the google/README.md screener setup, step 12 reads the Tracking export CSV and batch-applies cancelled with one roster_apply.py batch plus one re-invite nudge per row, step 13 prints the prep briefs, the Inputs carry --prep=<csv>, and the Scripts table rows name --export-sheet and --prep. Measured 15 after the momus 9b fix pass rewrote step 12 to name both cancellation stores with the right spelling per store (lowercase cancelled on the workspace table, capital-C Cancelled through roster_apply.py; was 12 at 81d3a8f).",
     "date": "2026-11-23"
    },
    {
@@ -513,7 +513,7 @@
     "files": [
      "uxr-plugin/CHANGELOG.md"
     ],
-    "reason": "0.7.0 release bookkeeping: the [0.7.0] CHANGELOG section (14 lines) records the nine shipped features of mail-merge wave 2, one bullet per feature. plugin.json, both marketplace.json entries, and the plugin README version line carry 0.7.0; the JSON surfaces sit outside the counted suffixes and the README line is 1 in, 1 out. With the wave's justified growth recorded above, this release moves the floor (23,243, recorded 2026-11-21) and the per-dir floors to the shipped tree (28,378) per the repo convention, so the floor travels with the tree the release PR ships; the earlier waves' deltas stand documented in the entries above.",
+    "reason": "0.7.0 release bookkeeping: the [0.7.0] CHANGELOG section (14 lines) records the nine shipped features of mail-merge wave 2, one bullet per feature. plugin.json, both marketplace.json entries, and the plugin README version line carry 0.7.0; the JSON surfaces sit outside the counted suffixes and the README line is 1 in, 1 out. With the wave's justified growth recorded above, this release moves the floor (23,243, recorded 2026-11-21) and the per-dir floors to the shipped tree (28,386 after the momus 9b fix pass) per the repo convention, so the floor travels with the tree the release PR ships; the earlier waves' deltas stand documented in the entries above.",
     "date": "2026-11-23"
    }
   ],
