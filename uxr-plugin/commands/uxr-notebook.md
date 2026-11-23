@@ -9,6 +9,8 @@ and run the saved analysis prompts from
 `notebooklm` skill; the upload set is computed by a script so participant
 data can never slip in.
 
+Grounding: no registered sources serve this command (record-keeping; search is a tool, not a ritual). Index: `references/research-sources.md`.
+
 **Desktop only.** This command drives a signed-in desktop browser. In a
 headless or non-interactive run (no browser, no display, CI), print one
 line saying the notebook needs an interactive desktop session and stop

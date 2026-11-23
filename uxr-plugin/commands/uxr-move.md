@@ -12,6 +12,8 @@ file.
 
 ## Inputs
 
+Grounding: no registered sources serve this command (record-keeping; search is a tool, not a ritual). Index: `references/research-sources.md`.
+
 `$ARGUMENTS` takes one of three shapes:
 
 1. `<KEY>`: list the available moves and ask.

@@ -18,6 +18,8 @@ you write the narrative on that skeleton. Nothing sends without the user.
 
 ## Inputs
 
+Grounding: consult registered sources in `references/sources/` (for this command: R-01 metrics, R-04 COREQ, R-20 scoring, R-21 HEART); page-first lookup; cite the URL with the claim. Index: `references/research-sources.md`.
+
 `$ARGUMENTS` is `<KEY>` with any of:
 `--audience=internal|product-team|leadership` (default `internal`),
 `--tier=lite|standard|strategic` (default: computed by `scope-tier`),

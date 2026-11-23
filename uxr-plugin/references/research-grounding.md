@@ -65,3 +65,11 @@ The dispatching command owns the follow-through:
 
 History note: the gate once denied writes until the review ran, and users
 hit friction; it has been a reminder since, and it stays a reminder.
+
+## The registered source list
+
+The reviewer's source list is the registry: the law and the condition index live at
+`references/research-sources.md`, and one entry file per source lives under
+`references/sources/` (R- and A- prefixed ids). When a review checks an outside claim, read the
+matching entry file first and fetch its bookmarked page; cite the URL with the claim. Unresolved
+ids are recorded, never invented.

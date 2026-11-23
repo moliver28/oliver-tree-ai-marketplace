@@ -30,6 +30,8 @@ contract with the report parser.
 
 ## Inputs
 
+Grounding: consult registered sources in `references/sources/` (for this command: R-05 analysis law); page-first lookup; cite the URL with the claim. Index: `references/research-sources.md`.
+
 `$ARGUMENTS` is `<KEY>` with any of: `--participant=<name>`,
 `--transcript=<path>` (a local file that skips transcript search),
 `--dry-run`, `--check`.

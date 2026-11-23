@@ -1,0 +1,117 @@
+# Research sources — the grounding registry
+
+Grounding law: never invent an answer. When a step needs knowledge from outside this workspace, pick the matching entry from the condition index in references/research-sources.md and read that entry's file under references/sources/ (one file per entry). Fetch the entry's bookmarked page first (page-first lookup); run an exploratory query only when no registered page covers the need, and register the page you found as a candidate so the next lookup is targeted. Cite the source with the claim: one URL per outside fact, two authoritative sources when a claim rests only on outside evidence. Discovery recipe: read the condition index whole while the file is within its budget; past that size, skip the read and grep the store (`grep -rl <term> references/sources/`). When a step works only on workspace artifacts — spec fields, transcripts, notes, recorded state — no search runs: search is a tool, not a ritual.
+
+When search runs: method selection consults R-01 first; synthesis grounds outside claims in registered pages; review checks outside claims with web tools against this store. No search: script and survey writing, recruitment, fielding, and record-keeping steps run on workspace state. Appendix entries (A- ids) live in `references/sources/` and are grep-discoverable only.
+
+## Condition index
+
+- R-01 | UX methods landscape, NN/g | pick, classify, or route a research method; metrics and recruiting
+- R-02 | survey question wording | apply the anti-pattern law when writing survey questions
+- R-03 | survey best practices | plan, sample, field, or report a survey stage
+- R-04 | COREQ standard | review a qualitative report's reporting-standard claims
+- R-05 | thematic analysis law | declare an analysis mode or structure a synthesis
+- R-06 | interview framework | build a semi-structured interview script
+- R-07 | question wording law | contest wording rules on a survey item
+- R-08 | APA reporting standards | target academic reporting
+- R-09 | survey methodology books | cite book-length survey-law depth
+- R-10 | GitLab research handbook | recruiting program, consent templates, org process
+- R-11 | ACM PACMHCI | cite CHI-track primary studies
+- R-12 | method definitions | explain a method concept
+- R-13 | HAX toolkit, MS HCI | AI-feature guidelines, checklists, playbooks
+- R-14 | Google PAIR | design human-AI interaction
+- R-15 | ResearchOps resources | research-ops and participant-repo practice
+- R-16 | UX book catalog | deep-dive book when articles stop answering
+- R-17 | ODI outcomes | frame outcome statements, opportunity scoring
+- R-18 | UX Collective | idea-signal only, never sole citation
+- R-19 | UXPA Journal | practice-adjacent peer-reviewed evidence
+- R-20 | MeasuringU, SUS, UX-Lite | pick or score a quant instrument
+- R-21 | HEART framework | map Goals-Signals-Metrics
+- R-22 | business strategy | write recommendations and stakeholder reviews
+- R-23 | JTBD cluster | frame RQs via jobs-to-be-done
+- R-24 | Laws of UX | ground a cognitive or interaction law
+- R-25 | research sprint | run sprint-format research
+- R-26 | digital.gov usability | gov-context research, consent templates
+- R-27 | card-sort tools | record card-sort or tree-test tooling
+- R-28 | UX events | plan a conference
+- R-29 | ethics case law | consent and PII questions
+- R-30 | human-AI evidence | cite combination, trust, guideline sources
+- R-31 | IDEO design kit | step-by-step HCD method cards
+- R-32 | 18F methods | gov-context method steps, PRA guidance
+- R-33 | recruiting field guide | recruiting chapters, report templates
+- R-34 | practitioner debates | idea-signal during concept passes
+- R-35 | HCI methods book | HCI-grade method law
+- R-36 | UCD practice survey | ground method choice in practice evidence
+- R-37 | evaluation analysis | design synthesis, report practice limits
+- R-38 | collaborative analysis | consolidation-of-findings claims
+- R-39 | UX scales review | check a scale against field practice
+- R-40 | WCAG, WAI | accessibility conformance questions
+- R-41 | human-AI teaming | team and role design for AI
+- R-42 | JTBD origin | frame RQs around jobs, cite the origin
+- R-43 | switch interviews | four forces, timeline technique
+- R-44 | jobs as progress | interview-question intuition via JTBD
+- R-45 | outcome origin HBR | outcome-statement origin citation
+- R-46 | opportunity score | operationalize importance/satisfaction scoring
+- R-47 | Kano questionnaire | run a Kano prioritization survey
+- R-48 | discovery habits | OST, assumption tests, continuous interviews
+- R-49 | four big risks | frame discovery versus delivery decisions
+- R-50 | scale development | design a multi-item scale and pretest
+- R-51 | saturation counts | defend interview sample size
+- R-52 | meaning saturation | make precise saturation claims
+- R-53 | saturation review | plan n with the current evidence
+- R-54 | oral history craft | open questions, probes, funnel sequencing
+- R-55 | consent release law | recorded-interview consent and release
+- R-56 | ethnography practice | field studies on corporate timelines
+- R-57 | storytelling with data | chart and narrative craft
+- R-58 | FT chart chooser | pick a chart by data relationship
+- R-59 | chart catalogue | look up a chart type
+- R-60 | chart by data shape | select a chart with caveats
+- R-61 | report dataviz | design reports and dashboards
+- R-62 | dataviz checklist | review a report chart
+- R-63 | charts in Excel | chart craft in everyday tools
+- R-64 | narrative genres | choose a deck story genre
+- R-65 | DHS test lessons | moderator script, test outline
+- R-66 | HCI chapters | cite a chapter-level HCI method
+- R-67 | qual HCI framework | plan-to-report framework for qual studies
+- R-68 | field guide | brief a team for observation work
+- R-69 | enterprise plans | role-based protocols and templates
+- R-70 | lean research primer | framing, bias awareness, cheap tests
+- R-71 | interview craft book | rapport, technique, impact
+- R-72 | problem space | listening sessions, mental models
+- R-73 | WebAIM tools | accessibility checklists, WAVE, contrast
+- R-74 | Menlo report | ICT research ethics protocol
+- R-75 | interpretable ML | plan an XAI evaluation
+- R-76 | XAI questions | script questions for AI features
+- R-77 | trust scale | survey trust in AI or automation
+- R-78 | contextual design | contextual-inquiry fieldwork pipeline
+- R-79 | job stories | draft a script in job-story format
+- R-80 | Mom Test | customer-interview commitment signals
+- R-81 | JTBD theory hub | hire-and-fire, four forces framing
+- R-82 | demand-side sales | switch-interview forces
+- R-83 | discovery recruiting | recruit and run discovery interviews
+- R-84 | voice of customer | interview-count law for outcomes
+- R-85 | job mapping | opportunity discovery along a job process
+- R-86 | sprint origin | the sprint method's origin page
+- R-87 | CASP checklists | appraise a qualitative study
+- R-88 | information power | justify sample size without saturation
+- R-89 | EMA law | diary and momentary sampling design
+- R-90 | ESOMAR code | survey and panel ethics citation
+- R-91 | SRQR standard | review against the 21-item standard
+- R-92 | chart craft blog | dataviz craft with named authors
+- R-93 | color scales | pick colorblind-safe chart colors
+- R-94 | usability BOK | neutral method definition, cost/benefit
+- R-95 | evaluator effect | coverage and reproducibility evidence
+- R-96 | GOV.UK research | gov-grade plans and consent scripts
+- R-97 | testing handbook | step-by-step usability-test reference
+- R-98 | NIST AI RMF | AI trustworthiness vocabulary
+- R-99 | FAccT venue | fairness and accountability evidence
+- R-100 | human-centered AI | reliable-safe-trustworthy framing
+- R-101 | cognitive pretesting | think-aloud, probes, pretest rounds
+- R-102 | cognitive interviewing | choose a pretesting method
+- R-103 | questionnaire testing | reference volume for testing
+- R-104 | asking questions | wording decisions, canonical review
+- R-105 | intensive longitudinal | diary and ESM design-and-analysis
+- R-106 | trustworthiness | thematic-analysis writeup rigor
+- R-107 | sample sizes by type | per-analysis-type numbers
+- R-108 | methods textbook | free web textbook across methods
+- R-109 | dataviz journal | reporting-dataviz essays

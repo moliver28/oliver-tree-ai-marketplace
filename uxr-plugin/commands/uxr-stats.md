@@ -11,6 +11,8 @@ joined: analytics ids are salted hashes, journal ids are not.
 Read-only: it runs one script and prints its output. It computes
 nothing itself.
 
+Grounding: no registered sources serve this command (record-keeping; search is a tool, not a ritual). Index: `references/research-sources.md`.
+
 ## Steps
 
 1. Run, exactly:

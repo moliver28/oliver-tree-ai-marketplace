@@ -20,6 +20,8 @@ images.
 
 ## Inputs
 
+Grounding: consult registered sources in `references/sources/` (for this command: R-01 metrics, R-04 COREQ, R-20 scoring, R-21 HEART); page-first lookup; cite the URL with the claim. Index: `references/research-sources.md`.
+
 `$ARGUMENTS` is `<KEY>` with any of: `--audience=leadership|design|product|research|org` (no flag: show the 1-5 persona menu from `list-personas` and ask), `--tier=lite|standard|strategic` (default: computed in phase 1), `--dry-run`, `--refresh-persona=<name>` (drop that persona's cached `pe_framing_prompt`, regenerate in phase 4), `--altitude=brief|standard|deep` (maps through `altitude --level` when `--tier` absent), `--render-only` (skip phases 1-4; render the existing outline through phase 5).
 
 Every gate uses `go`, `edit`, `cancel` -- except the phase 4 lens check: `apply`, `edit`, `skip`.

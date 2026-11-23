@@ -10,6 +10,8 @@ after the user says `go`.
 
 ## Inputs
 
+Grounding: no registered sources serve this command (record-keeping; search is a tool, not a ritual). Index: `references/research-sources.md`.
+
 `$ARGUMENTS` is all text after the command name (everything the user
 typed past `/uxr-plugin:uxr-feedback`), kept as one raw string:
 leading and trailing whitespace trimmed for the title only; the body
