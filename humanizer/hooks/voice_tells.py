@@ -284,6 +284,15 @@ EXEMPLARS = [
     "The deadline did not slip; the scope quietly grew while nobody was measuring it.",
     "And that's okay. Every team starts somewhere, and there's nothing wrong with growing from there.",
     "They deliver robust, best-in-class, world-class solutions that supercharge productivity and enhance collaboration.",
+    # 2026-11-22 gap-register exemplars (one per family; de-personalized). The
+    # vector layer calibrates per-class thresholds against a clean corpus, so
+    # each exemplar enables paraphrase catch for its whole family, regexed or not.
+    "Awesome! You're absolutely right, that's an excellent point and I'm happy to jump on a call whenever it works best.",
+    "The future looks bright and exciting times lie ahead as we continue our journey toward this major step in the right direction.",
+    "Ever wondered what makes this tick? Think about it: the answer is simpler than the question implies.",
+    "So, let me break this down. Interestingly, the rollout went fine. Essentially, you will love it.",
+    "Curly quotes look extra polished. Here is a \U0001F680 emoji, plus a **Quick wins:** bullet list for you.",
+    "Our north star is unlocking customer delight; this impactful platform boasts a stunning suite of solutions.",
 ]
 
 # ---------------- STATE-FILE LAYER (learn/apply decoupling, issue #5) ----------------
@@ -892,3 +901,60 @@ def scan(text, use_vector=True):
     except Exception:
         pass
     return hits
+
+# ---------------- SITUATIONAL RULE SELECTION (2026-11-22) ----------------
+# Not every tell family is a tell in every situation: formatting conventions
+# (bolded list items, sentence-case headings) are correct in email and docs but
+# wrong in a blog post; assistant-conduct families (sycophancy, reassurance,
+# announcement openers) matter everywhere a human reads it but the marketing
+# vocabulary rarely applies. The table lists which families stay ON per
+# situation; None = full register (the default for long-form surfaces).
+# Family ids are the label prefixes the register already carries:
+#   humanizer N (n-specific), daneel (voice-rules YAML layer), plus the legacy
+#   category words: banned, resume-slop, chatbot artifact, signpost, filler,
+#   blog cliché, persuasive authority, negative parallelism, copula avoidance,
+#   reassurance kicker, slop, humanizer gap/vocabulary labels.
+def _family(hit):
+    head = hit.split(" (")[0]
+    if head.startswith("humanizer"):
+        return " ".join(head.split()[:2])  # e.g. 'humanizer 22'
+    for kw in ("banned", "resume-slop", "chatbot", "signpost", "filler",
+               "blog cliché", "persuasive", "negative parallelism", "copula",
+               "reassurance", "slop", "voice ban", "daneel"):
+        if head.startswith(kw):
+            return kw
+    return head
+
+SITUATIONS = {
+    # name -> "all" (full register) or {"on": [...family ids...]}
+    "public": "all",
+    "blog": "all",
+    "linkedin": "all",
+    "report": "all",
+    # Chat/conversational surfaces apply the assistant-conduct register and the
+    # voice-rules YAML layer; formatting and marketing families stay off (an
+    # emoji or a bolded item in Slack/Discord is not a tell).
+    "chat": {"on": ["daneel", "humanizer 12", "humanizer 22", "humanizer 25",
+                    "humanizer 27", "humanizer 28", "humanizer 32", "humanizer 33",
+                    "humanizer 34", "chatbot", "filler", "signpost",
+                    "persuasive", "negative parallelism", "reassurance",
+                    "sycophancy", "voice ban"]},
+    # Email: conduct + artifact families on; markdown-formatting families off.
+    "email": {"on": ["daneel", "humanizer 12", "humanizer 22", "humanizer 25",
+                     "humanizer 27", "humanizer 28", "humanizer 32", "humanizer 33",
+                     "humanizer 34", "chatbot", "filler", "signpost", "persuasive",
+                     "negative parallelism", "reassurance", "voice ban"]},
+}
+
+def situation_filter(hits, situation="public"):
+    """Filter scan hits down to the families the situation keeps on. Unknown
+    situation names raise KeyError so typos surface instead of silently
+    scanning with the wrong rules."""
+    spec = SITUATIONS.get(situation)
+    if spec is None:
+        raise KeyError(f"unknown situation {situation!r}; known: {sorted(SITUATIONS)}")
+    if spec == "all":
+        return list(hits)
+    on = set(spec["on"])
+    return [h for h in hits if _family(h) in on]
+

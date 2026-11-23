@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.0] - 2026-11-22
+### Added
+- Six synthetic gap-register exemplars (sycophancy, uplift conclusions, rhetorical questions, opener tics, formatting, voice-bans): the calibrated vector layer now paraphrase-catches the 2026-11-22 families, same per-class threshold machinery as the register exemplars (embedded set 16 -> 22).
+- Situational rule selection: `--situation <name>` in gate.py (public/blog/linkedin/report = full register; chat/email = conduct + voice-rules families on, formatting/marketing families off) via `SITUATIONS`/`situation_filter`/`_family` in voice_tells.py. Unknown names error; situational runs keep the daneel YAML layer because assistant-conduct rules apply wherever a human reads the text.
+
+
 ## [1.2.0] - 2026-11-22
 ### Added
 - Humanizer gap patterns in the shared scan core, each tagged `humanizer N` (43 new patterns; embedded register now 98): sycophancy (22), generic positive conclusions (25), persuasive-authority leftovers (27), signposting leftovers (28), rhetorical questions (32), sentence-opener tics (33), reassurance leftover (34), curly quotes (19), inline-header lists (16), Title Case headings (17, case-scoped so the shared IGNORECASE flag cannot defeat it), emoji decoration (18), false ranges (12). The humanizer skill's numbered families are now fully mirrored where regexable.

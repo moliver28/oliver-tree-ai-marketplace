@@ -226,6 +226,10 @@ def main():
     if "--profile" in argv:
         i = argv.index("--profile"); profile = argv[i+1] if i+1 < len(argv) and argv[i+1] in ("public", "resume") else "public"
         argv = [a for j, a in enumerate(argv) if j not in (i, i+1)]
+    situation = "public"
+    if "--situation" in argv:
+        i = argv.index("--situation"); situation = argv[i+1] if i+1 < len(argv) else "public"
+        argv = [a for j, a in enumerate(argv) if j not in (i, i+1)]
     if "--source" in argv:
         i = argv.index("--source")
         source_path = argv[i+1] if i+1 < len(argv) else None
@@ -237,7 +241,9 @@ def main():
     if not raw.strip():
         print("usage: pipe text to stdin", file=sys.stderr); return 2
     try:
-        hits = [] if surface == "chat" else tells.find_regex_hits(raw)
+        # --situation runs the full register then filters per the situational
+        # table (chat/email keep conduct families, drop formatting/marketing).
+        hits = [] if (surface == "chat" and situation == "public") else tells.find_regex_hits(raw)
     except Exception:
         hits = []
     if profile == "resume":
@@ -259,7 +265,15 @@ def main():
         hits = list(hits) + tells.voice_rules_hits(raw)
     except Exception:
         pass
-    advisory = _advisory_signals(raw, source_path)
+    advisory = {}
+    if situation != "public":
+        try:
+            hits = tells.situation_filter(hits, situation)
+        except KeyError as e:
+            print(f"usage: {e.args[0]}", file=sys.stderr)
+            return 2
+        advisory["situation"] = situation
+    advisory.update(_advisory_signals(raw, source_path))
     if not hits:
         print(json.dumps({"status": "pass", "surface": surface, "tokens_to_model": 0, **advisory})); return 0
     family = {}

@@ -137,7 +137,7 @@ for p in data["plugins"]:
     ck(mj.get("name") == p["name"], f"manifest name matches for {p['name']}")
     ck(mj.get("version") == p.get("version"), f"version parity {p['name']} (manifest vs marketplace)")
     if p["name"] == "humanizer-voice":
-        ck(mj.get("version") == "1.2.0", f"humanizer-voice is at 1.2.0 (humanizer-gap wiring shipped): got {mj.get('version')}")
+        ck(mj.get("version") == "1.3.0", f"humanizer-voice is at 1.3.0 (gap exemplars + situational rules): got {mj.get('version')}")
     d = mj.get("description", "")
     ck(len(d) <= 256, f"description <=256 chars for {p['name']} ({len(d)})")
     ck("'" in d and "use when the user says" in d.lower(), f"description carries human trigger phrases for {p['name']}")
@@ -171,8 +171,8 @@ for p in data["plugins"]:
             # adds are gone), 16 synthetic exemplars, and no register/owner wording in labels.
             ck(len(vt.PATTERNS) == 98,
                f"voice_tells embedded pattern count == 98 (55 de-personalized register + 43 humanizer-gap/voice-ban patterns, owner order 2026-11-22): got {len(vt.PATTERNS)}")
-            ck(len(vt.EXEMPLARS) == 16,
-               f"voice_tells embedded exemplar count == 16 (synthetic exemplar set): got {len(vt.EXEMPLARS)}")
+            ck(len(vt.EXEMPLARS) == 22,
+               f"voice_tells embedded exemplar count == 22 (16 register + 6 gap-register exemplars): got {len(vt.EXEMPLARS)}")
             ck(not any(("register" in label.lower() or "owner" in label.lower()) for _p, label in vt.PATTERNS),
                "voice_tells labels carry no register/owner references (de-personalization ruling)")
             ck(vt.PLUGIN_DIR == ROOT / "humanizer",
