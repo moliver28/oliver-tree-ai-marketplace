@@ -33,7 +33,8 @@ Usage::
 
     python scripts/recruit_funnel.py --spec <path.spec.json>
         [--wave <tab>] [--preflight] [--status] [--reminder]
-        [--funnel-data <json>] [--check-draft <file>] [--today <YYYY-MM-DD>]
+        [--funnel-data <json>] [--check-draft <file>] [--prep <csv>]
+        [--today <YYYY-MM-DD>]
 
 Exit codes: 0 clean (or V1 pass), 1 V1 draft check failed, 2 usage /
 preflight blocked.
@@ -104,7 +105,8 @@ PARTICIPANT_COLUMNS: dict[str, tuple[str, ...]] = {
 }
 
 #: The locked status vocabulary for the workspace participants table
-#: (issue 51). ``withdrawn`` is reachable from any status.
+#: (issue 51). ``withdrawn`` and ``cancelled`` (the 2026-11-23 mail-merge
+#: ruling) are reachable from any status; ``cancelled`` needs nothing.
 PARTICIPANT_STATUSES: tuple[str, ...] = (
     "identified",
     "screened",
@@ -113,12 +115,14 @@ PARTICIPANT_STATUSES: tuple[str, ...] = (
     "completed",
     "incentive-sent",
     "withdrawn",
+    "cancelled",
 )
 
 #: Gate columns per variant and status (issue 51): a status may not
 #: advance while its gate columns are empty on the row.
 #: ``incentive-sent`` additionally requires the row to already sit at
-#: ``completed``; ``withdrawn`` has no gate and is always allowed.
+#: ``completed``; ``withdrawn`` and ``cancelled`` have no gate and are
+#: always allowed.
 PARTICIPANT_STATUS_GATES: dict[str, dict[str, tuple[str, ...]]] = {
     "internal": {
         "screened": ("screener result",),

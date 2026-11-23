@@ -2,9 +2,10 @@
 
 Checks that ``scripts/recruit_funnel.py`` carries the approved
 participants-table column sets (MO column law 2026-11-22), the locked
-seven-value status vocabulary, and the status-gate map exactly as the
-recruit command states it, and that the additive checkers enforce the
-gate law without touching the funnel outputs. Rides the smoke check-3
+eight-value status vocabulary (the mail-merge wave adds ``cancelled``),
+and the status-gate map exactly as the recruit command states it, and
+that the additive checkers enforce the gate law without touching the
+funnel outputs. Rides the smoke check-3
 glob; parity enrollment is out of scope (W2 adapters precedent).
 """
 from _harness import bind
@@ -42,10 +43,10 @@ def _selftest() -> int:
         str(PARTICIPANT_COLUMNS["external"]),
     )
     check(
-        "status vocabulary is the locked seven values",
+        "status vocabulary is the locked eight values",
         PARTICIPANT_STATUSES == (
             "identified", "screened", "invited", "scheduled", "completed",
-            "incentive-sent", "withdrawn",
+            "incentive-sent", "withdrawn", "cancelled",
         ),
         str(PARTICIPANT_STATUSES),
     )
@@ -62,6 +63,12 @@ def _selftest() -> int:
     check("withdrawn has no gate entry",
           "withdrawn" not in PARTICIPANT_STATUS_GATES["internal"]
           and "withdrawn" not in PARTICIPANT_STATUS_GATES["external"])
+    check("cancelled has no gate entry and needs nothing",
+          "cancelled" not in PARTICIPANT_STATUS_GATES["internal"]
+          and "cancelled" not in PARTICIPANT_STATUS_GATES["external"]
+          and participant_gate_lines(
+              {column: "" for column in PARTICIPANT_COLUMNS["external"]},
+              "cancelled", "external") == [])
 
     # Header checker: the approved sets pass; drift is reported per kind.
     check("approved internal header passes",

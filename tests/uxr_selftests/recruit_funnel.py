@@ -215,6 +215,26 @@ def _selftest() -> int:
         except _Usage:
             check("unreadable spec raises usage", True)
 
+        # cancelled: the eighth locked status (the 2026-11-23 mail-merge
+        # ruling). It needs nothing and is legal from any status.
+        check("cancelled is in the locked vocabulary", "cancelled" in PARTICIPANT_STATUSES)
+        check("cancelled passes the vocabulary checker",
+              participant_status_issue("cancelled") == "")
+        check("cancelled carries no gate entry in either variant",
+              "cancelled" not in PARTICIPANT_STATUS_GATES["internal"]
+              and "cancelled" not in PARTICIPANT_STATUS_GATES["external"])
+        empty_row = {column: "" for column in PARTICIPANT_COLUMNS["external"]}
+        check("cancelled needs nothing (no gate on a fully empty row)",
+              participant_gate_lines(empty_row, "cancelled", "external") == [])
+        check("cancelled is legal from every status",
+              all(
+                  participant_gate_lines(dict(empty_row, status=frm), "cancelled", "external") == []
+                  for frm in PARTICIPANT_STATUSES if frm != "cancelled"
+              ))
+        code, output = run({"spec": str(spec_file), "status": "1"}, config={})
+        check("the funnel table still renders with the eight-value vocabulary",
+              code == EXIT_OK and "| Fit |" in output, f"code={code}")
+
     if failures:
         print(f"selftest FAILED ({len(failures)})")
         return EXIT_SELFTEST
