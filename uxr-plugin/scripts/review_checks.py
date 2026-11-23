@@ -8,6 +8,12 @@ code, not reviewer judgment, gates the save.
 Subcommands:
 
 - ``check <path>``  - check one script file.
+- ``survey <path>`` - check one survey instrument file (issue 53): the
+  four survey-mode checks (burden count, routing-map parse, coverage map,
+  alternatives count) over the ``survey-instrument-<KEY>.md`` artifact
+  shape the ``skills/survey-script`` skill defines. Exit codes copy
+  ``check``: 0 clean, 1 warning, 2 unparseable, 3 block. The ``check``
+  behavior and output are unchanged.
 
 Exit codes for ``check``: 0 clean, 1 warning (fix or accept explicitly),
 2 unparseable (the file does not match the script template shape at all,
@@ -59,6 +65,7 @@ deterministic on any host.
 Usage::
 
     python scripts/review_checks.py check <path>
+    python scripts/review_checks.py survey <path>
 """
 
 from __future__ import annotations
@@ -783,6 +790,354 @@ def cmd_check(path: str) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Survey instrument checks (issue 53; the survey-script skill counterpart)
+# ---------------------------------------------------------------------------
+
+BURDEN_RE = re.compile(r"^\*\*Burden budget\*\*:\s*(\d+)\s*questions\.?\s*$", re.IGNORECASE)
+SURVEY_SECTION_RE = re.compile(r"^###\s+(\d+)\.\s+(.+?)\s+\((\d+)\s+questions\)\s*$")
+ROUTING_ROW_RE = re.compile(r"^- from Q(\d+) \[(.+)\] to Q(\d+)\s*$")
+ALTERNATIVES_ROW_RE = re.compile(r"^- Q(\d+):\s*(\d+)\s+alternatives? tried; kept:\s*(.*)$")
+SURVEY_RQMAP_TEXT_RE = re.compile(r"research question.*survey question map", re.IGNORECASE)
+
+
+def _h2_region(lines: list[str], title: str) -> tuple[int, int]:
+    """Line index range (start, end) of one ## section body by exact title."""
+    start = end = -1
+    for index, line in enumerate(lines):
+        match = H2_RE.match(line)
+        if not match:
+            continue
+        if match.group(1).strip().lower() == title:
+            if start == -1:
+                start = index + 1
+            else:
+                end = index
+                break
+    if start == -1:
+        return -1, -1
+    if end == -1:
+        end = len(lines)
+    return start, end
+
+
+def check_survey_text(text: str) -> list[Finding]:
+    """Run the four survey-mode checks on instrument text; returns findings.
+
+    The artifact shape is the one ``skills/survey-script`` defines: a
+    ``**Burden budget**: N questions`` line, ``### N. Title (K questions)``
+    sections inside ``## Survey``, ``## Routing Map`` rows shaped
+    ``- from Q3 [criteria] to Q7``, ``## Alternatives`` rows shaped
+    ``- Q4: 3 alternatives tried; kept: <the winner>``, and a research
+    question to survey question map table whose "Survey Qs" column carries
+    digits. Exit codes copy ``check``: structure 2, block 3, warn 1.
+    """
+    lines = text.splitlines()
+    findings: list[Finding] = []
+
+    # Universal: em dash / en dash anywhere.
+    for index, line in enumerate(lines, start=1):
+        for name, dash in (("em dash", EM_DASH), ("en dash", EN_DASH)):
+            if dash in line:
+                findings.append(
+                    Finding("em-en-dash", "block", index, f"{name} in: {line.strip()!r}")
+                )
+
+    # Structure detection: the three anchors the mode cannot run without.
+    unparseable: list[str] = []
+    budget: int | None = None
+    budget_line: int | None = None
+    for index, line in enumerate(lines, 1):
+        match = BURDEN_RE.match(line)
+        if match:
+            budget = int(match.group(1))
+            budget_line = index
+            break
+    if budget is None:
+        unparseable.append("no '**Burden budget**: N questions' line")
+    survey_start, survey_end = _h2_region(lines, "survey")
+    sections: list[tuple[int, int, int]] = []  # (line index, number, declared K)
+    malformed_h3 = []
+    for index, line in enumerate(lines, 1):
+        match = SURVEY_SECTION_RE.match(line)
+        if match:
+            sections.append((index, int(match.group(1)), int(match.group(3))))
+        elif H3_RE.match(line):
+            malformed_h3.append((index, line.strip()))
+    if not sections:
+        unparseable.append("no '### N. Title (K questions)' sections")
+    map_line = next(
+        (index for index, line in enumerate(lines, 1)
+         if H2_RE.match(line) and SURVEY_RQMAP_TEXT_RE.search(H2_RE.match(line).group(1))),
+        None,
+    )
+    if map_line is None:
+        unparseable.append("no '## Research Question -> Survey Question Map' heading")
+    if unparseable:
+        for message in unparseable:
+            findings.append(Finding("structure", "structure", None, message))
+        return findings
+
+    # heading-shape: any ### line that is not a valid section heading.
+    for index, raw in malformed_h3:
+        findings.append(
+            Finding(
+                "heading-shape",
+                "block",
+                index,
+                f"not '### N. Title (K questions)': {raw!r}",
+            )
+        )
+
+    # The questions of the Survey region, keyed by number, with their
+    # section assignment.
+    questions: dict[int, dict] = {}
+    section_counts: dict[int, int] = {}
+    current_section: int | None = None
+    for index in range(survey_start, survey_end):
+        line = lines[index]
+        section = SURVEY_SECTION_RE.match(line)
+        if section:
+            current_section = int(section.group(1))
+            continue
+        question = QUESTION_RE.match(line)
+        if question:
+            number = int(question.group(1))
+            if current_section is None:
+                findings.append(
+                    Finding(
+                        "burden-count",
+                        "block",
+                        index + 1,
+                        f"question {number} sits outside a '### N. Title (K questions)' section",
+                    )
+                )
+                continue
+            criteria, _question_text = _strip_conditional(question.group(2))
+            questions[number] = {
+                "line": index + 1,
+                "criteria": criteria is not None,
+                "section": current_section,
+            }
+            section_counts[current_section] = section_counts.get(current_section, 0) + 1
+
+    # burden-count: section declares K, holds M; total against the budget.
+    for index, number, declared in sections:
+        found = section_counts.get(number)
+        if found is None:
+            findings.append(
+                Finding(
+                    "burden-count",
+                    "block",
+                    index,
+                    f"section {number} declares {declared} questions, found no questions",
+                )
+            )
+        elif found != declared:
+            findings.append(
+                Finding(
+                    "burden-count",
+                    "block",
+                    index,
+                    f"section {number} declares {declared} questions, found {found}",
+                )
+            )
+    total_questions = sum(section_counts.values())
+    if total_questions > budget:
+        findings.append(
+            Finding(
+                "burden-count",
+                "block",
+                budget_line,
+                f"sections total {total_questions} questions; burden budget is {budget}",
+            )
+        )
+
+    # routing-map parse: every skip path mapped, every landing real.
+    routing_start, routing_end = _h2_region(lines, "routing map")
+    routing_rows: dict[int, tuple[int, int]] = {}  # from -> (line, to)
+    if routing_start != -1:
+        for index in range(routing_start, routing_end):
+            row = ROUTING_ROW_RE.match(lines[index].strip())
+            if not row:
+                continue
+            from_number, _criteria, to_number = (
+                int(row.group(1)), row.group(2), int(row.group(3)),
+            )
+            if from_number in routing_rows:
+                findings.append(
+                    Finding(
+                        "routing-parse",
+                        "block",
+                        index + 1,
+                        f"more than one routing row for Q{from_number}",
+                    )
+                )
+                continue
+            routing_rows[from_number] = (index + 1, to_number)
+    for number, info in sorted(questions.items()):
+        if info["criteria"] and number not in routing_rows:
+            findings.append(
+                Finding(
+                    "routing-parse",
+                    "block",
+                    info["line"],
+                    f"unmapped skip path: Q{number} carries criteria with no routing row",
+                )
+            )
+    for from_number, (line, to_number) in sorted(routing_rows.items()):
+        if from_number not in questions or not questions[from_number]["criteria"]:
+            findings.append(
+                Finding(
+                    "routing-parse",
+                    "block",
+                    line,
+                    f"routing row names Q{from_number}, which is not a conditional question",
+                )
+            )
+        if to_number not in questions:
+            findings.append(
+                Finding(
+                    "routing-parse",
+                    "block",
+                    line,
+                    f"routing dead end: Q{to_number} has no question",
+                )
+            )
+
+    # coverage map: every RQ map row needs a digit in the Survey Qs column.
+    mapped_numbers: set[int] = set()
+    if map_line is not None:
+        survey_q_column: int | None = None
+        for index in range(map_line, len(lines)):
+            line = lines[index]
+            if H2_RE.match(line) and index != map_line:
+                break
+            if not line.lstrip().startswith("|"):
+                continue
+            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+            if len(cells) < 4 or not cells[0] or set(cells[0]) <= set("-: "):
+                continue  # separator or short row
+            if survey_q_column is None:
+                # first table row is the column header; find the Survey Qs column
+                survey_q_column = next(
+                    (i for i, cell in enumerate(cells)
+                     if "survey question" in cell.lower() or cell.lower() == "survey qs"),
+                    3,
+                )
+                continue
+            column = survey_q_column if survey_q_column < len(cells) else 3
+            if not any(char.isdigit() for char in cells[column]):
+                findings.append(
+                    Finding(
+                        "coverage",
+                        "warn",
+                        index + 1,
+                        f"RQ map row has no survey question: {line.strip()!r}",
+                    )
+                )
+                continue
+            mapped_numbers.update(
+                int(m) for m in re.findall(r"\d+", cells[column])
+            )
+
+    # alternatives count: two to five per core question, kept winner recorded.
+    alt_start, alt_end = _h2_region(lines, "alternatives")
+    alternatives: dict[int, dict] = {}
+    if alt_start != -1:
+        for index in range(alt_start, alt_end):
+            row = ALTERNATIVES_ROW_RE.match(lines[index].strip())
+            if not row:
+                continue
+            number, count, kept = int(row.group(1)), int(row.group(2)), row.group(3).strip()
+            if number in alternatives:
+                findings.append(
+                    Finding(
+                        "alternatives",
+                        "block",
+                        index + 1,
+                        f"more than one alternatives record for Q{number}",
+                    )
+                )
+                continue
+            alternatives[number] = {"line": index + 1, "count": count, "kept": kept}
+    for number in sorted(mapped_numbers):
+        if number not in questions:
+            findings.append(
+                Finding(
+                    "alternatives",
+                    "warn",
+                    None,
+                    f"the RQ map names Q{number}, which has no question",
+                )
+            )
+            continue
+        if number not in alternatives:
+            findings.append(
+                Finding(
+                    "alternatives",
+                    "block",
+                    questions[number]["line"],
+                    f"no alternatives record for Q{number}",
+                )
+            )
+    for number, record in sorted(alternatives.items()):
+        if number not in questions:
+            findings.append(
+                Finding(
+                    "alternatives",
+                    "warn",
+                    record["line"],
+                    f"alternatives record names Q{number}, which has no question",
+                )
+            )
+            continue
+        if not 2 <= record["count"] <= 5:
+            findings.append(
+                Finding(
+                    "alternatives",
+                    "block",
+                    record["line"],
+                    f"Q{number} records {record['count']} alternatives (two to five)",
+                )
+            )
+        if not record["kept"]:
+            findings.append(
+                Finding(
+                    "alternatives",
+                    "warn",
+                    record["line"],
+                    f"Q{number} records no kept winner",
+                )
+            )
+
+    return findings
+
+
+def cmd_survey(path: str) -> int:
+    instrument_path = Path(path)
+    if not instrument_path.is_file():
+        print(f"review_checks.py survey: file not found: {path}", file=sys.stderr)
+        return EXIT_UNPARSEABLE
+    text = instrument_path.read_text(encoding="utf-8", errors="replace")
+    findings = check_survey_text(text)
+    print(f"review_checks.py survey {path}")
+    for finding in findings:
+        print(f"  {finding.render()}")
+    blocks = sum(1 for f in findings if f.severity == "block")
+    warns = sum(1 for f in findings if f.severity == "warn")
+    structures = sum(1 for f in findings if f.severity == "structure")
+    code = _exit_code(findings)
+    if code == EXIT_CLEAN:
+        print("result: exit 0 (clean)")
+    else:
+        print(
+            f"result: exit {code} "
+            f"({structures} structure, {blocks} block, {warns} warn)"
+        )
+    return code
+
+
+# ---------------------------------------------------------------------------
 # Selftest
 # ---------------------------------------------------------------------------
 
@@ -897,6 +1252,8 @@ def main(argv: list[str] | None = None) -> int:
     command = args[0]
     if command == "check" and len(args) == 2:
         return cmd_check(args[1])
+    if command == "survey" and len(args) == 2:
+        return cmd_survey(args[1])
     print(__doc__.strip().splitlines()[0])  # terse usage pointer; full doc in this file
     return EXIT_UNPARSEABLE
 

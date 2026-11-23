@@ -98,6 +98,9 @@ UXR: <name>
 ## Quality Check
 ```
 
+The map table shape: `| RQ | Question type | Survey Qs | Stakeholder Value |`;
+every row names at least one survey question number in `Survey Qs`.
+
 Question grammar inside `## Survey`:
 
 - Sections are `### N. Title (K questions)`; K is the question count.
