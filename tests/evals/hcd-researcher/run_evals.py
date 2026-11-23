@@ -20,9 +20,17 @@ saved replies mechanically against the planted defects:
   case produced the ``p0`` verdict.
 
 Verdict line (exact): ``F1 <n> | recall <n> | precision <n> | p0 recall
-<n> | verdict PASS|FAIL``. PASS requires every planted p0 caught with a
-p0 verdict and overall F1 at or above the baseline F1 recorded in
-``baseline.json`` (the first recorded run sets it).
+<n> | verdict PASS|FAIL`` — with ``| verified-catch <n>`` appended when
+the run's cases carry verified ground truth (issue #132). PASS requires
+every planted p0 caught with a p0 verdict and overall F1 at or above the
+baseline F1 recorded in ``baseline.json`` (the first recorded run sets
+it); the verified-catch line is informational and never gates the PASS
+bar. Per case, ``evals.json`` may list ``verified``: creditable real
+weaknesses of the base artifact; a findings entry is a verified catch
+when its match form contains one (the same containment rule as planted
+flaws). Precision keeps its historical definition: verified catches are
+not removed from the false-positive pool, so the recorded metric series
+stays comparable across baselines; the new line carries the credit.
 
 Per-class metrics credit each caught claim to its planted class; a false
 positive counts toward the class of its case when the case planted
@@ -203,6 +211,7 @@ def prepare(run_name: str) -> int:
                 "suite": suite,
                 "artifact": target.name,
                 "planted": case["planted"],
+                "verified": case.get("verified", []),
             }
         )
     manifest = {
@@ -278,6 +287,7 @@ def _score_run(run_dir: Path) -> dict:
     outputs = run_dir / "outputs"
     case_rows, case_triples = [], []
     planted_all, caught_all, fp_all = [], [], 0
+    verified_total_all = verified_caught_all = 0
     for case in manifest["cases"]:
         case_id = case["id"]
         output_file = outputs / f"case-{case_id}.txt"
@@ -293,6 +303,9 @@ def _score_run(run_dir: Path) -> dict:
             _match_norm(f"{entry['claim']} {entry['source']}") for entry in parsed["entries"]
         ]
         verdict_norms = [_match_norm(entry) for entry in parsed["verdict_p0"]]
+        verified_norms = [
+            (f"v{i}", _match_norm(v)) for i, v in enumerate(case.get("verified", []), 1)
+        ]
         caught_ids, matched_flags = [], []
         for entry_norm in entry_norms:
             matched = [
@@ -315,6 +328,10 @@ def _score_run(run_dir: Path) -> dict:
         p0_verdict = parsed["verdict"] == "p0"
         false_alarm = p0_verdict and not caught_p0_ids
         false_positives = matched_flags.count(False) + (1 if false_alarm else 0)
+        verified_caught = [
+            vid for vid, vnorm in verified_norms
+            if vnorm and any(vnorm in entry_norm for entry_norm in entry_norms)
+        ]
         case_rows.append(
             {
                 "id": case_id,
@@ -324,6 +341,9 @@ def _score_run(run_dir: Path) -> dict:
                 "verdict_result": parsed["verdict"],
                 "false_alarm": false_alarm,
                 "false_positives": false_positives,
+                "verified_total": len(verified_norms),
+                "verified_caught": len(verified_caught),
+                "verified_ids": verified_caught,
             }
         )
         planted_all.extend(planted_norms)
@@ -331,6 +351,8 @@ def _score_run(run_dir: Path) -> dict:
             [(pid, pclass, psev) for pid, pclass, psev, _n in planted_norms if pid in caught_ids]
         )
         fp_all += false_positives
+        verified_total_all += len(verified_norms)
+        verified_caught_all += len(verified_caught)
         case_triples.append((case_id, planted_norms, case_rows[-1]))
 
     total, caught_n = len(planted_all), len(caught_all)
@@ -391,6 +413,8 @@ def _score_run(run_dir: Path) -> dict:
         f"F1 {f1:.2f} | recall {recall:.2f} | precision {precision:.2f} "
         f"| p0 recall {p0_recall:.2f} | verdict {verdict_word}"
     )
+    if verified_total_all:
+        verdict_line += f" | verified-catch {verified_caught_all / verified_total_all:.2f}"
     return {
         "run_dir": str(run_dir),
         "cases": case_rows,
@@ -403,6 +427,9 @@ def _score_run(run_dir: Path) -> dict:
             "recall": round(recall, 4),
             "f1": round(f1, 4),
             "p0_recall": round(p0_recall, 4),
+            "verified_total": verified_total_all,
+            "verified_caught": verified_caught_all,
+            "verified_rate": round(verified_caught_all / verified_total_all, 4) if verified_total_all else None,
         },
         "baseline_f1": baseline_f1,
         "verdict_line": verdict_line,
