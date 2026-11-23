@@ -492,6 +492,13 @@ sync:
 # lack evidence.
 checklists:
   enforcement: "record"
+  # The autonomy switch (issue 53). `execute` (default) advances on green:
+  # after each item's evidence turns green the next executable step starts,
+  # and the run stops only for [human] and [draft] items (the human keeps
+  # every critical decision). `approve` additionally pauses at every group
+  # boundary: the runner presents the group summary, the artifact links,
+  # and the missing list, and waits for one go-ahead word.
+  autonomy: "execute"
 
 # -----------------------------------------------------------------------------
 # adapters: the pluggable sync half (issue 112). One entry per tracker kind.

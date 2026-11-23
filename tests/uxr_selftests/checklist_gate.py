@@ -194,6 +194,118 @@ def _selftest() -> int:
         code, out, _err = cli("bogus")
         check("the CLI exits 2 on an unknown command", code == 2, f"code={code}")
 
+    # --- hierarchy attachment + the pause plan (issue 53) ----------------------
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        grouped = tmp / "grouped-checklists"
+        grouped.mkdir()
+        (grouped / "grouped.md").write_text(
+            "\n".join(
+                [
+                    "## Checklist G",
+                    "Pipeline: G1 -> G2",
+                    "### G1 First",
+                    "Executor: llm",
+                    "Summary: the first group.",
+                    "- [ ] G1.1 [llm] Mechanical step. Evidence: always. (Source: law)",
+                    "- [ ] G1.2 [draft] A draft step. Evidence: always. (Source: law)",
+                    "### G2 Second",
+                    "Executor: human",
+                    "- [ ] G2.1 Human step. Evidence: always. (Source: law)",
+                    "- [ ] G2.2 Default-tag step. Evidence: always. (Source: law)",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        items = load_items(grouped / "grouped.md")
+        check(
+            "the loader attaches the nearest ### group and the Executor default",
+            items[0]["group"] == "G1 First"
+            and items[0]["executor_default"] == "llm"
+            and items[2]["group"] == "G2 Second"
+            and items[2]["executor_default"] == "human",
+            repr(items[0]) + repr(items[2]),
+        )
+        check(
+            "an explicit item tag wins over the group default",
+            item_tag(items[0]) == "llm"
+            and item_tag(items[1]) == "draft"
+            and item_tag(items[2]) == "human"
+            and item_tag(items[3]) == "human",
+            repr([item_tag(i) for i in items]),
+        )
+        execute_pauses = pause_plan(items, "execute")
+        check(
+            "execute mode pauses for draft items and every human-tagged item",
+            [p["item"] for p in execute_pauses] == ["G1.2", "G2.1", "G2.2"]
+            and [p["kind"] for p in execute_pauses] == ["draft", "human", "human"],
+            repr(execute_pauses),
+        )
+        approve_pauses = pause_plan(items, "approve")
+        boundaries = [p for p in approve_pauses if p["kind"] == "boundary"]
+        check(
+            "approve mode adds the between-group boundary and the final one",
+            len(boundaries) == 2
+            and boundaries[0]["group"] == "G1 First"
+            and boundaries[0]["next_group"] == "G2 Second",
+            repr(boundaries),
+        )
+        check(
+            "approve mode ends with the final group boundary",
+            approve_pauses[-1] == {"kind": "boundary", "group": "G2 Second",
+                                   "next_group": None},
+            repr(approve_pauses[-1]),
+        )
+        try:
+            pause_plan(items, "bogus")
+            check("an unknown autonomy value raises", False, "no error")
+        except ValueError:
+            check("an unknown autonomy value raises", True)
+
+        spec_file = tmp / "spec.json"
+        spec_file.write_text(json.dumps(SPEC), encoding="utf-8")
+
+        def gcli(*args):
+            buffer, err = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(err):
+                code = main(list(args))
+            return code, buffer.getvalue(), err.getvalue()
+
+        import lib.checklist_gate as _cg2  # selftest-only handle for the dir override
+        saved = _cg2.CHECKLIST_DIR
+        try:
+            _cg2.CHECKLIST_DIR = grouped
+            code, out, _err = gcli("pauses", "--type", "grouped")
+            check(
+                "the pauses CLI prints one line per pause and exits 0",
+                code == 0 and out.splitlines() == [
+                    "pause: G1.2 [draft] harness drafts, human decides",
+                    "pause: G2.1 [human] human-only",
+                    "pause: G2.2 [human] human-only",
+                ],
+                f"code={code} out={out!r}",
+            )
+            code, out, _err = gcli("pauses", "--type", "grouped", "--autonomy", "approve")
+            check(
+                "the pauses CLI approve mode prints the boundary lines too",
+                code == 0 and sum(1 for ln in out.splitlines() if "boundary" in ln) == 2,
+                f"code={code} out={out!r}",
+            )
+            code, out, _err = gcli("pauses", "--type", "grouped", "--json")
+            parsed = json.loads(out) if out.strip().startswith("{") else {}
+            check(
+                "the pauses CLI --json prints the plan",
+                code == 0 and parsed.get("autonomy") == "execute"
+                and len(parsed.get("pauses", [])) == 3,
+                f"code={code} out={out[:80]!r}",
+            )
+            code, out, err = gcli("pauses", "--type", "grouped", "--autonomy", "bogus")
+            check("the pauses CLI exits 2 on an unknown autonomy", code == 2, f"code={code}")
+            code, out, _err = gcli("pauses")
+            check("the pauses CLI exits 2 without --type", code == 2, f"code={code}")
+        finally:
+            _cg2.CHECKLIST_DIR = saved
+
     # --- standing-mandate predicates live in SPEC_CHECKS -------------------------
     check(
         "the two ask predicates are in SPEC_CHECKS",

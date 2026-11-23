@@ -84,6 +84,20 @@ ITEM_RE = re.compile(
     r"^- \[ \] (\S+) (.+?)\. Evidence: (.+?)\. \(Source: (.+?)\)\s*$"
 )
 
+#: The group heading (the loader reads it for the output-only hierarchy
+#: attachment; the line itself never parses as an item).
+H3_RE = re.compile(r"^###\s+(.+)$")
+
+#: The group default executor line (``Executor: llm``); an explicit item
+#: tag always wins.
+EXECUTOR_RE = re.compile(r"^Executor:\s*(llm|draft|human)\s*$")
+
+#: The executor tag inside the item text (``[llm] `` prefix).
+ITEM_TAG_RE = re.compile(r"^\[(llm|draft|human)\]\s")
+
+#: The two autonomy values of the ``checklists.autonomy`` config key.
+AUTONOMY_VALUES = ("execute", "approve")
+
 #: Gate citation predicate (review F5): an item is outside-knowledge if and
 #: only if its Source field names a registry id (an ``R-`` or ``A-`` token).
 #: Grep-checkable, zero classifier variance.
@@ -95,9 +109,13 @@ SOURCE_LINE_RE = re.compile(r"(https?://|\b[RA]-\d{1,3}\b)")
 USAGE = """usage:
   python lib/checklist_gate.py check --type <type> --spec <spec.json> --workspace <dir> [--json]
   python lib/checklist_gate.py citations --workspace <dir> [--json]
+  python lib/checklist_gate.py pauses --type <type> [--autonomy execute|approve] [--json]
 
 A missing spec file counts as an empty spec (spec probes fail closed).
-Exit codes: 0 pass (or no checklist for the type), 1 not ready, 2 usage."""
+``pauses`` prints the pause plan for the ``checklists.autonomy`` switch
+(default ``execute``): one line per [human]/[draft] item in both modes,
+plus one line per group boundary in ``approve``. Exit codes: 0 pass (or
+no checklist for the type), 1 not ready, 2 usage."""
 
 
 # ---------------------------------------------------------------------------
@@ -106,7 +124,14 @@ Exit codes: 0 pass (or no checklist for the type), 1 not ready, 2 usage."""
 
 
 def load_items(path: Path | None) -> list[dict]:
-    """The checklist items of one file; only the documented line shape parses."""
+    """The checklist items of one file; only the documented line shape parses.
+
+    Output-only hierarchy attachment (issue 53 build item 1): the nearest
+    ``###`` group heading and the last ``Executor:`` default ride on each
+    item as ``group`` and ``executor_default``. The parse itself is
+    unchanged - ``ITEM_RE`` matches the same lines, and heading, ``Pipeline:``,
+    ``Executor:``, and ``Summary:`` lines stay invisible to the loader.
+    """
     if path is None or not path.is_file():
         return []
     try:
@@ -114,7 +139,17 @@ def load_items(path: Path | None) -> list[dict]:
     except OSError:
         return []
     items: list[dict] = []
+    group: str | None = None
+    executor_default: str | None = None
     for line in text.splitlines():
+        heading = H3_RE.match(line.strip())
+        if heading:
+            group = heading.group(1).strip()
+            continue
+        executor = EXECUTOR_RE.match(line.strip())
+        if executor:
+            executor_default = executor.group(1).strip()
+            continue
         match = ITEM_RE.match(line.strip())
         if match:
             items.append(
@@ -123,6 +158,8 @@ def load_items(path: Path | None) -> list[dict]:
                     "item": match.group(2),
                     "evidence": match.group(3).strip(),
                     "source": match.group(4).strip(),
+                    "group": group,
+                    "executor_default": executor_default,
                 }
             )
     return items
@@ -313,6 +350,113 @@ def _cli_citations(rest: list[str]) -> int:
 
 
 # ---------------------------------------------------------------------------
+# the pause plan (the autonomy switch; the runner-side half of the gate loop)
+# ---------------------------------------------------------------------------
+
+
+def item_tag(item: dict) -> str | None:
+    """The item's executor tag: the explicit ``[llm]/[draft]/[human]``
+    token in the item text wins; the group ``Executor:`` default is the
+    fallback; ``None`` when neither carries one."""
+    match = ITEM_TAG_RE.match(item.get("item", ""))
+    if match:
+        return match.group(1)
+    default = item.get("executor_default")
+    return default.strip() if isinstance(default, str) and default.strip() else None
+
+
+def pause_plan(items: list[dict], autonomy: str = "execute") -> list[dict]:
+    """The pause points of one checklist, in execution order (issue 53).
+
+    The autonomy switch is the ``checklists.autonomy`` config key
+    (``execute | approve``, default ``execute``). ``[human]`` items always
+    pause (human-only: the harness tracks, records, and nudges, never
+    performs). ``[draft]`` items always pause (the harness drafts when the
+    context it needs is available, the human decides; missing context =
+    record the gap and ask, never invent). ``approve`` additionally pauses
+    at every group boundary, where the runner presents the group summary,
+    the artifact links, and the missing list, and waits for one go-ahead
+    word. Every pause is a dict ``{"kind", "item"?, "tag"?, "group"?,
+    "next_group"?}``; ``kind`` is ``human``, ``draft``, or ``boundary``.
+    Mechanical output for the runner - never chat advice.
+    """
+    if autonomy not in AUTONOMY_VALUES:
+        raise ValueError(f"autonomy must be one of {', '.join(AUTONOMY_VALUES)}")
+    pauses: list[dict] = []
+    previous_group: str | None = None
+    for item in items:
+        group = item.get("group")
+        if (
+            autonomy == "approve"
+            and previous_group is not None
+            and group != previous_group
+        ):
+            pauses.append(
+                {"kind": "boundary", "group": previous_group, "next_group": group}
+            )
+        previous_group = group
+        tag = item_tag(item)
+        if tag == "human":
+            pauses.append({"kind": "human", "item": item["id"], "tag": tag})
+        elif tag == "draft":
+            pauses.append({"kind": "draft", "item": item["id"], "tag": tag})
+    if autonomy == "approve" and previous_group is not None:
+        pauses.append({"kind": "boundary", "group": previous_group, "next_group": None})
+    return pauses
+
+
+def _cli_pauses(rest: list[str]) -> int:
+    type_name = ""
+    autonomy = "execute"
+    as_json = False
+    index = 0
+    while index < len(rest):
+        arg = rest[index]
+        if arg == "--type" and index + 1 < len(rest):
+            type_name = rest[index + 1]
+            index += 2
+            continue
+        if arg == "--autonomy" and index + 1 < len(rest):
+            autonomy = rest[index + 1]
+            index += 2
+            continue
+        if arg == "--json":
+            as_json = True
+            index += 1
+            continue
+        print(f"pauses: unknown or incomplete argument {arg!r}\n\n{USAGE}", file=sys.stderr)
+        return 2
+    if not type_name:
+        print(f"pauses: --type is required\n\n{USAGE}", file=sys.stderr)
+        return 2
+    if autonomy not in AUTONOMY_VALUES:
+        print(
+            f"pauses: --autonomy must be one of {', '.join(AUTONOMY_VALUES)}\n\n{USAGE}",
+            file=sys.stderr,
+        )
+        return 2
+    path = CHECKLIST_DIR / f"{type_name}.md"
+    items = load_items(path)
+    if not items:
+        print(f"no checklist for type {type_name}")
+        return 0
+    pauses = pause_plan(items, autonomy)
+    if as_json:
+        print(json.dumps({"type": type_name, "autonomy": autonomy, "pauses": pauses},
+                         ensure_ascii=False, indent=2))
+    else:
+        for pause in pauses:
+            if pause["kind"] == "boundary":
+                tail = f" before {pause['next_group']}" if pause.get("next_group") else ""
+                print(f"pause: group boundary {pause['group']}{tail} (autonomy: {autonomy})")
+            else:
+                reason = "human-only" if pause["kind"] == "human" \
+                    else "harness drafts, human decides"
+                print(f"pause: {pause['item']} [{pause['tag']}] {reason}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -386,6 +530,8 @@ def main(argv: list[str] | None = None) -> int:
         except OSError as exc:
             print(f"citations: {exc}", file=sys.stderr)
             return 2
+    if args and args[0] == "pauses":
+        return _cli_pauses(args[1:])
     print(USAGE)
     return 2
 

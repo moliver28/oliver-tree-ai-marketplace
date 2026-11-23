@@ -406,6 +406,19 @@
     ],
     "reason": "The A0 entry-stage wiring (design decisions 2, 3, and 6): the workspace template for the method-selection record the A0 items probe (classification table on the NN/g axes, method + alternatives, spec record, routing line with the named-gap wording; no template tokens), listed in the init plan tree so uxr-new workspaces get it through the scaffold copy; step 7b syncs the canonical set (three checklists + writing-rules registry) through the new SYNC_SET / sync_references plugin-to-workspace copy with recorded-local-override law (absent copies, identical unchanged, differing kept as an override; never clobbers, never deletes); the report phase 0 gate now runs the method-selection check before the type check with record-gap semantics (the one call site; the debrief per-session gate stays untouched).",
     "date": "2026-11-22"
+   },
+   {
+    "wave": "53-content",
+    "issue": 53,
+    "delta_lines": 156,
+    "files": [
+     "uxr-plugin/lib/checklist_gate.py (pauses + output-only hierarchy attachment)",
+     "uxr-plugin/lib/config.py (one REQUIRED_KEYS line)",
+     "uxr-plugin/config/org.example.yaml (the autonomy key)",
+     "tests/uxr_selftests/checklist_gate.py (hierarchy + pauses coverage)"
+    ],
+    "reason": "The autonomy switch (note section The execution loop and the autonomy switch): the checklists.autonomy config key (execute | approve, default execute) beside checklists.enforcement, one REQUIRED_KEYS line mirroring the enforcement pattern; the sanctioned output-only loader change attaches the nearest ### group heading and the Executor default to each item JSON (parse unchanged, ITEM_RE unchanged); the pause plan joins the gate module - [human] and [draft] items pause in both modes, approve adds one pause per group boundary where the runner presents the group summary, the artifact links, and the missing list and waits for one go-ahead word - exposed as the pauses CLI (exit 0 plan, 2 usage; absent type prints the absent line). check and citations behavior unchanged. The MO tweak 2026-11-23 critical-decision law rides the tag rules: the human keeps every critical decision; [draft] drafts when context is available, never invents; [human] is never automated.",
+    "date": "2026-11-22"
    }
   ],
   "golden_path_growth": null
