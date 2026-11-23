@@ -4,7 +4,7 @@
     {
       "name": "uxr-plugin",
       "source": "./",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "description": "UX research operations assistant: tickets, specs, recruitment, interview scripts, reports, decks",
       "category": "productivity"
     }

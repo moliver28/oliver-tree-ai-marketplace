@@ -1,22 +1,23 @@
 {
- "recorded": "2026-11-21",
+ "recorded": "2026-11-23",
  "convention": "Shipped payload lines = git-tracked files under uxr-plugin/ with suffix .py, .md, .yaml, or .yml, excluding uxr-plugin/tests/**; a line ends at \\n and a non-empty file without a trailing newline counts one final line (git numstat counting). The loc-account.py 'R1 shipped EX-tests' convention applied as an absolute snapshot of the tree instead of a diff. Per-dir lines group by the first path segment below uxr-plugin/; root-level files group under 'root'.",
  "payload": {
   "growth_tolerance_lines": 0,
-  "total_lines": 23243,
+  "total_lines": 28378,
   "per_dir": {
-   "agents": 502,
-   "commands": 1662,
-   "config": 420,
+   "agents": 509,
+   "commands": 1917,
+   "config": 548,
    "docs": 71,
-   "hooks": 2761,
-   "lib": 3935,
+   "google": 118,
+   "hooks": 3119,
+   "lib": 5015,
    "prompts": 275,
-   "references": 4136,
-   "root": 151,
-   "scripts": 8711,
-   "skills": 339,
-   "templates": 280
+   "references": 5263,
+   "root": 214,
+   "scripts": 10440,
+   "skills": 534,
+   "templates": 355
   }
  },
  "golden_path_model_calls": 6,
@@ -439,6 +440,80 @@
      "tests/uxr_selftests/recruit_send.py (regression pin: env port beats example default)"
     ],
     "reason": "Mail-merge test wave fix: the example file's documentation defaults (smtp_port 587, use_tls true) reached the config layer through load_config's example+user merge and shadowed the UXR_RECRUIT_* env fallbacks, so an env-only account connected to the example port instead of the env port. load_send_settings now resets any config value that still equals the bare example file before the env fill, and the source line reports only layers that actually supplied a value. Regression pin added to the selftest. Payload delta measured 33 lines (script +20, selftest +13), all inside the two named files.",
+    "date": "2026-11-23"
+   },
+   {
+    "wave": "mailmerge-w2",
+    "issue": "#91/#92",
+    "delta_lines": 118,
+    "files": [
+     "uxr-plugin/google/README.md"
+    ],
+    "reason": "The Google mail-merge engine lands at uxr-plugin/google/ (MO-commissioned #91 tracking, #92 event-timed follow-ups; authored in this repository, architecture informed by Google's Apache-2.0 mail-merge sample, no code copied). The gate's suffix convention (.py/.md/.yaml/.yml) counts only the 118-line SETUP doc google/README.md; the 399-line mail-merge.gs sits outside the counted suffixes and is named here so every shipped line stays accounted for.",
+    "date": "2026-11-23"
+   },
+   {
+    "wave": "mailmerge-w2",
+    "issue": "#92",
+    "delta_lines": 58,
+    "files": [
+     "uxr-plugin/references/checklists/appointment-link.md"
+    ],
+    "reason": "The appointment-link runbook (screener-to-booking confirmation): Google Calendar cannot create appointment schedules through the API (web-checked 2026-11-23), so the wave ships the computer-use runbook instead of API code, and every line serves that one feature (fewest-click steps ending with the link in the booking_url cell).",
+    "date": "2026-11-23"
+   },
+   {
+    "wave": "mailmerge-w2",
+    "issue": "#89",
+    "delta_lines": 99,
+    "files": [
+     "uxr-plugin/scripts/recruit_send.py",
+     "uxr-plugin/config/org.example.yaml",
+     "uxr-plugin/scripts/smoke_test.py"
+    ],
+    "reason": "Sheet export and the unsubscribe footer on the SMTP path (mail-merge wave 2): --export-sheet writes the external participants table to CSV under the approved Sheet column names for the Google hand-off, and the merged body gains the one-line unsubscribe footer when recruit.email.unsubscribe is on and recruit.email.webapp_url is set; the two new keys are documented in the example with their UXR_RECRUIT_* env fallbacks, and the smoke check-3 glob rides the existing config-example validation (no new surface).",
+    "date": "2026-11-23"
+   },
+   {
+    "wave": "mailmerge-w2",
+    "issue": "#91",
+    "delta_lines": 4,
+    "files": [
+     "uxr-plugin/scripts/recruit_funnel.py"
+    ],
+    "reason": "The cancelled status (MO ruling 2, 2026-11-23): the eighth locked vocabulary value and its gate entry (needs nothing, allowed from any status at any time) join PARTICIPANT_STATUSES and the status-gate map, so the funnel table, preflight, and the enforcement selftests accept it.",
+    "date": "2026-11-23"
+   },
+   {
+    "wave": "mailmerge-w2",
+    "issue": "#92",
+    "delta_lines": 58,
+    "files": [
+     "uxr-plugin/scripts/calendar_prep.py",
+     "uxr-plugin/scripts/recruit_funnel.py"
+    ],
+    "reason": "Cross-calendar availability and the prep brief printer: calendar_prep.py accepts repeated --dump inputs, one per calendar, and unions the busy intervals before slot picking so an availability check spans projects (output shape unchanged), and recruit_funnel.py --prep prints one brief per Prep-tab export row (when | event | items; the empty export prints the defined no-prep line).",
+    "date": "2026-11-23"
+   },
+   {
+    "wave": "mailmerge-w2",
+    "issue": "#91/#92",
+    "delta_lines": 12,
+    "files": [
+     "uxr-plugin/commands/uxr-recruit.md",
+     "uxr-plugin/templates/workspace/recruitment/participants.md"
+    ],
+    "reason": "Recruit command and template text for the shipped features: the vocabulary line and the gate list carry cancelled, external step 7 points at the google/README.md screener setup, step 12 reads the Tracking export CSV and batch-applies cancelled with one roster_apply.py batch plus one re-invite nudge per row, step 13 prints the prep briefs, the Inputs carry --prep=<csv>, and the Scripts table rows name --export-sheet and --prep.",
+    "date": "2026-11-23"
+   },
+   {
+    "wave": "mailmerge-w2-release",
+    "issue": 0,
+    "delta_lines": 14,
+    "files": [
+     "uxr-plugin/CHANGELOG.md"
+    ],
+    "reason": "0.7.0 release bookkeeping: the [0.7.0] CHANGELOG section (14 lines) records the nine shipped features of mail-merge wave 2, one bullet per feature. plugin.json, both marketplace.json entries, and the plugin README version line carry 0.7.0; the JSON surfaces sit outside the counted suffixes and the README line is 1 in, 1 out. With the wave's justified growth recorded above, this release moves the floor (23,243, recorded 2026-11-21) and the per-dir floors to the shipped tree (28,378) per the repo convention, so the floor travels with the tree the release PR ships; the earlier waves' deltas stand documented in the entries above.",
     "date": "2026-11-23"
    }
   ],

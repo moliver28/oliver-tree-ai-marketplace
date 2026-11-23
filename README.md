@@ -15,7 +15,7 @@ Private index of reusable system assets for pointing ANY AI tool (Claude, Codex,
 | Academic sourcing | `research/academic/` | Parallel scholarly database search; peer-review status, evidence hierarchy, citation rigor. |
 | Literature review | `research/literature-review/` | FSM-based systematic review protocol: scoping through PRISMA-style reporting. |
 | Decision advisor plugin | `decision-advisor/` | `/decide` and the decision-advisor agent run the meta-decision pipeline on one-way doors; pairs with `engineering/meta-decision/`. |
-| UX research operations plugin | `uxr-plugin/` | Full UXR ops: study tickets, specs, recruitment, interview scripts, reports, decks; 16 `/uxr-*` commands, 3 skills, fail-open local analytics hooks. |
+| UX research operations plugin | `uxr-plugin/` | Full UXR ops: study tickets, specs, recruitment, interview scripts, reports, decks; 17 `/uxr-*` commands, 4 skills, fail-open local analytics hooks; Google mail-merge engine (`google/mail-merge.gs`: open/click tracking, event-timed follow-ups, scheduled sends, screener-to-booking) with the SMTP path's `--export-sheet` hand-off and unsubscribe footer, `--prep` briefs, the `cancelled` status, and cross-calendar availability. |
 | Triage of everything else | `catalog.md` | Assessed: move-port / list / exclude, with reasons. |
 | Provenance ledger | `PROVENANCE.md` | Origin verification per published asset; removals and folds documented |
 

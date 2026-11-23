@@ -2,6 +2,20 @@
 
 All notable changes to uxr-plugin. One `## X.Y.Z` heading per release, newest first.
 
+## [0.7.0] - 2026-11-23
+
+### Added
+
+- Tracking web app routes (#91): the Google mail-merge engine `google/mail-merge.gs` (authored in this repository; the architecture is informed by Google's Apache-2.0 mail-merge sample, and no code is copied) serves one web app deployment with three routes. The open pixel (`?o=`) logs an open estimate. The click route (`?c=`) wraps every tracked link, logs the click, and then sends the reader to the target. The unsubscribe route (`?u=`) marks the recipient unsub and returns a confirmation. Each hit appends one row (date, route, email, study, target, note) to the Tracking tab. The SETUP doc `google/README.md` maps the script into the Sheet, deploys the web app, and states the tracking limits.
+- Event-timed follow-ups with optional meeting prep (#92): one recurring trigger (`syncEvents`) scans the configured calendar every 15 minutes. An event whose title matches `event_regex` creates a follow-up `followup_hours` after its start, and the send path stamps it. With `prep_on`, the script also creates a Prep row `prep_lead_hours` before the start and emails the prep brief. A deleted or renamed event cancels its pending follow-up and prefixes its prep row.
+- Scheduled sends: `scheduleSend(tab, when)` installs a one-off time trigger, so a wave goes out near the requested time without anyone at the keyboard. Google picks the exact minute inside its hourly window, and the trigger deletes itself after it fires.
+- Screener to booking confirmation: `setupScreener` builds the screener Form and writes `Book your session: <booking_url>` to its confirmation page, so the respondent books straight after the form. Each submission lands as a Wave-tab row with a fresh Tracking ID. Google Forms has no per-respondent gate; the researcher reads the answers after each submission.
+- The `cancelled` status: the workspace participants-table vocabulary gains an eighth locked status beside identified, screened, invited, scheduled, completed, incentive-sent, and withdrawn. Its gate needs nothing, and it is allowed from any status at any time. A row leaves `cancelled` only through the recruit flow. Recruit step 12 reads the Tracking export CSV, batch-applies `cancelled` with one `roster_apply.py` batch, and drafts one re-invite nudge per cancelled row.
+- Cross-calendar availability: `calendar_prep.py` accepts repeated `--dump <events.json>` inputs, one per calendar. The busy intervals are unioned before slot picking, so an availability check spans every project the researcher runs. The output shape is unchanged.
+- The appointment-link runbook `references/checklists/appointment-link.md`: the computer-use runbook that creates a Google Calendar appointment schedule in the fewest clicks and ends with the link in the merge Sheet `booking_url` cell. Creation is UI-only; the Calendar API cannot create appointment schedules.
+- Sheet export: `recruit_send.py --export-sheet <out.csv>` writes the external participants table to CSV under the approved Sheet column names, so a wave moves from the SMTP path to the Google engine without a rebuild.
+- The unsubscribe footer: when `recruit.email.unsubscribe` is on (the default) and `recruit.email.webapp_url` is set, every merged SMTP body gains one line that points at the web app unsubscribe route. Both keys ship in `config/org.example.yaml` with `UXR_RECRUIT_*` env fallbacks, and the draft-only default is untouched (the researcher runs the real send).
+
 ## [0.6.0] - 2026-11-22
 
 ### Added
