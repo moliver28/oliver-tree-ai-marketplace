@@ -2,6 +2,18 @@
 
 All notable changes to uxr-plugin. One `## X.Y.Z` heading per release, newest first.
 
+## [0.4.0] - 2026-11-22
+
+### Added
+
+- Optional stdio MCP server (`mcp-server/server.py`, Phase 1): newline-delimited JSON-RPC 2.0 for local CLI harnesses (zcode, codex, claude-code, hermes-style runtimes), initialize-handshake era (protocol `2025-06-18`, with `2025-11-25` negotiation), all diagnostics on stderr, stdlib only, no network, no `lib/` imports (shells out only). Curated surface: ten tools (one per shipped script, schemas read from each script's own argument parsing; stdout returned verbatim; 60-second cap; no shell), `references/*.md` + `prompts/*/fragments/*.md` as `text/markdown` resources under `uxr://`, and `commands/*.md` as prompts. No publish or send tool (drafts never send).
+- Install command (`mcp-server/install.py`): `install|uninstall|status --harness auto|zcode|codex|claude-code|hermes` with `--force` and `--dry-run`. Writes only the `uxr` entry (zcode `mcp.servers.uxr`, codex `[mcp_servers.uxr]`, claude-code user-scope `mcpServers.uxr`), preserves the file's newline style and every other key, backs up to `<config>.uxr-backup` before the first write, and is idempotent (second run exits 0 as a no-op). `status` runs a real initialize handshake against the configured server (exit 0 healthy, 1 missing, 2 broken handshake, 3 unsupported harness, 4 config error). hermes raises a clear not-wired-yet message after grounding left its config location unconfirmed for this runtime.
+- Selftests `tests/uxr_selftests/mcp_server.py` (protocol surface, fixtures only) and `mcp_install.py` (install/idempotence/force/uninstall/backup/status per harness, redirected-home CLI layer, never touching a real config).
+
+### Changed
+
+- Version triple to 0.4.0 (manifest, README, marketplace entry); README gains the MCP server section with the per-harness config table and the law-8 update path.
+
 ## [0.3.0] - 2026-11-20
 
 ### Changed

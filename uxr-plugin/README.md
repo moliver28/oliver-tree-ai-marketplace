@@ -1,6 +1,6 @@
 # uxr-plugin
 
-UX research operations plugin for Claude Code, currently v0.3.0.
+UX research operations plugin for Claude Code, currently v0.4.0.
 
 One plugin for the research lifecycle: study tickets, specs, recruitment, interview scripts, reports, and decks. Code owns the rules (deterministic scripts; their offline selftests live in the repo's tests/uxr_selftests/); the model owns judgment. Drafts, never sends. Hooks fail open; exclusions fail closed. See docs/ARCHITECTURE.md for the vocabulary and principles.
 
@@ -68,6 +68,42 @@ Fill the values by hand from the contract comments (there is no wizard); verify 
 | `/uxr-feedback` | File plugin feedback as a GitHub issue after explicit `go` |
 
 All are plugin-namespaced in practice (`/uxr-plugin:uxr-new`) since Claude Code namespaces plugin commands under the plugin name.
+
+## MCP server
+
+`mcp-server/server.py` is an optional Model Context Protocol surface over stdio, so local CLI harnesses (zcode, codex, claude-code, hermes-style runtimes) can drive the same deterministic scripts without loading the plugin. It is stdlib-only Python, makes no network calls, imports nothing from `lib/` (it shells out to `scripts/`), and is served per the MCP initialize-handshake era: protocol versions `2025-06-18` and `2025-11-25`, newline-delimited JSON-RPC 2.0 on stdin/stdout, all diagnostics on stderr. It exposes:
+
+| Tool | Script behind it |
+|---|---|
+| `scaffold_workspace` | `scripts/scaffold_workspace.py` |
+| `build_body` | `scripts/build_body.py` (spec JSON on the tool's `stdin`) |
+| `parse_shorthand` | `scripts/parse_shorthand.py` (request JSON on `stdin`) |
+| `roster_apply` | `scripts/roster_apply.py` |
+| `recruit_funnel` | `scripts/recruit_funnel.py` |
+| `classify` | `scripts/classify.py` |
+| `report_html` | `scripts/report_html.py` |
+| `deck_render` | `scripts/deck_render.py` |
+| `uxr_stats` | `scripts/uxr_stats.py` |
+| `review_checks` | `scripts/review_checks.py` |
+
+There is no publish or send tool: drafts never send. Script stdout is returned verbatim (the caller never recomputes a number a script printed); a nonzero exit comes back as an error result with the stderr tail; each call is capped at 60 seconds and runs without a shell. `resources/list` and `resources/read` expose `references/*.md` and `prompts/*/fragments/*.md` under `uxr://references/<name>` and `uxr://fragments/<prompt-dir>-<name>` as `text/markdown`; `prompts/list` and `prompts/get` expose `commands/*.md` (front-matter description, body as the template). The initialize result carries a UXR domain summary in `instructions` for host-side delegation.
+
+Install it into one harness (writes only the `uxr` entry; backs the config up to `<config>.uxr-backup` first; a second run is a no-op; `--force` replaces an existing entry; `--dry-run` prints the plan):
+
+```bash
+python mcp-server/install.py install --harness auto    # or zcode | codex | claude-code
+python mcp-server/install.py status  --harness zcode   # real handshake check
+python mcp-server/install.py uninstall --harness zcode
+```
+
+| Harness | Config file | Entry shape |
+|---|---|---|
+| zcode | `~/.zcode/cli/config.json` | `mcp.servers.uxr` (JSON) |
+| codex | `~/.codex/config.toml` | `[mcp_servers.uxr]` table (TOML) |
+| claude-code | `~/.claude.json` | top-level `mcpServers.uxr` (user scope) |
+| hermes | not wired in this release | status UNKNOWN; see the note the command prints |
+
+`status` exit codes: 0 healthy (the configured server answers a real initialize handshake and lists the tools), 1 missing (no config or no `uxr` entry), 2 broken handshake, 3 unsupported harness, 4 config parse failure. Uninstall removes only the `uxr` entry. The real zcode install runs at acceptance, with the owner present; this command never touches a live config during development. Update path (MAINTENANCE law 8): bump with `claude plugin update uxr-plugin@oliver-tree-ai-marketplace`; do not pin a stale version.
 
 ## Hooks
 
