@@ -27,7 +27,7 @@ Grounding: consult registered sources in `references/sources/` (for this command
 `--level=i|ii|iii` (default `ii`), `--allow=<eventId>`, `--keep=<eventId>`,
 `--window=<N>` (default 14, max 60), `--external`, `--coordinate`,
 `--status`, `--check`, `--dry-run`, `--nudge-after=<N>` (default 2 business
-days).
+days), `--prep=<csv>` (a Prep-tab export; prints one brief per row).
 
 ## Setup (every run)
 
@@ -52,7 +52,7 @@ days).
 
 The workspace `recruitment/participants.md` status column uses the
 locked vocabulary: identified, screened, invited, scheduled,
-completed, incentive-sent, withdrawn. A status may not advance while
+completed, incentive-sent, withdrawn, cancelled. A status may not advance while
 its gate columns are empty on the row; check the gates mechanically
 from the row before every status change (no model call):
 
@@ -65,6 +65,8 @@ from the row before every status change (no model call):
 - `completed` needs `consent-to-record` set to yes.
 - `incentive-sent` needs the row already `completed`.
 - `withdrawn` needs nothing; it is allowed from any status at any
+  time.
+- `cancelled` needs nothing; it is allowed from any status at any
   time.
 
 A blocked advance is one line: name the row and the empty gate column,
@@ -128,7 +130,8 @@ on a wave tab.
    org chart is not configured and continue without it.
 7. **Booking page.** Reuse a verified page or build one to the settings in
    `references/recruit-outreach.md`. Verify the public link shows bookable
-   slots.
+   slots. Set up the screener form and its confirmation page once with
+   the SETUP steps in `${CLAUDE_PLUGIN_ROOT}/google/README.md`.
 8. **Mail merge.** Copy the merge template sheet once per study and save
    it to `funnel.sheet`. Create the draft, then run the checks: V1 with
    `recruit_funnel.py --check-draft <draft>`; V2 self-test to the user's
@@ -146,7 +149,15 @@ on a wave tab.
     " (bounced)" (never delete a row), append everyone emailed to the
     do-not-contact tab, and flip named roster rows with `roster_apply.py`.
 12. **Replies.** Every later run: find booking-page bookings and add each
-    booker as `Scheduled` in one `roster_apply.py` batch.
+    booker as `Scheduled` in one `roster_apply.py` batch. Read the
+    Tracking tab export CSV (date, route, email, study, target, note).
+    Batch-apply `cancelled` to every participant with a `cancelled`
+    route in it, using one `roster_apply.py` batch. Draft one re-invite
+    nudge per cancelled row.
+13. **Prep briefs.** With `--prep=<csv>`, print the prep briefs with
+    `python "${CLAUDE_PLUGIN_ROOT}/scripts/recruit_funnel.py" --prep <csv>`.
+    Each line reads `when | event | items`. An empty export prints
+    `no prep briefs`.
 
 Finish the external run with the recruitment table from
 `recruit_funnel.py --spec <spec> --funnel-data <export> --wave <tab>`.
@@ -190,11 +201,11 @@ context plus the row's `prep note`, or nothing - no other content.
 
 | Script | Contract |
 |---|---|
-| `scripts/recruit_funnel.py --spec <path> [--wave <tab>] [--preflight] [--reminder] [--funnel-data <json>] [--check-draft <file>] [--today <date>]` | Prints the nine-row recruitment table; `--preflight` exits 2 with `BLOCK <account> / <first>: <reason>` lines or prints `PREFLIGHT OK: <n> rows ready on <tab>`; `--reminder` drafts nudges; `--check-draft` is check V1. Output never contains an email address. |
-| `scripts/recruit_send.py --participants <participants.md> --template <file> [--send] [--show-contacts] [--today <date>]` | The MVP email send from the external participants table (see Email send). Dry run by default: the merged messages print, nothing changes. `--send` needs the `recruit.email.*` SMTP account; exit 0 clean, 1 a send failed, 2 usage. |
+| `scripts/recruit_funnel.py --spec <path> [--wave <tab>] [--preflight] [--reminder] [--funnel-data <json>] [--check-draft <file>] [--prep <csv>] [--today <date>]` | Prints the nine-row recruitment table; `--preflight` exits 2 with `BLOCK <account> / <first>: <reason>` lines or prints `PREFLIGHT OK: <n> rows ready on <tab>`; `--reminder` drafts nudges; `--check-draft` is check V1; `--prep` prints one prep brief per Prep-tab export row. Output never contains an email address. |
+| `scripts/recruit_send.py --participants <participants.md> --template <file> [--send] [--show-contacts] [--export-sheet <out.csv>] [--today <date>]` | The MVP email send from the external participants table (see Email send). Dry run by default: the merged messages print, nothing changes. `--export-sheet` writes the table to CSV under the approved Sheet columns. `--send` needs the `recruit.email.*` SMTP account; exit 0 clean, 1 a send failed, 2 usage. |
 | `scripts/source_contacts.py` | Sources and clears contacts; account match is normalized whole words ("Box" never matches "Dropbox"); missing do-not-contact or open-deal tab exits 2 and sources nothing. |
 | `scripts/roster_apply.py --spec <path> --ops <json-or-@file> --out <body.json> [--dry-run]` | The only spec write path: validate, render, then write spec and body; exit 3 on validation failure with nothing written; duplicate adds promote only, never demote. |
-| `scripts/calendar_prep.py <events.json> [--manager <names>] [--keep <id>] [--allow <id>]` | Classifies the window's events into `pto`, `immovable`, `movable`, `other`; weekends and declined events are skipped. |
+| `scripts/calendar_prep.py <events.json> [--dump <events.json>]... [--manager <names>] [--keep <id>] [--allow <id>]` | Classifies the window's events into `pto`, `immovable`, `movable`, `other`; weekends and declined events are skipped. Repeat `--dump` once per calendar: the busy intervals are unioned before slot picking. |
 | `scripts/scaffold_workspace.py lookup-workspace / append-outreach-entry / validate-recruitment` | Workspace resolution, outreach log entries, participants table checks (from issue 08). |
 
 ## Rules of last resort
