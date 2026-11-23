@@ -117,14 +117,14 @@ python mcp-server/install.py uninstall --harness zcode
 
 ### Serve over HTTP (Gemini Connected Apps)
 
-`mcp-server/serve.py` runs the same stdio server behind a stdlib HTTP bridge with REQUIRED bearer-token auth and prints everything needed to register it in the consumer Gemini app (Connected Apps, Developer Mode):
+`mcp-server/serve.py` runs the same stdio server behind a stdlib HTTP bridge with auth and prints everything needed to register it in the consumer Gemini app (Connected Apps, Developer Mode). Gemini rejects static bearer auth, so the bridge embeds a minimal OAuth 2.1 provider (RFC 8414 discovery at `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server`, RFC 7591 dynamic client registration at `/register`, auto-approved `/authorize` for the single local operator, `/token` with authorization_code + rotating refresh_token grants and PKCE S256) and accepts either an OAuth-issued access token or the static bearer token (back-compat for non-Gemini clients). Unauthenticated requests answer 401 with `WWW-Authenticate: Bearer resource_metadata="..."`, which is what starts Gemini's OAuth dance:
 
 ```bash
 python mcp-server/serve.py               # tunnel via cloudflared if installed
 python mcp-server/serve.py --no-tunnel   # loopback only
 ```
 
-Security bar: every request needs the bearer token (constant-time compare; 401 on missing or wrong token, no localhost bypass); the token is auto-generated on first serve with `secrets.token_urlsafe(32)`, stored under the plugin's gitignored `state/` folder (never committed), and printed to the terminal for registration (never logged); the bridge binds `127.0.0.1` only, so the only public exposure is the cloudflared quick tunnel. Without cloudflared the command prints the exact install command per OS and exits cleanly. Stdlib only; the bridge shells out to `cloudflared` but adds no Python dependencies.
+Security bar: every MCP POST needs a valid token (constant-time compares; 401 on missing or wrong token, no localhost bypass); the static token is auto-generated on first serve with `secrets.token_urlsafe(32)` and stored under the plugin's gitignored `state/` folder (never committed, never logged), as are OAuth codes (single-use, 10 minutes) and tokens (opaque, short-lived, in memory only, gone on restart); the bridge binds `127.0.0.1` only, so the only public exposure is the cloudflared quick tunnel. Without cloudflared the command prints the exact install command per OS and exits cleanly. Stdlib only; the bridge shells out to `cloudflared` but adds no Python dependencies.
 
 ## Hooks
 
