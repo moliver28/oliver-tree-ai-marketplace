@@ -429,6 +429,17 @@
     ],
     "reason": "Release triple 0.5.0 to 0.6.0 for the confirmed checklist content wave: the [0.6.0] CHANGELOG section (12 lines) records the three checklists, the writing-rules registry, the survey skill, the survey checker mode, the autonomy switch, the method-selection artifact with the A0 entry wiring, and the content selftest. plugin.json, marketplace.json, and the README currently-v line carry the same version; net payload growth is the 12 release-note lines.",
     "date": "2026-11-22"
+   },
+   {
+    "wave": "mailmerge-fix",
+    "issue": "w5-test-wave",
+    "delta_lines": 33,
+    "files": [
+     "uxr-plugin/scripts/recruit_send.py (env-precedence fix in load_send_settings)",
+     "tests/uxr_selftests/recruit_send.py (regression pin: env port beats example default)"
+    ],
+    "reason": "Mail-merge test wave fix: the example file's documentation defaults (smtp_port 587, use_tls true) reached the config layer through load_config's example+user merge and shadowed the UXR_RECRUIT_* env fallbacks, so an env-only account connected to the example port instead of the env port. load_send_settings now resets any config value that still equals the bare example file before the env fill, and the source line reports only layers that actually supplied a value. Regression pin added to the selftest. Payload delta measured 33 lines (script +20, selftest +13), all inside the two named files.",
+    "date": "2026-11-23"
    }
   ],
   "golden_path_growth": null
