@@ -372,6 +372,16 @@
     ],
     "reason": "The confirmed 66-item checklist content set (MO 2026-11-23 ruling, tweak applied): the shared method-selection stage A0 (5 items), the qualitative interviews block (29 items), the quantitative surveys block (32 items), byte-exact from the confirmed note in the loader-parsed line shape with executor tags and optional tails, plus the writing-rules registry (26 seed rules in five families; ids stable forever, appending never renumbers). One MO-ruled append-only exception: the A1.4 line gains the format-law Source clause the confirmed line lacked, so the unchanged loader parses all 66. Loader parse and probe vocabulary unchanged; the enrolled checklist_gate selftest swaps its W4 empty-directory placeholder for the shipped-content law and keeps the absent-line check on an empty-directory override.",
     "date": "2026-11-22"
+   },
+   {
+    "wave": "53-content",
+    "issue": 53,
+    "delta_lines": 177,
+    "files": [
+     "uxr-plugin/skills/survey-script/SKILL.md"
+    ],
+    "reason": "The survey skill counterpart of interview-script (MO round-2 rulings 2 and 8; build-wave dependency of checklist item B1.4): seven steps mirroring the script skill - inputs, output path survey-instrument-<KEY>.md with the -v2 rule, research-question to question-type to engagement mapping, burden budget and routing map and two-to-five alternatives and join fields, question rules by writing-rules registry id (R-S, X-S, R-H, R-A), the reader review loop ending in the survey mode of review_checks.py, save and report with the ticket and publish laws. One Grounding pointer line (230 bytes, inside the 256 budget); no rule text restated inline.",
+    "date": "2026-11-22"
    }
   ],
   "golden_path_growth": null
