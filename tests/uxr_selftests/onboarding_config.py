@@ -36,19 +36,27 @@ def _selftest() -> int:
             isinstance(EXAMPLE_CONFIG.get(section), dict) and key in EXAMPLE_CONFIG[section],
         )
 
-    # 2. The KB kind validates and ships declared-not-built, read-only.
+    # 2. Notion is both areas since wave P3 (issue 114): the built issues
+    # adapter `notion`, plus the declared-not-built, read-only KB entry
+    # `notion-kb` (same system, different areas = two entries).
     check("notion kind is validated (TRACKER_KINDS)", "notion" in TRACKER_KINDS)
     notion = EXAMPLE_CONFIG.get("adapters", {}).get("notion", {})
     check(
-        "notion entry is declared, not built (area kb)",
-        notion.get("module") == "" and notion.get("area") == "kb",
+        "notion issues entry is built (area issues)",
+        notion.get("module") == "lib/adapter_notion.py" and notion.get("area") == "issues",
         repr(notion),
     )
+    notion_kb = EXAMPLE_CONFIG.get("adapters", {}).get("notion-kb", {})
     check(
-        "notion read-only default (pull on, push off)",
-        notion.get("capabilities", {}).get("pull") is True
-        and notion.get("capabilities", {}).get("push") is False,
-        repr(notion.get("capabilities")),
+        "notion-kb entry is declared, not built (area kb)",
+        notion_kb.get("module") == "" and notion_kb.get("area") == "kb",
+        repr(notion_kb),
+    )
+    check(
+        "notion-kb read-only default (pull on, push off)",
+        notion_kb.get("capabilities", {}).get("pull") is True
+        and notion_kb.get("capabilities", {}).get("push") is False,
+        repr(notion_kb.get("capabilities")),
     )
 
     # 3. init_ignore_set: the default covers all interview data (issue 57

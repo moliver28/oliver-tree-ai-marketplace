@@ -6,10 +6,13 @@ non-Jira tracker. The built GitHub Issues adapter has its own file,
 `references/tracker-github.md`; read it when `tracker.kind` is `github`.
 The built GitLab Issues adapter has its own file,
 `references/tracker-gitlab.md`; read it when `tracker.kind` is `gitlab`.
+The built Notion adapter has its own file,
+`references/tracker-notion.md`; read it when `tracker.kind` is `notion`.
 The listed parameter sets are examples: an operator-named kind (`other`
 in onboarding) asks the same six connection keys. None of it has been
 live-verified in this build; treat every parameter as `verify-live`
 before first use.
+
 ## Linear, Asana parameters
 
 - **Linear (GraphQL API):** `viewer`; `userLookup` or the users search for
