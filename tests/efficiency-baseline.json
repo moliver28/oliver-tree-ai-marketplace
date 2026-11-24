@@ -526,7 +526,23 @@
    ],
    "reason": "Backend parity wave P3 (issue 114): the Notion adapter ships as the fourth built backend and the notion-kb declared entry keeps the KB area. Net-new 328 of 23,243 payload lines (1.4 percent), inside the 10 percent cap of about 2,324 lines: the adapter module at the exact Jira shape (200), its doc reference file holding the Notion MCP/API parameters (92), the changelog entry (6), the tracker.md Notion column plus the issue-52 Ticket mentions law (+10 net), the config notion flip and notion-kb entry (+8 net), the registry entry and notion-kb mirror (+6 net), trackers-other pointer (+2 net), onboard and onboarding kind lists (+2 net each). Commands, goldens, and all pin counts are unchanged; tests live outside the payload.",
    "date": "2026-11-24"
-  }
+  },
+    {
+     "wave": "P4",
+     "issue": 114,
+     "delta_lines": 615,
+     "files": [
+      "uxr-plugin/scripts/prioritize.py",
+      "uxr-plugin/config/org.example.yaml",
+      "uxr-plugin/lib/config.py",
+      "uxr-plugin/lib/adapters.py",
+      "uxr-plugin/references/onboarding.md",
+      "uxr-plugin/references/tracker.md",
+      "uxr-plugin/references/trackers-other.md"
+     ],
+     "reason": "Prioritization calculator (#114 section 2, wave P4): the deterministic scorer scripts/prioritize.py (input resolution in the documented order formula > weights > per-backend mapping > built-in default so zero-config installs score; the normalization law per rule kind onto 1 to 3; exit 0/2/3 contract; zero LLM on the calculation path), the prioritization.fields per-backend mapping key in the config contract with its commented shape and example, the declared-not-built gitlab registry entry (TRACKER_KINDS, ADAPTER_DEFAULTS, the shipped adapters section) so the four-backend parity law reaches GitLab before its adapter PR merges, and the mapping law plus per-backend conventions documented in onboarding.md, tracker.md, and trackers-other.md. Counted by the recorded convention: 615 net-new payload lines of the shipped tree (about 2.3 percent), inside the 10 percent cap. Commands untouched; the checker module (tests/uxr_selftests/prioritize.py) is repo-level, outside the payload, and joined the parity SELFTESTS.",
+     "date": "2026-11-24"
+    }
   ],
   "golden_path_growth": null
  }

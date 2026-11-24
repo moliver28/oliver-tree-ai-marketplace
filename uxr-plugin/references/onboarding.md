@@ -74,6 +74,42 @@ one real request with the saved or built-in weights and shows the
 arithmetic term by term; the operator may take one weight override and
 re-score.
 
+### The per-backend input mapping (issue 114 section 2)
+
+`prioritization.fields` holds the calculator's inputs per tracker kind
+(the adapter registry selector). Onboarding records it in the calculator
+question: one line per input, as
+
+    <input>: <tracker field id or label prefix>: <low> | <medium> | <high>
+
+The first slot is the tracker-side source (`id`): a Jira custom field id,
+a GitHub or GitLab label name or prefix, or a Notion property name. The
+second slot is the ordinal value list, low to high; a rule written as
+`number <low> <high>` bounds a numeric rule instead. The recorded entry
+is `{id, kind, values}` (select rule) or `{id, kind: number, low, high}`.
+A line without the value-order tail gets exactly one follow-up ask for
+that input's order; an empty answer drops the input, and the command
+never invents a value.
+
+The deterministic scorer (`scripts/prioritize.py`) normalizes every input
+onto one comparable scale, the integers 1 to 3, and sums the weighted
+terms. The normalization law per rule kind:
+
+- `select`: the value matches one entry of `values` (without case). One
+  entry scores 1; otherwise the position maps proportionally:
+  `round(1 + 2 * position / (n - 1))`. Three ordered entries map 1, 2, 3.
+- `labels`: the tracker's label set for the field arrives as one
+  comma-separated list. A label matching a `values` entry scores at its
+  position; the highest match wins; no match is a value error.
+- `number`: with `low` and `high` the value maps linearly onto 1 to 3;
+  without them the value rounds and clamps onto 1 to 3.
+- no rule: the input arrives pre-normalized; it must be 1, 2, or 3.
+
+An unknown input name is a usage error (exit 2), never a guess. If a
+backend cannot supply one of the inputs, the onboarding summary names it;
+the calculator scores the inputs the backend supplies and never invents
+machinery for the rest.
+
 ## The interview-data ignore set (issue 57)
 
 `privacy.init_ignore` is the interview-data part of the `init` gitignore
