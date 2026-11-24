@@ -1122,8 +1122,63 @@ def _parse_args(argv: list[str]) -> tuple[str, dict[str, object]]:
     return subcommand, args
 
 
+MCP_SURFACE = {
+    "description": (
+        "scaffold_workspace.py: derive a study slug, scaffold a workspace folder "
+        "from the template, look up a workspace by ticket, render its overview, "
+        "append outreach journal entries, or validate a recruitment table. Set "
+        "the subcommand and only the flags that subcommand uses."),
+    "subcommand": {
+        "name": "subcommand", "required": True,
+        "values": ["slug", "scaffold", "lookup-workspace", "render-overview",
+                   "append-outreach-entry", "validate-recruitment"]},
+    "flags": [
+        {"name": "title", "flag": "--title", "type": "string", "subs": ["slug"]},
+        {"name": "quarter", "flag": "--quarter", "type": "string", "subs": ["slug"]},
+        {"name": "max_body", "flag": "--max-body", "type": "integer", "subs": ["slug"],
+         "help": "max overview body words (default 50)"},
+        {"name": "template", "flag": "--template", "type": "string", "subs": ["scaffold"]},
+        {"name": "target", "flag": "--target", "type": "string", "subs": ["scaffold"]},
+        {"name": "mapping", "flag": "--mapping", "type": "string", "subs": ["scaffold"],
+         "help": "JSON object of {{TOKEN}} fill values"},
+        {"name": "readme", "flag": "--readme", "type": "string",
+         "subs": ["scaffold", "lookup-workspace", "render-overview"],
+         "help": "path to the research-root README index"},
+        {"name": "spec", "flag": "--spec", "type": "string",
+         "subs": ["scaffold", "render-overview"]},
+        {"name": "ticket", "flag": "--ticket", "type": "string",
+         "subs": ["lookup-workspace", "render-overview"]},
+        {"name": "log_path", "flag": "--log-path", "type": "string",
+         "subs": ["append-outreach-entry"]},
+        {"name": "date", "flag": "--date", "type": "string", "subs": ["append-outreach-entry"]},
+        {"name": "name", "flag": "--name", "type": "string", "subs": ["append-outreach-entry"]},
+        {"name": "slot", "flag": "--slot", "type": "string", "repeat": True,
+         "subs": ["append-outreach-entry"]},
+        {"name": "hold", "flag": "--hold", "type": "string", "repeat": True,
+         "subs": ["append-outreach-entry"]},
+        {"name": "channel", "flag": "--channel", "type": "string",
+         "subs": ["append-outreach-entry", "validate-recruitment"]},
+        {"name": "status_from", "flag": "--status-from", "type": "string",
+         "subs": ["append-outreach-entry"]},
+        {"name": "status_to", "flag": "--status-to", "type": "string",
+         "subs": ["append-outreach-entry"]},
+        {"name": "notes", "flag": "--notes", "type": "string", "subs": ["append-outreach-entry"]},
+        {"name": "action", "flag": "--action", "type": "string", "subs": ["append-outreach-entry"]},
+        {"name": "path", "flag": "--path", "type": "string", "subs": ["validate-recruitment"]},
+        {"name": "method", "flag": "--method", "type": "string", "subs": ["validate-recruitment"]},
+    ],
+    "switches": [
+        {"name": "no_commit", "flag": "--no-commit", "type": "boolean", "subs": ["scaffold"],
+         "help": "skip the git commit step"},
+    ],
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     args_list = list(sys.argv[1:] if argv is None else argv)
+    if args_list and args_list[0] == "--print-mcp-surface":
+        print(json.dumps(MCP_SURFACE))
+        return EXIT_OK
     if not args_list:
         print(__doc__.strip().splitlines()[0])  # terse bare-run pointer; -h prints the full doc
         return EXIT_OK

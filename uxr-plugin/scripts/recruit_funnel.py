@@ -725,9 +725,37 @@ def run(args: dict[str, str], config: dict | None = None) -> tuple[int, str]:
     return code, scrub("\n".join(out_lines)) + "\n"
 
 
+MCP_SURFACE = {
+    "description": (
+        "recruit_funnel.py: print the fixed nine-row recruitment funnel table, "
+        "run the wave preflight (BLOCK lines for repeat recruits), draft nudge "
+        "reminders, or check a V1 draft. Computes only; nothing is sent."),
+    "flags": [
+        {"name": "spec", "flag": "--spec", "type": "string",
+         "help": "path to the study spec JSON (required unless check_draft)"},
+        {"name": "wave", "flag": "--wave", "type": "string",
+         "help": "wave name for the this-wave columns"},
+        {"name": "funnel_data", "flag": "--funnel-data", "type": "string",
+         "help": "path to the funnel JSON export"},
+        {"name": "check_draft", "flag": "--check-draft", "type": "string",
+         "help": "path to a V1 draft to check"},
+        {"name": "today", "flag": "--today", "type": "string",
+         "help": "today as YYYY-MM-DD (defaults to the real clock)"},
+    ],
+    "switches": [
+        {"name": "preflight", "flag": "--preflight", "type": "boolean"},
+        {"name": "status", "flag": "--status", "type": "boolean"},
+        {"name": "reminder", "flag": "--reminder", "type": "boolean"},
+    ],
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     _force_utf8_stdio()
     args = list(sys.argv[1:] if argv is None else argv)
+    if args and args[0] == "--print-mcp-surface":
+        print(json.dumps(MCP_SURFACE))
+        return EXIT_OK
     if args and args[0] in ("-h", "--help"):
         print(__doc__.strip())
         return EXIT_OK

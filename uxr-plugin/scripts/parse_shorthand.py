@@ -79,9 +79,23 @@ def run(request_text: str) -> tuple[int, str, str]:
     return 0, stdout, ""
 
 
+MCP_SURFACE = {
+    "description": (
+        "parse_shorthand.py: parse one edit-shorthand request into a JSON "
+        "delta. Pass one request JSON object in 'stdin': kind is one of "
+        "roster|hypotheses|assumptions|resources, op is one of +=|~=|=, and "
+        "arg carries the pipe string."),
+    "flags": [],
+    "stdin": {"name": "stdin", "required": True, "help": "the shorthand request JSON"},
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     _force_utf8_stdio()
     args = list(sys.argv[1:] if argv is None else argv)
+    if args and args[0] == "--print-mcp-surface":
+        print(json.dumps(MCP_SURFACE))
+        return 0
     if args and args[0] in ("-h", "--help"):
         print(__doc__.strip())
         return 0
