@@ -136,6 +136,8 @@ REQUIRED_KEYS: tuple[str, ...] = (
     "recruit.wave_tab_headers",
     "recruit.booking_url_regex",
     "recruiting.org_chart_paths",
+    "recruitment.pipeline",
+    "recruitment.suppression_list",
     "calendar.working_hours",
     "calendar.default_level",
     "calendar.max_moves_per_recruit",
