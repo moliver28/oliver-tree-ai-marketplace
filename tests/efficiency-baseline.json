@@ -555,7 +555,21 @@
      ],
      "reason": "Forced interactive walkthrough (#114 section 3, wave P4): the deterministic completion record scripts/walkthrough.py (one entry per used feature, check exits 0 only when all four of create/move/calculator/sync carry a record, provenance file lock, fail-closed on an unresolvable state dir or an unreadable record, clear for a fresh run), the walkthrough step in the onboard command extended in place (record command after each used feature, the script gate before the completion line, declined steps stay unrecorded and keep the gate open), the per-backend calculator-inputs ask in the interview (prioritization.fields saved exactly as the operator names them, one follow-up ask for a missing order tail, never invents a field), the completion-record law section in onboarding.md, and one additive /uxr-onboard row in the README command table. Counted by the recorded convention: 325 net-new payload lines (about 1.2 percent), inside the 10 percent cap. The walkthrough step existed as prose since W3; this commit makes its gate a script check instead of attestation. The checker module (tests/uxr_selftests/walkthrough.py) is repo-level, outside the payload, and joined the parity SELFTESTS.",
      "date": "2026-11-24"
-    }
+    },
+   {
+    "wave": "P4",
+    "issue": 0,
+    "delta_lines": 13,
+    "files": [
+     "uxr-plugin/.claude-plugin/plugin.json",
+     ".claude-plugin/marketplace.json",
+     "uxr-plugin/README.md",
+     "uxr-plugin/CHANGELOG.md",
+     "catalog.md"
+    ],
+    "reason": "P4 release bookkeeping (version bump to 0.8.0, issues 114): the CHANGELOG [0.8.0] section naming the calculator, the per-backend input mapping, the gitlab declared registry entry, and the forced walkthrough gate; the README version line and the catalog row update. The two version surfaces carry the manifest-law repair this branch also ships: each had a duplicate version key (a 0.7.0 line over a 0.6.0 line, so JSON parsed 0.6.0 while README and CHANGELOG said 0.7.0 and the smoke version-triple check failed at develop HEAD); both collapse to one key at 0.8.0, repairing the pre-existing smoke failure. Counted by the recorded convention: 13 net-new payload lines, all in CHANGELOG.md (the release notes); the .json manifest surfaces and the README single-line swap sit outside the counted suffixes or net zero, and catalog.md is a repo-root file outside the payload.",
+    "date": "2026-11-24"
+   }
   ],
   "golden_path_growth": null
  }
