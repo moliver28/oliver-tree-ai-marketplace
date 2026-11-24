@@ -7,10 +7,14 @@ This script computes; the ``recruit`` command writes. Five jobs:
   (Fit, Looked at, Allowed, Not allowed, Sent, Bounced, Scheduled,
   Attempted % of fit, Recruited % of fit) across the five fixed columns
   (Internal users, In-product accounts, In-product users, Other accounts,
-  Other users). Every count cell reads ``all waves (this wave)`` and a
-  this-wave value never exceeds its total. Roster numbers are
-  authoritative; sheet-derived numbers come from ``--funnel-data`` (the
-  JSON export the command assembles after reading the live wave tabs).
+  Other users), under one caption line naming the target persona (issue
+  51: ``funnel.fit.basis`` with its ``as_of``; ``not recorded yet``
+  without). Every count cell reads ``all waves (this wave)`` and a
+  this-wave value never exceeds its total. The suppress stage feeds the
+  Not allowed row (issue 50: the suppressed rows join the excluded
+  totals). Roster numbers are authoritative; sheet-derived numbers come
+  from ``--funnel-data`` (the JSON export the command assembles after
+  reading the live wave tabs).
 - ``--preflight``: check the target wave's rows and exit 2 with
   ``BLOCK <account> / <first>: <reason>`` lines for anyone listed twice,
   already booked or declined, on an open-deal account, emailed in an
@@ -338,11 +342,14 @@ def build_table(
     funnel_data: dict | None = None,
     wave: str | None = None,
 ) -> tuple[str, dict]:
-    """Render the fixed recruitment table; pure.
+    """Render the fixed recruitment table under its persona caption; pure.
 
+    The caption line names the target persona (``funnel.fit.basis`` with
+    its ``as_of``; ``not recorded yet`` without; issue 51). The Not
+    allowed row includes the suppress stage's counts (issue 50).
     Returns ``(markdown_table, numbers)``; ``numbers`` carries every
-    computed total so preflight and tests can assert on values
-    without re-parsing the table.
+    computed total (plus the suppressed counts per check) so preflight
+    and tests can assert on values without re-parsing the table.
     """
     config = config if isinstance(config, dict) else {}
     funnel = spec.get("funnel") if isinstance(spec.get("funnel"), dict) else {}
@@ -362,6 +369,10 @@ def build_table(
     not_allowed_sheet = sum(_num(v) for v in excluded.values())
     sheet_looked_override = (funnel_data or {}).get("looked_at")
     sheet_looked_override = sheet_looked_override if isinstance(sheet_looked_override, dict) else {}
+    suppressed = {
+        "all": suppression_counts(spec, funnel_data or {}, config=config),
+        "wave": suppression_counts(spec, funnel_data or {}, config=config, wave_tab=wave_tab),
+    }
 
     sent_rows = [row for row in all_rows if str(row.get("email_sent") or "").strip() and not str(row.get("email_sent") or "").strip().lower().startswith("skip")]
     wave_sent = [row for row in wave_rows if str(row.get("email_sent") or "").strip() and not str(row.get("email_sent") or "").strip().lower().startswith("skip")]
@@ -393,7 +404,15 @@ def build_table(
         other_accounts_total,
         external_total,
     )
-    not_allowed = (0, _num(excluded.get("accounts")), _num(excluded.get("users")) or not_allowed_sheet, 0, 0)
+    # The suppress stage feeds Not allowed (issue 50 through issue 51):
+    # the suppressed rows join the excluded totals.
+    not_allowed = (
+        0,
+        _num(excluded.get("accounts")) + suppressed["all"]["accounts"],
+        (_num(excluded.get("users")) or not_allowed_sheet) + suppressed["all"]["total"],
+        0,
+        0,
+    )
     allowed = tuple(max(l - n, 0) for l, n in zip(looked, not_allowed))
     sent = (
         sent_status_count(internal),
@@ -425,10 +444,6 @@ def build_table(
         0,
         0,
     )
-    suppressed = {
-        "all": suppression_counts(spec, funnel_data or {}, config=config),
-        "wave": suppression_counts(spec, funnel_data or {}, config=config, wave_tab=wave_tab),
-    }
     totals = {
         "Fit": fit_numbers,
         "Looked at": looked,
@@ -442,13 +457,25 @@ def build_table(
         "Fit": (0, 0, 0, 0, 0),
         "Looked at": (0, 0, len(wave_rows) + len(wave_skips), 0, 0),
         "Allowed": (0, 0, max(len(wave_rows) + len(wave_skips) - (len(wave_sent) + len(wave_skip_sent)), 0), 0, 0),
-        "Not allowed": (0, 0, len(wave_skips), 0, 0),
+        "Not allowed": (0, 0, len(wave_skips) + suppressed["wave"]["total"], 0, 0),
         "Sent": sent_this,
         "Bounced": bounced_this,
         "Scheduled": scheduled_this,
     }
 
-    lines = ["| Metric | " + " | ".join(TABLE_COLUMNS) + " |", "|---|---|---|---|---|---|"]
+    basis = str(fit.get("basis") or "").strip()
+    as_of = str(fit.get("as_of") or "").strip()
+    if basis and as_of:
+        persona_line = f"Target persona: {basis} (as of {as_of})"
+    elif basis:
+        persona_line = f"Target persona: {basis}"
+    else:
+        persona_line = "Target persona: not recorded yet"
+    lines = [
+        persona_line,
+        "| Metric | " + " | ".join(TABLE_COLUMNS) + " |",
+        "|---|---|---|---|---|---|",
+    ]
     for row_name in ("Fit", "Looked at", "Allowed", "Not allowed", "Sent", "Bounced", "Scheduled"):
         cells = [_cell(t, this_wave[row_name][i]) for i, t in enumerate(totals[row_name])]
         lines.append(f"| {row_name} | " + " | ".join(cells) + " |")

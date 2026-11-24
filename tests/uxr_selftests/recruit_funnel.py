@@ -30,6 +30,9 @@ def _selftest() -> int:
             check(f"table prints column {column!r}", column in output)
         check("spec file is byte-identical after --status", spec_file.read_bytes() == before)
         check("zero writes: no funnel data needed, nothing written", "wave:" in output)
+        check("the persona caption names the target persona (issue 51)",
+              output.startswith("Target persona: product analytics cohort (as of 2026-11-01)"),
+              output[:80])
 
         # roster-derived numbers (no funnel key beyond fit)
         numbers_spec = json.loads(spec_file.read_text(encoding="utf-8"))
@@ -38,6 +41,8 @@ def _selftest() -> int:
         plain_file.write_text(json.dumps(numbers_spec, ensure_ascii=False), encoding="utf-8")
         code, output = run({"spec": str(plain_file)}, config={})
         check("no funnel key still prints the table", "| Fit |" in output and code == EXIT_OK)
+        check("no fit prints the not-recorded persona line",
+              "Target persona: not recorded yet" in output, output[:80])
         _table, numbers = build_table(numbers_spec, config={})
         check("internal Sent counts Outreach Sent only", numbers["totals"]["Sent"][0] == 1)
         check("external Sent counts roster channel", numbers["totals"]["Sent"][4] == 1)
@@ -283,6 +288,13 @@ def _selftest() -> int:
               and numbers["suppressed"]["all"]["total"] == 2
               and numbers["suppressed"]["all"]["bounce"] == 0,
               str(numbers.get("suppressed")))
+        check("the suppress stage feeds the Not allowed totals (issue 51)",
+              numbers["totals"]["Not allowed"][2] == 11
+              and numbers["totals"]["Not allowed"][1] == 6,
+              str(numbers["totals"]["Not allowed"]))
+        check("the suppress stage feeds the Not-allowed this-wave cell",
+              numbers["this_wave"]["Not allowed"][2] == 3,
+              str(numbers["this_wave"]["Not allowed"]))
 
         # --pipeline-check (issue 50): resolved stages, fail closed
         code, output = run({"pipeline_check": "1"}, config={})

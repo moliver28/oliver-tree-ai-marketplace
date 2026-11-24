@@ -100,6 +100,15 @@ delete the row. The suppress stage feeds the funnel table's Not allowed
 row, and `--preflight` prints the suppressed counts per check with the
 ready count.
 
+## The recruitment table (the default chat visual)
+
+The recruitment table is the default visual for recruitment chat
+output: answer any recruitment question or status question with the
+table, not a prose list. The caption line names the target persona from
+`funnel.fit` (issue 51), and the fixed schema holds across waves. The
+population sample size stays out of the table; note it beside the table
+when the study needs it.
+
 ## Internal flow (default)
 
 | Phase | What you do |

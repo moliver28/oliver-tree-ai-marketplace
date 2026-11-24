@@ -620,6 +620,17 @@
     ],
     "reason": "Configurable deterministic recruitment pipeline with the default-on suppress stage (#50): recruitment.pipeline (the ordered stage list; shipped default identify, screen, suppress, invite, schedule, send; an unknown stage is a usage exit 2 through the new --pipeline-check) and recruitment.suppression_list (one identifier per line, an email or an account id; fail closed) join the key contract; the three deterministic never-contact checks (the locked status vocabularies, prior-wave bounce marks, the configured list) wire into --preflight, which now reports the suppressed counts per check on both exit paths with queued-rows-only candidacy, and into the MVP send as a pre-send skip gate. Command and reference sections are additive law text; the README MCP row regenerates from the surface. Net-new 487 payload lines (scripts +412, commands +39, config +17, references +16, lib +2, root README +1) of 23,243 (2.1 percent), inside the 10 percent cap; deterministic only, zero model calls added (golden path unchanged at 6).",
     "date": "2026-11-24"
+   },
+   {
+    "wave": "uxr-recruit-pipeline",
+    "issue": 51,
+    "delta_lines": 36,
+    "files": [
+     "uxr-plugin/scripts/recruit_funnel.py",
+     "uxr-plugin/commands/uxr-recruit.md"
+    ],
+    "reason": "The finished recruitment funnel table (#51): one Target persona caption line above the fixed nine-row schema (funnel.fit.basis with its as_of; not recorded yet without; the schema itself never changes across waves), the suppress stage feeding the Not allowed row (suppressed totals join the excluded accounts and users cells; the this-wave cell adds the wave's suppressed rows), and the default-chat-visual law stated in the command (answer recruitment questions with the table; the population sample size stays out of the table, noted beside it). The uc-4 golden re-pins for the caption line (hashes.json same edit). Net-new 36 payload lines (scripts +27, commands +9) of 23,243 (under 0.2 percent); deterministic only, zero model calls added.",
+    "date": "2026-11-24"
    }
   ],
   "golden_path_growth": null
