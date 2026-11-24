@@ -203,6 +203,9 @@ def _selftest() -> int:
     check("gitlab pull invalid key returns the error dict",
           "error" in gitlab.pull("UX1-237", gl_pull), repr(gitlab.pull("UX1-237", gl_pull)))
     check("gitlab pull empty key returns the error dict", "error" in gitlab.pull("", gl_pull))
+    check("gitlab display data: the normalized key carries the #num form (issue 52)",
+          gitlab.pull("306", gl_pull)["key"] == "#306"
+          and gitlab.pull("#306", gl_pull)["key"].lstrip("#").isdecimal())
 
     if not FIXTURES_DIR.is_dir():
         print("skip: fixture-backed checks (fixtures not shipped at repo level)")
