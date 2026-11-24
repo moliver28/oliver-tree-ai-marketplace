@@ -31,7 +31,7 @@ config exists. No argument uses the saved path when it exists.
 3. Interview. One question per message; end the turn after every ask and
    wait for the plain answer (the ask law). Never invent a value; an empty
    answer takes the documented default. The questions, in order:
-   - Issue system: `Which issue system holds your study tickets? (jira / linear / github / asana / other)`.
+   - Issue system: `Which issue system holds your study tickets? (jira / linear / github / gitlab / asana / other)`.
      `other`: ask its name; record it as a declared adapter entry with an
      empty module (absent-sync: the harness works, tracker operations wait
      for the adapter). Leave `tracker.kind` empty for `other` — config
@@ -39,8 +39,8 @@ config exists. No argument uses the saved path when it exists.
      declared-unreachable until the adapter module and its kind ship.
      Ask the connection values the system's reference names
      (`references/tracker.md` for jira, `references/tracker-github.md` for
-     github, `references/trackers-other.md` for the rest): base URL,
-     workspace id, project key, ticket regex, bare number prefix, body
+     github, `references/tracker-gitlab.md` for gitlab,
+     `references/trackers-other.md` for the rest): base URL,     workspace id, project key, ticket regex, bare number prefix, body
      format. Every value may stay empty.
    - Knowledge-base system: `Which knowledge-base system should the plugin read? (notion / none / other)`.
      `none`: no KB entry. `notion`: confirm the shipped declared entry
