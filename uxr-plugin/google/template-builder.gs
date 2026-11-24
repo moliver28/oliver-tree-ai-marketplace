@@ -44,6 +44,7 @@ var SETUP_STEPS = [
 
 // --- the copy's menu (simple trigger: survives Make a copy, no authorization) ---
 function onOpen() {
+  if (!ss().getSheetByName(WAVE_TAB)) buildTemplate(); // first open builds every tab
   SpreadsheetApp.getUi().createMenu("uxr mail merge")
     .addItem("Run mergeSend", "mergeSend")
     .addItem("Run setupScreener", "setupScreener")

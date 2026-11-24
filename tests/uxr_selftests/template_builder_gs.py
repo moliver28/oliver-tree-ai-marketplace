@@ -73,6 +73,9 @@ def _selftest() -> int:
 
     check("the onOpen menu is named 'uxr mail merge'",
           'createMenu("uxr mail merge")' in builder, "menu name drifted")
+    check("onOpen auto-builds the tabs on first open",
+          'if (!ss().getSheetByName(WAVE_TAB)) buildTemplate();' in builder,
+          "no first-open build")
     for item in MENU_ITEMS:
         check(f"the menu binds {item}", f'.addItem({item})' in builder, "menu item missing")
     check("installSyncTrigger creates the 15-minute recurring trigger",
