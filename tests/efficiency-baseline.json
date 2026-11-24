@@ -457,6 +457,16 @@
    ],
    "reason": "Backend parity wave P1 (issue 114): the GitHub Issues adapter ships. Net-new 287 of 23,243 payload lines (1.2 percent), inside the 10 percent cap of about 2,324 lines: the adapter module at the exact Jira shape (208), its doc reference file holding the gh CLI parameters (75), the changelog entry (6), the tracker.md pointer split (+2), the trackers-other.md scope change (-4). The registry, config, and README flips are net zero. Commands, goldens, and all pin counts are unchanged; tests live outside the payload.",
    "date": "2026-11-24"
+  },
+  {
+   "wave": "parity-P1-doc",
+   "issue": 114,
+   "delta_lines": 1,
+   "files": [
+    "uxr-plugin/commands/uxr-onboard.md"
+   ],
+   "reason": "Backend parity wave P1 follow-up (issue 114): the onboard command's connection-values pointer names references/tracker-github.md for github, which moved there from trackers-other.md in the P1 commit. Net-new 1 payload line; no behavior change.",
+   "date": "2026-11-24"
   }
   ],
   "golden_path_growth": null

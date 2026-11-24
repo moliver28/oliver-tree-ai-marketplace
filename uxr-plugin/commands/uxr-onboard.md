@@ -38,9 +38,10 @@ config exists. No argument uses the saved path when it exists.
      validation accepts only the shipped kinds, so the recorded entry stays
      declared-unreachable until the adapter module and its kind ship.
      Ask the connection values the system's reference names
-     (`references/tracker.md` for jira, `references/trackers-other.md` for
-     the rest): base URL, workspace id, project key, ticket regex, bare
-     number prefix, body format. Every value may stay empty.
+     (`references/tracker.md` for jira, `references/tracker-github.md` for
+     github, `references/trackers-other.md` for the rest): base URL,
+     workspace id, project key, ticket regex, bare number prefix, body
+     format. Every value may stay empty.
    - Knowledge-base system: `Which knowledge-base system should the plugin read? (notion / none / other)`.
      `none`: no KB entry. `notion`: confirm the shipped declared entry
      (read-only default: pull on, push off). `other`: ask its name and
