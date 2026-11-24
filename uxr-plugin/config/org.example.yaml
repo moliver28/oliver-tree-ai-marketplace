@@ -569,6 +569,11 @@ adapters:
   # Notion is both: the built issues entry above and the declared KB entry
   # here (same system, different areas = two entries; the KB entry of a
   # system that is also the issue system is <kind>-kb).
+  notion:
+    module: "lib/adapter_notion.py"
+    doc: "references/tracker-notion.md"
+    area: issues
+    capabilities: {pull: true, push: true, spec_transform: true}
   notion-kb:
     module: ""
     doc: "references/onboarding.md"

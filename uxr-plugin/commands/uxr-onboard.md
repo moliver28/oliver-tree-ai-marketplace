@@ -23,7 +23,8 @@ config exists. No argument uses the saved path when it exists.
    `config/org.yaml` exists next to `config/org.example.yaml`. The plugin
    is already onboarded when that user file exists and the loader exits 0,
    and `--recheck` is absent: print the resolved onboarding keys from the
-   dump (adapter entries, `fields` ids, `priority.*`, `privacy.init_ignore`,
+   dump (adapter entries, `fields` ids, `priority.*`,
+   `prioritization.fields`, `privacy.init_ignore`,
    `workspace.remote_push`, `recruiting.org_chart_paths`), say the saved
    path is in use and re-running with `--recheck` asks again, and end. The
    file absent, or the loader exit 2 (show the error), or `--recheck`: run
@@ -56,7 +57,17 @@ config exists. No argument uses the saved path when it exists.
      `fields:` entry's `id`, and add an entry with a text kind for a name
      with no shipped row. Never invent a field.
    - Prioritization calculator: show the built-in default from
-     `references/onboarding.md` (formula and weights), then ask
+     `references/onboarding.md` (formula and weights). For a shipped issue
+     kind (not `other`), ask
+     `Name the fields the calculator scores from your tracker, one per line as <input>: <tracker field id or label prefix>: <low> | <medium> | <high> (a number rule writes number <low> <high>; press enter for the built-in inputs).`
+     Record exactly the lines given into `prioritization.fields.<issue
+     kind>`: `id` from the first slot, `kind: select` with `values` from
+     the order tail, or `kind: number` with `low` and `high`. A line
+     without the order tail gets exactly one follow-up ask for that
+     input's order; an empty answer drops the input. Never invent a
+     field. For `other`, skip the ask in one line: the calculator runs
+     on the built-in inputs until the system's adapter kind ships. Then
+     ask
      `Use the built-in prioritization calculator, or override weights or formula? (built-in / override weights / override formula)`.
      `override weights`: ask `Which input carries which weight? One per line as <input name>: <weight>.`
      (the input names are the operator's own field names). `override
@@ -85,17 +96,33 @@ config exists. No argument uses the saved path when it exists.
    KB entry, describe its kind the same way.
 6. Walkthrough. Make the operator use every critical feature once, on
    their own data, in as few interactive steps as each feature allows;
-   every existing gate keeps its plain-word ask:
-   - Create: run `new` for one real study request, through its phases.
-   - Move: run `move <KEY>` one gated phase forward.
+   every existing gate keeps its plain-word ask; the completion gate is
+   the deterministic record in `scripts/walkthrough.py`, never readable
+   text only. After each used feature, record it:
+   - Create: run `new` for one real study request, through its phases,
+     then run
+     `python "${CLAUDE_PLUGIN_ROOT}/scripts/walkthrough.py" record --feature create --key <KEY>`.
+   - Move: run `move <KEY>` one gated phase forward, then run
+     `python "${CLAUDE_PLUGIN_ROOT}/scripts/walkthrough.py" record --feature move --key <KEY>`.
    - Calculator: score one real open request with the saved or built-in
      weights; show the arithmetic term by term; on request, take one
-     weight override and score it again.
+     weight override and score it again. Then run
+     `python "${CLAUDE_PLUGIN_ROOT}/scripts/walkthrough.py" record --feature calculator --key <KEY>`.
    - Sync: run `edit <KEY> <one shorthand>` and push the body through the
      tracker operations; with the adapter declared but not built, say so
-     in one line and skip the push.
-   A step the operator declines: note it in one line and continue.
+     in one line and skip the push. Then run
+     `python "${CLAUDE_PLUGIN_ROOT}/scripts/walkthrough.py" record --feature sync --key <KEY>`.
+   A step the operator declines: note it in one line and continue. The
+   declined step stays unrecorded, and the gate below keeps the
+   walkthrough open until the operator uses it.
+   When all four features are used, run
+   `python "${CLAUDE_PLUGIN_ROOT}/scripts/walkthrough.py" check`.
+   Exit 0: print one line, `Walkthrough complete: all four features used.`
+   Exit 1: print the script's missing line verbatim, then one line that
+   the remaining features finish the walkthrough (use each and re-run the
+   check). The completion line never prints on exit 1.
 7. Print the saved summary, one line each: issue kind, KB kinds,
-   field count, calculator state (built-in or overridden), ignore set,
-   workspace push state, org-chart connector count. Close with exactly:
+   field count, calculator state (built-in, or overridden, plus the
+   number of mapped calculator inputs), ignore set, workspace push
+   state, org-chart connector count. Close with exactly:
    `Onboarding saved. Later runs read config/org.yaml and never re-ask; re-run onboard --recheck to re-ask.`

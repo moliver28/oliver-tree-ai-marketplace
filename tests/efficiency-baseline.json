@@ -542,6 +542,19 @@
      ],
      "reason": "Prioritization calculator (#114 section 2, wave P4): the deterministic scorer scripts/prioritize.py (input resolution in the documented order formula > weights > per-backend mapping > built-in default so zero-config installs score; the normalization law per rule kind onto 1 to 3; exit 0/2/3 contract; zero LLM on the calculation path), the prioritization.fields per-backend mapping key in the config contract with its commented shape and example, the declared-not-built gitlab registry entry (TRACKER_KINDS, ADAPTER_DEFAULTS, the shipped adapters section) so the four-backend parity law reaches GitLab before its adapter PR merges, and the mapping law plus per-backend conventions documented in onboarding.md, tracker.md, and trackers-other.md. Counted by the recorded convention: 615 net-new payload lines of the shipped tree (about 2.3 percent), inside the 10 percent cap. Commands untouched; the checker module (tests/uxr_selftests/prioritize.py) is repo-level, outside the payload, and joined the parity SELFTESTS.",
      "date": "2026-11-24"
+    },
+    {
+     "wave": "P4",
+     "issue": 114,
+     "delta_lines": 325,
+     "files": [
+      "uxr-plugin/scripts/walkthrough.py",
+      "uxr-plugin/commands/uxr-onboard.md",
+      "uxr-plugin/references/onboarding.md",
+      "uxr-plugin/README.md"
+     ],
+     "reason": "Forced interactive walkthrough (#114 section 3, wave P4): the deterministic completion record scripts/walkthrough.py (one entry per used feature, check exits 0 only when all four of create/move/calculator/sync carry a record, provenance file lock, fail-closed on an unresolvable state dir or an unreadable record, clear for a fresh run), the walkthrough step in the onboard command extended in place (record command after each used feature, the script gate before the completion line, declined steps stay unrecorded and keep the gate open), the per-backend calculator-inputs ask in the interview (prioritization.fields saved exactly as the operator names them, one follow-up ask for a missing order tail, never invents a field), the completion-record law section in onboarding.md, and one additive /uxr-onboard row in the README command table. Counted by the recorded convention: 325 net-new payload lines (about 1.2 percent), inside the 10 percent cap. The walkthrough step existed as prose since W3; this commit makes its gate a script check instead of attestation. The checker module (tests/uxr_selftests/walkthrough.py) is repo-level, outside the payload, and joined the parity SELFTESTS.",
+     "date": "2026-11-24"
     }
   ],
   "golden_path_growth": null

@@ -110,6 +110,33 @@ backend cannot supply one of the inputs, the onboarding summary names it;
 the calculator scores the inputs the backend supplies and never invents
 machinery for the rest.
 
+## The walkthrough completion record (issue 114 section 3)
+
+The walkthrough makes the operator use every critical feature once:
+create an issue, move a checklist, run the prioritization calculator on
+their own data, sync a change. The gate behind that law is a script
+check, never readable text only. `scripts/walkthrough.py` keeps the
+completion record and owns two laws:
+
+- `record --feature <create|move|calculator|sync> --key <KEY>` writes
+  one entry per used feature. The command runs right after the feature
+  completes; the record carries the feature name and the ticket key, no
+  timestamps and no free text, so the record stays a deterministic
+  artifact.
+- `check` exits 0 only when all four features carry a record. The
+  onboarding command prints its walkthrough completion line only on that
+  exit, so finishing the walkthrough requires the four features to have
+  been used. A declined step stays unrecorded and keeps the walkthrough
+  open; the operator finishes it later by using the missing features and
+  re-running the check.
+
+The record lives at `<state_dir>/walkthrough.json` under the researcher
+state law (`UXR_STATE_DIR`, then `paths.state_dir`; `--state-dir`
+overrides). An unresolvable state dir never passes the gate: the record
+command exits 3 and the check fails closed (exit 1). A record file that
+cannot parse is treated as empty, and the next record write repairs it.
+`clear` removes the record for a fresh run.
+
 ## The interview-data ignore set (issue 57)
 
 `privacy.init_ignore` is the interview-data part of the `init` gitignore
