@@ -26,7 +26,7 @@
 # tracker: the system that holds study tickets (issue 03 owns the adapter)
 # -----------------------------------------------------------------------------
 tracker:
-  # Tracker kind. One of: jira | linear | github | asana
+  # Tracker kind. One of: jira | linear | github | asana | notion
   kind: ""
   # Base URL used to build item links.
   # Example shape: https://your-company.atlassian.net
@@ -235,11 +235,32 @@ paths:
 workspace:
   # Optional git remote to give study workspaces.
   remote: ""
+  # Whether a workspace pushes its commits to the configured remote.
+  # A uxr-workspace commits to main; branches and pull requests are never
+  # created inside one (issue 58). Default false: commits stay local.
+  # uxr-workspaces only; the marketplace repository flow is untouched.
+  remote_push: false
   # Maximum characters of the ticket body used to derive the workspace slug.
   slug_max_body: 50
   # Paths inside a workspace that must be gitignored (participant data; these
   # checks fail closed -- see Principle 4).
   gitignored_paths: ["interviews/participant-key.md", "interviews/raw-transcripts/"]
+
+# -----------------------------------------------------------------------------
+# privacy: participant-data rules for the init gate (issue 57)
+# -----------------------------------------------------------------------------
+privacy:
+  # Interview-data paths the uxr-init gitignore gate asserts are ignored,
+  # saved by onboarding (/uxr-onboard). DEFAULT (empty list): the set
+  # covers ALL interview data, so the whole interviews/ tree must be
+  # gitignored. This FLIPS the shipped default of earlier releases, which
+  # ignored only the participant key and the raw transcripts. Those two
+  # stay enforced as the participant-identity floor and are never
+  # replaceable by this list. A non-empty list forms the interview-data
+  # set exactly as listed; init passes the effective set to the gate and
+  # appends its entries to the workspace .gitignore before the gate runs,
+  # so the config and the file can never disagree.
+  init_ignore: []
 
 # -----------------------------------------------------------------------------
 # evidence: where supporting material is read from (issue 06)
@@ -289,6 +310,20 @@ defaults:
     outcomes: ["Summary of findings", "Continued Research"]
 
 # -----------------------------------------------------------------------------
+# priority: the prioritization calculator overrides (issue 114)
+# -----------------------------------------------------------------------------
+priority:
+  # Weights for the prioritization calculator, keyed by the operator's own
+  # input names (the custom fields onboarding records). An input without a
+  # weight carries weight 1. Empty = the built-in weights documented in
+  # references/onboarding.md (impact 3, confidence 2, urgency 1).
+  weights: {}
+  # Formula string that replaces the built-in calculator formula when set.
+  # Empty = the built-in formula (score = impact*3 + confidence*2 +
+  # urgency*1, each input answered 1 to 3).
+  formula: ""
+
+# -----------------------------------------------------------------------------
 # links: checklist links rendered into the ticket body (issue 04)
 # -----------------------------------------------------------------------------
 links:
@@ -329,6 +364,37 @@ recruit:
   wave_tab_headers: []
   # Regex that matches a booking link in a reply.
   booking_url_regex: ""
+  # Email send (W5 MVP): the SMTP account scripts/recruit_send.py sends
+  # through. Values never live in a repo file: fill them in config/org.yaml
+  # (gitignored) or set the UXR_RECRUIT_* environment variables. The dry run
+  # (no --send flag) needs no account; --send refuses to run without one.
+  email:
+    # SMTP host, for example smtp.gmail.com
+    smtp_host: ""
+    # SMTP port; 587 (STARTTLS) is the default
+    smtp_port: 587
+    # SMTP user; empty means no login
+    smtp_user: ""
+    # SMTP password or app password. Keep the real value in config/org.yaml only.
+    smtp_password: ""
+    # The From address every recruitment email carries.
+    from_address: ""
+    # STARTTLS before login when true; set false only for a local relay.
+    use_tls: true
+    # Default merge template path (a workspace-local file); the --template
+    # flag overrides it.
+    template_path: ""
+
+# -----------------------------------------------------------------------------
+# recruiting: the CSM and Alliance Partner coordination sources (issue 50)
+# -----------------------------------------------------------------------------
+recruiting:
+  # Connector paths, saved by onboarding (/uxr-onboard), that the recruit
+  # flow's --coordinate step searches for other teams and accounts that
+  # could help recruit. The search reads these saved paths first; an
+  # empty list means the flow reports the org chart is not configured and
+  # continues without it.
+  org_chart_paths: []
 
 # -----------------------------------------------------------------------------
 # calendar: calendar holds and moves (issue 10; drafts, never sends)
@@ -421,3 +487,56 @@ sync:
   enabled: false
   # Git remote name used for sync.
   remote: "origin"
+
+# -----------------------------------------------------------------------------
+# Checklists (issue 53): the checklist gate reads references/checklists/<type>.md
+# once the confirmed item set lands. `record` (default) prints the missing list
+# and continues; `block` stops the report write when more than half the items
+# lack evidence.
+checklists:
+  enforcement: "record"
+  # The autonomy switch (issue 53). `execute` (default) advances on green:
+  # after each item's evidence turns green the next executable step starts,
+  # and the run stops only for [human] and [draft] items (the human keeps
+  # every critical decision). `approve` additionally pauses at every group
+  # boundary: the runner presents the group summary, the artifact links,
+  # and the missing list, and waits for one go-ahead word.
+  autonomy: "execute"
+
+# -----------------------------------------------------------------------------
+# adapters: the pluggable sync half (issue 112). One entry per tracker kind.
+# tracker.kind selects the entry. module "" = declared, not built (absent-sync).
+# area: issues | kb. capabilities gate pull / push / spec-transform per entry.
+# -----------------------------------------------------------------------------
+adapters:
+  jira:
+    module: "lib/adapter_jira.py"
+    doc: "references/tracker.md"
+    area: issues
+    capabilities:
+      pull: true
+      push: true
+      spec_transform: true
+  linear:
+    module: ""
+    doc: "references/trackers-other.md"
+    area: issues
+    capabilities: {pull: true, push: true, spec_transform: true}
+  github:
+    module: ""
+    doc: "references/trackers-other.md"
+    area: issues
+    capabilities: {pull: true, push: true, spec_transform: true}
+  asana:
+    module: ""
+    doc: "references/trackers-other.md"
+    area: issues
+    capabilities: {pull: true, push: true, spec_transform: true}
+  # Knowledge-base kinds (issue 114): declared now, first KB adapter lands
+  # through onboarding. Read-only default: pull on, push off. The doc
+  # pointer names the onboarding reference that holds the KB semantics.
+  notion:
+    module: ""
+    doc: "references/onboarding.md"
+    area: kb
+    capabilities: {pull: true, push: false, spec_transform: false}

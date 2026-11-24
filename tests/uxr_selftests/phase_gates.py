@@ -177,8 +177,9 @@ def _selftest() -> int:
         set(FIELD_FIX_HINTS) == set(FIELD_SOURCES),
     )
     check(
-        "every spec predicate has a fix hint",
-        set(SPEC_FIX_HINTS) == set(SPEC_CHECKS),
+        "every spec predicate has a fix hint (the two checklist-only ask"
+        " predicates are exempt: the edit shorthand never writes the ask keys)",
+        set(SPEC_CHECKS) - set(SPEC_FIX_HINTS) == {"ask_verbatim_present", "ask_source_present"},
         f"predicates={sorted(SPEC_CHECKS)} hints={sorted(SPEC_FIX_HINTS)}",
     )
     check(

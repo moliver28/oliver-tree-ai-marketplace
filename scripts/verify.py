@@ -49,6 +49,14 @@ Checks:
     substantial/light edits and reports the defined no-match line;
     acceptance_check scores the Delta path and prints the defined onnx-absent
     line with exit 2; version parity at 1.1.0.
+13. Researcher instruction gate (W4, issue #120): when the current
+    EOL-normalized sha256 of any researcher instruction asset
+    (agents/hcd-researcher.md, prompts/hcd-gate/prompt.md and its fragments,
+    references/script-rigor.md) differs from the hash recorded in
+    tests/evals/hcd-researcher/baseline.json, verify FAILS unless baseline.json
+    also records a run whose verdict is PASS carrying that new hash. The tuning
+    harness itself (tests/evals/hcd-researcher/run_evals.py) never runs here
+    and is never imported.
 
 Exit 0 = marketplace verified working; nonzero = broken, do not publish.
 """
@@ -903,6 +911,46 @@ if uxr.is_dir() and uxr_tests.is_dir():
                             capture_output=True, text=True, cwd=str(uxr))
     tail = ((parity.stdout or "") + (parity.stderr or "")).strip().splitlines()
     ck(parity.returncode == 0, f"uxr-plugin golden parity tests (W2): {tail[-1] if tail else parity.returncode}")
+
+# --- Researcher instruction gate (W4, issue #120): instruction changes are gated
+# by the tuning harness's PASS record in tests/evals/hcd-researcher/baseline.json.
+# The harness never runs and is never imported here; this reads its record only.
+RESEARCHER_ASSET_FILES = (
+    "uxr-plugin/agents/hcd-researcher.md",
+    "uxr-plugin/prompts/hcd-gate/prompt.md",
+    "uxr-plugin/references/script-rigor.md",
+)
+researcher_baseline_path = ROOT / "tests" / "evals" / "hcd-researcher" / "baseline.json"
+if researcher_baseline_path.is_file():
+    def _researcher_asset_hash(p):
+        return hashlib.sha256(p.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+    current_assets = {
+        rel: _researcher_asset_hash(ROOT / rel)
+        for rel in RESEARCHER_ASSET_FILES if (ROOT / rel).is_file()
+    }
+    fragment_dir = ROOT / "uxr-plugin" / "prompts" / "hcd-gate" / "fragments"
+    if fragment_dir.is_dir():
+        for frag in sorted(fragment_dir.glob("*.md")):
+            current_assets[f"uxr-plugin/prompts/hcd-gate/fragments/{frag.name}"] = \
+                _researcher_asset_hash(frag)
+    try:
+        researcher_baseline = json.loads(researcher_baseline_path.read_text(encoding="utf-8"))
+    except ValueError:
+        researcher_baseline = {}
+    recorded_assets = researcher_baseline.get("instruction_assets") or {}
+    drift = sorted(
+        asset for asset in set(recorded_assets) | set(current_assets)
+        if recorded_assets.get(asset) != current_assets.get(asset)
+    )
+    pass_runs = [
+        run_entry for run_entry in (researcher_baseline.get("runs") or [])
+        if str(run_entry.get("verdict", "")).upper() == "PASS"
+        and all(run_entry.get("instruction_assets", {}).get(asset) == current_assets.get(asset)
+                for asset in drift)
+    ]
+    ck(not drift or bool(pass_runs),
+       f"researcher instruction assets drifted without a PASS eval run (rule 13): {drift}")
 
 # --- Efficiency gate (W1, MO ruling 2026-11-21) ------------------------------
 # Release-lane only: CI arms VERIFY_EFFICIENCY=1 on develop -> main PRs, so

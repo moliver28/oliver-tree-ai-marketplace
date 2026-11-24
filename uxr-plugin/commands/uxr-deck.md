@@ -20,6 +20,8 @@ images.
 
 ## Inputs
 
+Grounding: consult registered sources in `references/sources/` (for this command: R-01 metrics, R-04 COREQ, R-20 scoring, R-21 HEART); page-first lookup; cite the URL with the claim. Index: `references/research-sources.md`.
+
 `$ARGUMENTS` is `<KEY>` with any of: `--audience=leadership|design|product|research|org` (no flag: show the 1-5 persona menu from `list-personas` and ask), `--tier=lite|standard|strategic` (default: computed in phase 1), `--dry-run`, `--refresh-persona=<name>` (drop that persona's cached `pe_framing_prompt`, regenerate in phase 4), `--altitude=brief|standard|deep` (maps through `altitude --level` when `--tier` absent), `--render-only` (skip phases 1-4; render the existing outline through phase 5).
 
 Every gate uses `go`, `edit`, `cancel` -- except the phase 4 lens check: `apply`, `edit`, `skip`.
@@ -59,6 +61,8 @@ Support argues the evidence for each RQ; Challenge argues the
 counter-evidence and the weak links; Critic applies the HCD review;
 Strategic names the business risk and the opportunity cost. The
 synthesis merge keeps every note line attributable to its stance.
+
+The Critic dispatch first runs `python "${CLAUDE_PLUGIN_ROOT}/scripts/researcher_state.py" digest --key <KEY>`; when it prints reviews, paste its output into the dispatch input under a `Prior reviews:` line and add the label line `Artifact kind: deck`; `no prior reviews` continues unchanged. The Critic dispatch input opens with the verbatim ask from the spec: `Original ask (<ask_source date>): <ask_verbatim>`; a pre-ask spec says `Original ask: not recorded (pre-ask spec)` in one line and continues.
 
 ## Personas (`deck.personas_file`; one file shared with the report reader)
 
@@ -117,5 +121,7 @@ slides never count. `slide-plan` prints the computed card.
   produce.
 - The `.pptx` is regenerated from the outline, never edited; raster
   images are never generated.
+- The deck may quote an up-level ask from the spec's `ask_uplevels`; the
+  original ask (`ask_verbatim`) is never replaced or reworded.
 - Two failed attempts on any problem: search the web before trying
   again.

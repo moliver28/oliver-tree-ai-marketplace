@@ -22,8 +22,9 @@ Subcommands:
   sections by hand.
 - ``append-outreach-entry`` - insert one outreach log entry after the first
   ``---`` line, newest first.
-- ``validate-recruitment`` - check the participants table header and status
-  values; warn with exit 1.
+- ``validate-recruitment`` - check the participants tables (the approved
+  two-table shape, or a legacy ``Name`` table) and status values; warn
+  with exit 1.
 
 Exit codes: 0 ok, 1 warning or lookup miss, 2 usage error, 3 assertion
 failed (a template token survived, a spec block is missing from the
@@ -65,6 +66,10 @@ if str(PLUGIN_ROOT) not in sys.path:
 
 from lib import config as _config  # noqa: E402
 from lib import spec_blocks  # noqa: E402
+from scripts.recruit_funnel import (  # noqa: E402  (the shared recruit law)
+    PARTICIPANT_STATUSES,
+    participant_header_issues,
+)
 
 EXIT_OK = 0
 EXIT_WARN = 1
@@ -920,53 +925,118 @@ def cmd_append_outreach(args: dict[str, object]) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _is_delimiter_row(line: str) -> bool:
+    """True for a GFM table delimiter row (``|---|---|``)."""
+    body = line.strip().replace("|", "").replace("-", "").replace(":", "").replace(" ", "")
+    return line.lstrip().startswith("|") and body == ""
+
+
+def _table_blocks(lines: list[str]) -> list[tuple[int, list[int]]]:
+    """One ``(header_index, row_indexes)`` pair per Markdown table block.
+
+    A block starts at the first ``|`` line and ends at the first
+    following non-``|`` line; the GFM delimiter row is not a data row.
+    """
+    blocks: list[tuple[int, list[int]]] = []
+    index = 0
+    while index < len(lines):
+        if not lines[index].lstrip().startswith("|"):
+            index += 1
+            continue
+        header_index = index
+        cursor = index + 1
+        if cursor < len(lines) and _is_delimiter_row(lines[cursor]):
+            cursor += 1  # the GFM delimiter row; data rows start after it
+        row_indexes: list[int] = []
+        while cursor < len(lines) and lines[cursor].lstrip().startswith("|"):
+            row_indexes.append(cursor)
+            cursor += 1
+        blocks.append((header_index, row_indexes))
+        index = cursor
+    return blocks
+
+
+def _participant_variant(cells: list[str]) -> list[str]:
+    """The header-drift lines for a ``participant id`` header (issue 135).
+
+    An exact header match returns an empty list; a drifted header is
+    checked against both approved sets and the closer set reports (ties
+    report internal). The lines are advisory; each names its variant.
+    """
+    internal = participant_header_issues(cells, "internal")
+    external = participant_header_issues(cells, "external")
+    if not internal or not external:
+        return []
+    return external if len(external) < len(internal) else internal
+
+
 def validate_participants(
     text: str, method: str, channel: str, config: dict | None = None
 ) -> tuple[int, list[str]]:
-    """Check the participants table header and status values.
+    """Check the participants tables and their status values.
 
-    Returns ``(exit_code, warnings)``: 0 clean, 1 warnings (header mismatch,
-    unknown status), 3 the table is missing entirely.
+    The approved shape (issue 51) is two fixed tables, one per flow,
+    each header starting with ``participant id``: headers are checked
+    against the approved column sets and statuses against the locked
+    vocabulary. A legacy single table whose first header cell is
+    ``Name`` is still checked against the method and channel columns.
+    Returns ``(exit_code, warnings)``: 0 clean, 1 warnings (header
+    drift, unknown status), 3 no participants table at all.
     """
     warnings: list[str] = []
     lines = text.splitlines()
-    header_index = next(
-        (
-            i
-            for i, line in enumerate(lines)
-            if line.lstrip().startswith("|") and line.strip().strip("|").split("|")[0].strip() == "Name"
-        ),
-        None,
-    )
-    if header_index is None:
-        return EXIT_ASSERT, ["participants table not found (no header row starting with Name)"]
-    found = [cell.strip() for cell in lines[header_index].strip().strip("|").split("|")]
-    found = [cell for cell in found if cell]
-    expected = participants_columns(method, channel)
-    if found != expected:
-        warnings.append(
-            f"participants table header does not match {method}/{channel}: "
-            f"expected {' | '.join(expected)}; found {' | '.join(found)}"
-        )
-    vocabulary = set(_method_statuses(method, config))
-    status_index = next((i for i, cell in enumerate(found) if cell == "Status"), None)
-    cursor = header_index + 1
-    if cursor < len(lines) and lines[cursor].lstrip().startswith("|") and "---" in lines[cursor]:
-        cursor += 1  # the GFM delimiter row; data rows start after it
-    for row_line in lines[cursor:]:
-        if not row_line.lstrip().startswith("|"):
-            break  # the table ended
-        cells = [cell.strip() for cell in row_line.strip().strip("|").split("|")]
-        if not any(cells):
-            continue
-        name = cells[0] if cells else ""
-        if status_index is not None and status_index < len(cells):
-            status = cells[status_index]
-            if status and status not in vocabulary:
+    found = False
+    for header_index, row_indexes in _table_blocks(lines):
+        cells = [cell.strip() for cell in lines[header_index].strip().strip("|").split("|")]
+        cells = [cell for cell in cells if cell]
+        lower = [cell.lower() for cell in cells]
+        if lower and lower[0] == "participant id":
+            found = True
+            warnings.extend(_participant_variant(cells))
+            status_index = next((i for i, cell in enumerate(lower) if cell == "status"), None)
+            for row_index in row_indexes:
+                row_cells = [
+                    cell.strip() for cell in lines[row_index].strip().strip("|").split("|")
+                ]
+                if not any(row_cells):
+                    continue
+                status = ""
+                if status_index is not None and status_index < len(row_cells):
+                    status = row_cells[status_index]
+                if status and status.lower() not in PARTICIPANT_STATUSES:
+                    participant = row_cells[0] if row_cells else ""
+                    warnings.append(
+                        f"unknown status {status!r} for participant {participant!r}; use one "
+                        f"of: {', '.join(PARTICIPANT_STATUSES)}"
+                    )
+        elif lower and lower[0] == "name":
+            found = True
+            expected = participants_columns(method, channel)
+            if cells != expected:
                 warnings.append(
-                    f"unknown status {status!r} for {name!r}; use one of: "
-                    + ", ".join(sorted(vocabulary))
+                    f"participants table header does not match {method}/{channel}: "
+                    f"expected {' | '.join(expected)}; found {' | '.join(cells)}"
                 )
+            vocabulary = set(_method_statuses(method, config))
+            status_index = next((i for i, cell in enumerate(cells) if cell == "Status"), None)
+            for row_index in row_indexes:
+                row_cells = [
+                    cell.strip() for cell in lines[row_index].strip().strip("|").split("|")
+                ]
+                if not any(row_cells):
+                    continue
+                name = row_cells[0] if row_cells else ""
+                if status_index is not None and status_index < len(row_cells):
+                    status = row_cells[status_index]
+                    if status and status not in vocabulary:
+                        warnings.append(
+                            f"unknown status {status!r} for {name!r}; use one of: "
+                            + ", ".join(sorted(vocabulary))
+                        )
+    if not found:
+        return EXIT_ASSERT, [
+            "participants table not found (no header row starting with 'participant id' or 'Name')"
+        ]
     if warnings:
         return EXIT_WARN, warnings
     return EXIT_OK, []
@@ -1012,7 +1082,7 @@ def cmd_validate_recruitment(args: dict[str, str]) -> int:
     if code == EXIT_WARN:
         print(f"recruitment table needs attention ({len(warnings)} warning(s))")
         return EXIT_WARN
-    print(f"recruitment table matches {method}/{channel}: header and statuses are valid")
+    print("recruitment participants table: headers and statuses are valid")
     return EXIT_OK
 
 

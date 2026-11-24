@@ -1,28 +1,447 @@
 {
-  "recorded": "2026-11-21",
-  "convention": "Shipped payload lines = git-tracked files under uxr-plugin/ with suffix .py, .md, .yaml, or .yml, excluding uxr-plugin/tests/**; a line ends at \\n and a non-empty file without a trailing newline counts one final line (git numstat counting). The loc-account.py 'R1 shipped EX-tests' convention applied as an absolute snapshot of the tree instead of a diff. Per-dir lines group by the first path segment below uxr-plugin/; root-level files group under 'root'.",
-  "payload": {
-    "growth_tolerance_lines": 0,
-    "total_lines": 23243,
-    "per_dir": {
-      "agents": 502,
-      "commands": 1662,
-      "config": 420,
-      "docs": 71,
-      "hooks": 2761,
-      "lib": 3935,
-      "prompts": 275,
-      "references": 4136,
-      "root": 151,
-      "scripts": 8711,
-      "skills": 339,
-      "templates": 280
-    }
-  },
-  "golden_path_model_calls": 6,
-  "golden_path_declared_in": "uxr-plugin/CHANGELOG.md [0.2.0]: 'the golden path across the workflow now spends six model calls'; per-command shares are declared in uxr-plugin/commands/*.md",
-  "justifications": {
-    "payload_growth": null,
-    "golden_path_growth": null
+ "recorded": "2026-11-21",
+ "convention": "Shipped payload lines = git-tracked files under uxr-plugin/ with suffix .py, .md, .yaml, or .yml, excluding uxr-plugin/tests/**; a line ends at \\n and a non-empty file without a trailing newline counts one final line (git numstat counting). The loc-account.py 'R1 shipped EX-tests' convention applied as an absolute snapshot of the tree instead of a diff. Per-dir lines group by the first path segment below uxr-plugin/; root-level files group under 'root'.",
+ "payload": {
+  "growth_tolerance_lines": 0,
+  "total_lines": 23243,
+  "per_dir": {
+   "agents": 502,
+   "commands": 1662,
+   "config": 420,
+   "docs": 71,
+   "hooks": 2761,
+   "lib": 3935,
+   "prompts": 275,
+   "references": 4136,
+   "root": 151,
+   "scripts": 8711,
+   "skills": 339,
+   "templates": 280
   }
+ },
+ "golden_path_model_calls": 6,
+ "golden_path_declared_in": "uxr-plugin/CHANGELOG.md [0.2.0]: 'the golden path across the workflow now spends six model calls'; per-command shares are declared in uxr-plugin/commands/*.md",
+ "justifications": {
+  "payload_growth": [
+   {
+    "wave": "W2",
+    "issue": 112,
+    "delta_lines": 465,
+    "files": [
+     "uxr-plugin/lib/adapters.py",
+     "uxr-plugin/lib/adapter_jira.py",
+     "uxr-plugin/config/org.example.yaml",
+     "uxr-plugin/lib/config.py"
+    ],
+    "reason": "Harness/sync split substrate (#112): adapter registry and resolver, Jira adapter facade over spec_blocks/field_map/build_body, adapters config section. Net-new 465 of 23,243 payload lines (2.0 percent), inside the 10 percent cap of about 2,324 lines and under the 600-line build target. Commands and references byte-identical; all pin counts unchanged.",
+    "date": "2026-11-21",
+    "pr": 129
+   },
+   {
+    "wave": "W3",
+    "issue": 114,
+    "delta_lines": 203,
+    "files": [
+     "uxr-plugin/commands/uxr-onboard.md",
+     "uxr-plugin/references/onboarding.md",
+     "uxr-plugin/scripts/validate_cheatsheet.py"
+    ],
+    "reason": "One-shot interactive onboarding (#114): the onboard command (ask law, saved-path probe, adapter and KB selection, field mapping, calculator override, privacy, workspace push, org-chart asks, walkthrough) and the onboarding flow-rules reference the adapter registry points at; one generator purpose-dict line gives the command its cheat-sheet row summary. Net-new 203 payload lines under the gate suffix convention (.py/.md/.yaml); this commit's remaining 2 net rows are the regenerated docs/cheat-sheet.html table rows, which that convention excludes (they stay inside the wave total of 347). Command and reference md are new surfaces only, no existing command or reference bytes change.",
+    "date": "2026-11-21"
+   },
+   {
+    "wave": "W3",
+    "issue": 114,
+    "delta_lines": 16,
+    "files": [
+     "uxr-plugin/config/org.example.yaml",
+     "uxr-plugin/lib/adapters.py",
+     "uxr-plugin/lib/config.py"
+    ],
+    "reason": "KB adapter entries (#114): the shipped declared notion entry (module empty, area kb, read-only default pull on push off per the W2 design section 6), its registry mirror in ADAPTER_DEFAULTS, and the TRACKER_KINDS extension with the KB kind so validation accepts it. Net-new 16 payload lines; declared-not-built keeps absent-sync behavior, no UX surface changes.",
+    "date": "2026-11-21"
+   },
+   {
+    "wave": "W3",
+    "issue": 57,
+    "delta_lines": 69,
+    "files": [
+     "uxr-plugin/commands/uxr-init.md",
+     "uxr-plugin/config/org.example.yaml",
+     "uxr-plugin/lib/config.py"
+    ],
+    "reason": "Init ignore set becomes onboarding config (#57): the privacy.init_ignore key (default empty = the ignore set covers ALL interview data, the interviews/ tree, flipping the earlier narrow default), the init_ignore_set resolver with the --init-ignore-set CLI, and the additive uxr-init paragraph that passes the effective set to the gitignore gate and appends it to the workspace .gitignore so config and file can never disagree. Net-new 69 payload lines; the participant-identity floor stays hardcoded and never replaceable.",
+    "date": "2026-11-21"
+   },
+   {
+    "wave": "W3",
+    "issue": 58,
+    "delta_lines": 19,
+    "files": [
+     "uxr-plugin/commands/uxr-init.md",
+     "uxr-plugin/config/org.example.yaml",
+     "uxr-plugin/lib/config.py",
+     "uxr-plugin/templates/workspace/CLAUDE.md"
+    ],
+    "reason": "Workspaces main-only with optional push (#58): the workspace.remote_push key (default false), the workspace template main-only git rule (commit to main, no branches, no pull requests, push only per config), and the additive uxr-init push gate paragraph. uxr-workspaces only; the marketplace repository flow is untouched. Net-new 19 payload lines.",
+    "date": "2026-11-21"
+   },
+   {
+    "wave": "W3",
+    "issue": 50,
+    "delta_lines": 17,
+    "files": [
+     "uxr-plugin/commands/uxr-recruit.md",
+     "uxr-plugin/config/org.example.yaml",
+     "uxr-plugin/lib/config.py"
+    ],
+    "reason": "Org-chart connector paths saved config (#50): the recruiting.org_chart_paths key (saved by onboarding, read by the recruit flow for efficient reuse) and the additive uxr-recruit --coordinate paragraph that searches the saved connectors and reports an unconfigured org chart in one line. The midship-opportunities requirement is removed per the MO ruling of 2026-11-21. Net-new 17 payload lines; the recruit command change is additive only.",
+    "date": "2026-11-21"
+   },
+   {
+    "wave": "W3",
+    "issue": 50,
+    "delta_lines": 7,
+    "files": [
+     "uxr-plugin/scripts/recruit_funnel.py"
+    ],
+    "reason": "Appointment-link redirect fix (#50): the shipped default booking-page pattern carried a hyphenated Google shape (appointment-schedules) that matches nothing Google emits, so a real appointment link was refused by preflight and a redirect-wrapped URL could end up in the user-facing email instead. The corrected default accepts the share link Google's Copy link emits (calendar.app.google) and the underlying appointments/schedules booking page; redirect-wrapped URLs still block. Net-new 7 payload lines (pattern plus its comment); regression checks added to the recruit_funnel selftest (repo level, outside the payload).",
+    "date": "2026-11-21"
+   },
+   {
+    "wave": "W3",
+    "issue": 114,
+    "delta_lines": 16,
+    "files": [
+     "uxr-plugin/config/org.example.yaml",
+     "uxr-plugin/lib/config.py"
+    ],
+    "reason": "Prioritization calculator override keys (#114): priority.weights and priority.formula in the key contract (empty = the built-in formula and weights documented in references/onboarding.md, so zero-configuration installs keep a working calculator) plus their REQUIRED_KEYS entries. Net-new 16 payload lines (org.example.yaml +14, lib/config.py +2). The deterministic scorer module ships in a later wave; W3 saves the inputs and the walkthrough scores one real request with the documented formula.",
+    "date": "2026-11-21"
+   },
+   {
+    "wave": "pre-baseline",
+    "issue": 122,
+    "guard": "report_html.py blockquote parser fix (#123) added 1 net line in uxr-plugin/scripts before the baseline file existed; recorded here when first measured (develop = main + W2), because the release gate needs every line accounted for",
+    "delta_lines": 1,
+    "files": [
+     "uxr-plugin/scripts/report_html.py"
+    ],
+    "reason": "Issue #122 fix: the blockquote parser consumes any >-prefixed line instead of hanging. One net-new line in uxr-plugin/scripts; pre-existing bug fix, zero UX change; disclosed in PR #123 and merged before the efficiency gate existed.",
+    "date": "2026-11-22",
+    "pr": 123
+   },
+   {
+    "wave": "W4",
+    "issue": 120,
+    "delta_lines": 444,
+    "files": [
+     "uxr-plugin/scripts/researcher_state.py",
+     "uxr-plugin/hooks/review_gate.py",
+     "uxr-plugin/commands/uxr-new.md",
+     "uxr-plugin/commands/uxr-report.md",
+     "uxr-plugin/commands/uxr-deck.md",
+     "uxr-plugin/skills/interview-script/SKILL.md"
+    ],
+    "reason": "Persistent researcher storage (#120): the journal digest script (state-dir resolution law, append under the provenance file lock, bounded digest CLI printing the last reviews, the open p0 count, and 'no prior reviews') and the SubagentStop journal-append duty in the review gate (bounded transcript-tail extraction of the verdict, summary, and findings, with the pointer-only fallback line so a run is never lost), plus one prior-reviews pickup line at each of the four dispatch sites. Counted by the recorded convention: 444 net-new payload lines (229 new script + 205 hook + 10 command and skill lines) of 23,243 (1.9 percent), inside the 900-line W4 target. The digest is a read-only print and the command lines are additive only; no existing wording rewritten; all pins unchanged.",
+    "date": "2026-11-21"
+   },
+   {
+    "wave": "W4",
+    "issue": 60,
+    "delta_lines": 88,
+    "files": [
+     "uxr-plugin/lib/spec_blocks.py",
+     "uxr-plugin/scripts/backfill_spec.py",
+     "uxr-plugin/commands/uxr-new.md",
+     "uxr-plugin/commands/uxr-report.md",
+     "uxr-plugin/commands/uxr-deck.md",
+     "uxr-plugin/commands/uxr-debrief.md",
+     "uxr-plugin/commands/uxr-edit.md",
+     "uxr-plugin/skills/interview-script/SKILL.md"
+    ],
+    "reason": "Mechanical verbatim ask (#60): the validate_spec hard rule that fires only on a _meta.last_edited_by_command of new (empty ask_verbatim and byte-equal up-levels are errors; fixture specs carry no _meta so every pinned output is unchanged), the save-spec validate call with exit 4 and the assert-ask subcommand (ask OK / ask missing (pre-ask spec) / exit 5 on a real gap), the build-block ask keys plus the retro save that records the unrecovered gap, the assert-ask check in edit, the Original ask quote lines in the debrief and report scope card and in the four hcd-gate dispatch inputs, and the no-replacement lines in report and deck. Counted by the recorded convention: 88 net-new payload lines (17 validator + 49 backfill and assert-ask + 22 command and skill lines) of 23,243 (0.4 percent). All user-visible changes are additive lines or appended sentences; no existing wording rewritten.",
+    "date": "2026-11-21"
+   },
+   {
+    "wave": "W4",
+    "issue": 120,
+    "delta_lines": 5,
+    "files": [
+     "uxr-plugin/agents/hcd-researcher.md"
+    ],
+    "reason": "Researcher input item (#120, unit 3): one additive input item in the agent definition - prior review notes, when present, are claims to re-test against the current artifact and a prior finding that no longer holds is restated as changed; without prior reviews the agent reviews without them and never invents prior state. Counted by the recorded convention: 5 net-new payload lines of 23,243 (under 0.1 percent). The tuning harness gates the change: the baseline run on the unchanged definition scored F1 0.27 | recall 1.00 | precision 0.16 | p0 recall 1.00 | verdict PASS and the re-run on the edited definition scored F1 0.28 | recall 1.00 | precision 0.16 | p0 recall 1.00 | verdict PASS, both recorded in tests/evals/hcd-researcher/baseline.json with the asset hashes.",
+    "date": "2026-11-21"
+   },
+   {
+    "wave": "W4",
+    "issue": 53,
+    "delta_lines": 290,
+    "files": [
+     "uxr-plugin/lib/checklist_gate.py",
+     "uxr-plugin/lib/phase_gates.py",
+     "uxr-plugin/lib/config.py",
+     "uxr-plugin/config/org.example.yaml"
+    ],
+    "reason": "Checklist gate machinery (#53): the deterministic per-item gate (loader for the one-line item shape with its spec:/path:/always probe vocabulary, the check CLI copying the phase-gates exit law, the absent-content line with exit 0 so the machinery works with the checklist content half absent), the two standing-mandate ask predicates added to SPEC_CHECKS (reachable only through checklist items, so the reference requirements table and every pinned gate output stay unchanged), the checklists.enforcement required config key, and its documented record default in the shipped example. Counted by the recorded convention: 290 net-new payload lines (257 new gate module + 24 phase_gates predicate lines + 1 config contract line + 8 config example lines) of 23,243 (1.2 percent). No checklist content files land; the report and debrief attachment lines are additive record-gap rows, never blocks.",
+    "date": "2026-11-21"
+   },
+   {
+    "wave": "W4",
+    "issue": 56,
+    "delta_lines": 2,
+    "files": [
+     "uxr-plugin/commands/uxr-report.md"
+    ],
+    "reason": "Rigor subset (#56): the third harness run on the edited instruction assets scored F1 0.25 | recall 0.92 | precision 0.14 | p0 recall 1.00 | verdict FAIL (F1 0.25 against the 0.2727 baseline bar, with the p0 bar itself holding at 1.00), so the instruction-asset edits - the rigor-lens fragment, the hcd-gate prompt wiring with the 70 to 78 budget bump, the two script-rigor rider lines, and the research-grounding note - reverted per the contract, leaving no payload trace; the recorded FAIL attempt stays in tests/evals/hcd-researcher/baseline.json with the hashes it measured. What stays: the one non-instruction edit, the report methodology line naming the analysis plan actually followed. Counted by the recorded convention: 2 net-new payload lines of 23,243 (under 0.1 percent).",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "W4",
+    "issue": 0,
+    "delta_lines": 14,
+    "files": [
+     "uxr-plugin/CHANGELOG.md",
+     "uxr-plugin/README.md"
+    ],
+    "reason": "W4 release bookkeeping (version bump to 0.4.0): the CHANGELOG release section describing the wave's shipped work and the README version line. The two JSON version surfaces (.claude-plugin/plugin.json and the marketplace entry) sit outside the counted suffixes. Counted by the recorded convention: 14 net-new payload lines of 23,243 (under 0.1 percent). Wave total after all seven commits: 843 net-new payload lines (each of the seven payload-growing commits carries its entry), inside the 900-line W4 target.",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "W4b",
+    "issue": 51,
+    "delta_lines": 20,
+    "files": [
+     "uxr-plugin/templates/workspace/recruitment/participants.md"
+    ],
+    "reason": "Recruitment participants template reworked to the approved column sets (issue 51, MO column law 2026-11-22): one table per flow, internal ten columns, external eleven columns, the locked seven-value status vocabulary, the approved external screener field list, and the PII ruling. The method-dependent table placeholder goes away because the approved sets are fixed lists, so the scaffold fills no tokens in this file; validate-recruitment stays advisory per the recruit command. Net-new 20 payload lines in templates.",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "W4b",
+    "issue": 51,
+    "delta_lines": 24,
+    "files": [
+     "uxr-plugin/commands/uxr-recruit.md"
+    ],
+    "reason": "Recruit status-gate law (issue 51, enforcement shape approved by MO 2026-11-22): one additive section between Setup and the flows stating that a workspace participants-table status may not advance while its gate columns are empty, the six gate rules (screened, invited, scheduled, completed, incentive-sent, withdrawn), the one-line blocked-advance behavior, and the scope note that the spec roster keeps its own vocabulary. No model call; existing wording untouched. Net-new 24 payload lines in commands.",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "W4b",
+    "issue": 51,
+    "delta_lines": 138,
+    "files": [
+     "uxr-plugin/scripts/recruit_funnel.py"
+    ],
+    "reason": "Recruit enforcement spec keys (issue 51, enforcement shape approved by MO 2026-11-22): the approved participants-table column sets, the locked seven-value status vocabulary, and the per-variant status-gate map added as checked constants in recruit_funnel.py, plus three pure additive checkers (header against the approved set, status against the locked vocabulary, row gates per the status-gate law). Nothing in run(), build_table(), preflight(), or reminders() calls them, so every existing output stays byte-identical; the funnel-table selftest passes unchanged and the new repo-level enforcement selftest (tests/uxr_selftests/, outside the payload) rides the smoke check-3 glob. Net-new 138 payload lines in scripts.",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "W5",
+    "issue": 51,
+    "delta_lines": 670,
+    "files": [
+     "uxr-plugin/scripts/recruit_send.py",
+     "uxr-plugin/templates/workspace/recruitment/email-merge-template.example.md"
+    ],
+    "reason": "Recruitment email send MVP (issue 51, HANDOFF section 11; MO waived the policy concern): the plugin-native stdlib SMTP send script with a dry-run default (merged-message preview, no send, no stamp, no write), the invited-only sendable state machine (a send stamps DM sent (date) and advances invited to scheduled per the shipped gate map; a failed row gets no stamp), the one-recipient-per-message law (exactly one To header, never Cc or Bcc; a duplicate address sends once and later rows are reported), contact masking with the explicit show flag, the org-config recruit.email.* keys with UXR_RECRUIT_* env fallbacks, and the synthetic-only example merge template. The gate and column law is imported from recruit_funnel.py, not duplicated. No real send happens in the build; the repo carries placeholder values only. Net-new 670 payload lines (660 script + 10 template) of 23,243 (2.9 percent), inside the 10 percent cap.",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "W5",
+    "issue": 51,
+    "delta_lines": 54,
+    "files": [
+     "uxr-plugin/commands/uxr-recruit.md",
+     "uxr-plugin/config/org.example.yaml"
+    ],
+    "reason": "Email send (MVP) command-doc section and the recruit.email config keys (issue 51): one additive section after the external flow (the command, the dry-run default, the gate-law recap with the invited-only sendable state machine, the one-recipient law with contact masking, the SMTP account placement in the gitignored config or env vars, the synthetic example template path and the token rule) plus the optional DM paragraph (context plus the prep note, or nothing), the recruit_send.py Scripts-table row, and the sanctioned issue-135 item-3 list edit naming the email send in the scheduled-gate outreach list (2 lines swapped, net zero). The config example gains the recruit.email section with placeholder values only. Net-new 54 payload lines (34 command net, 20 config example); no existing wording rewritten beyond the sanctioned list edit, and the draft-only safety rule is untouched (the researcher runs the real send).",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "W5",
+    "issue": 135,
+    "delta_lines": 12,
+    "files": [
+     "uxr-plugin/scripts/recruit_funnel.py",
+     "uxr-plugin/templates/workspace/scripts/README.md"
+    ],
+    "reason": "Issue-135 item-4 fixes and the issue-53 terminology-law leftover, as folded one-liners: participant_header_issues now counts cells per column and names a duplicated approved column as 'duplicate column <name>' (detection stays fail-closed; the order check compares first occurrences, so a duplicate no longer reports as 'approved columns out of order'), its docstring names the new problem kind, and the participant_gate_lines docstring resolves the ambiguity ('withdrawn is checked first: it returns an empty list before the variant check, and the variant is checked for gated statuses'); the scripts workspace README first line rewords 'Discussion guides' to 'Interview scripts' per the MO-banned artifact word (1 line swapped, net zero lines). Net-new 12 payload lines, all in scripts (docstrings plus the duplicate-count block); the enforcement selftest gains one additive check pinning the new message (outside the payload).",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "W5",
+    "issue": 51,
+    "delta_lines": 14,
+    "files": [
+     "uxr-plugin/scripts/recruit_send.py"
+    ],
+    "reason": "momus review fixes: parse_template now validates every brace pair, so a stray spelling (mixed case or hyphenated) fails closed per the documented law; the Message-ID domain derives from the sender address (recipient-domain IDs score spam filters); the selftest gains the env-name pin (7 pairs), two stray-token fail-closed checks, and the sender-domain Message-ID check, defines the EXIT_SELFTEST failure exit, and documents the refusal-check config precondition; the ledger prose of entry 2 now states 54. Net-new 14 payload lines (15 in, 1 out in the script; the selftest is outside the payload).",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "debt-pass",
+    "issue": 133,
+    "delta_lines": 7,
+    "files": [
+     "uxr-plugin/lib/spec_blocks.py"
+    ],
+    "reason": "Issue 133 item 3: the ask_uplevel replacement check gains an isinstance str guard, so an ask_uplevels entry with no text key no longer fires the replacement error against an entry that carries no text (one misleading second error line on a save the empty-ask error already blocks). Net +7 payload lines in lib/spec_blocks.py (guard lines plus the reason comment).",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "debt-pass",
+    "issue": 135,
+    "delta_lines": 70,
+    "files": [
+     "uxr-plugin/scripts/scaffold_workspace.py",
+     "uxr-plugin/templates/workspace/recruitment/README.md"
+    ],
+    "reason": "Issue 135 items 1-2: validate-recruitment learns the approved two-table participants shape - table-block scan, variant detection through recruit_funnel participant_header_issues (imported, not duplicated), statuses checked against the locked PARTICIPANT_STATUSES vocabulary, drift advisory at exit 1, exit 3 only when neither shape is present; the legacy Name-header law stays for old workspaces. The recruitment README bullet now states the shipped law (fixed approved column sets, one table per flow; no tokens), replacing the false method/channel sentence. Net +70 payload lines (scripts +70: numstat 112 in, 42 out; templates README net 0, 2 in 2 out).",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "debt-pass",
+    "issue": 137,
+    "delta_lines": 15,
+    "files": [
+     "uxr-plugin/scripts/recruit_send.py"
+    ],
+    "reason": "Issue 137 items 1-3: the SMTP connect, STARTTLS, and login phase moves inside a guarded block - a refused connection, TLS failure, or failed login appends one clean scrubbed ERROR line to the report and returns no sent rows instead of raising a host-naming traceback out of run (the exit code is 1 by the failed-row law, not by interpreter accident). The participants file is now read and written with newline so the file keeps its own line endings through a stamp on every platform, and stamp_rows preserves each line terminator byte-true (only stamped rows change, LF stays LF, CRLF stays CRLF). The SMTP account check fires on the send mode alone, so --send with zero sendable rows refuses without an account instead of reporting an account source and exiting 0. Net +15 payload lines (numstat 23 in, 8 out); the zero-plan refusal pin lands with the config-injection commit so it stays hermetic on configured machines.",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "debt-pass",
+    "issue": 137,
+    "delta_lines": 9,
+    "files": [
+     "uxr-plugin/scripts/recruit_send.py"
+    ],
+    "reason": "Issue 137 item 4: the selftest refusal checks no longer depend on the machine - load_send_settings gains a config_file override (riden through lib.config.load_config user_file, the config-path override the config layer has carried since 0.3.0, so no lib/config.py change was needed), run() passes it through, and the selftest points it at an empty file: an injected empty config carries no account values, --send refuses without an account, and the zero-plan --send refusal is pinned hermetically. Net +9 payload lines (numstat 13 in, 4 out); the selftest (tests/) is outside the payload.",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "debt-pass",
+    "issue": 0,
+    "delta_lines": 11,
+    "files": [
+     "uxr-plugin/CHANGELOG.md",
+     "uxr-plugin/README.md",
+     "uxr-plugin/.claude-plugin/plugin.json"
+    ],
+    "reason": "Debt-pass release bookkeeping (issues 133, 135, 137): the manifest law version bump 0.4.0 -> 0.4.1 with the CHANGELOG Fixed section naming the eleven executed follow-ups. Net +11 payload lines, all in CHANGELOG.md (plugin.json and README.md are 1 in, 1 out each).",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "source-registry",
+    "issue": "w11-build-wave",
+    "delta_lines": 1022,
+    "files": [
+     "uxr-plugin/references/sources/*.md (161 entry files, 612 lines)",
+     "uxr-plugin/references/research-sources.md (117 lines)",
+     "uxr-plugin/hooks/web_nudge.py (86 lines)",
+     "uxr-plugin/lib/checklist_gate.py (citations check block)",
+     "uxr-plugin/commands/*.md + skills/*/SKILL.md (pointer lines, 17 + 3 files)",
+     "uxr-plugin/templates/workspace/CLAUDE.md (law paragraph)",
+     "uxr-plugin/references/research-grounding.md (registry pointer section)",
+     "uxr-plugin/CHANGELOG.md + uxr-plugin/README.md (0.5.0)"
+    ],
+    "reason": "Source-registry content wave (Unit 6; MO gate 2026-11-22 confirm, full go): 161 one-file-per-entry store files plus the central law + 109-row condition index (about 730 lines of registry content), the per-surface Grounding pointer lines and the workspace CLAUDE.md law paragraph (about 210 lines across 24 files), the 86-line web-tool nudge hook, and the standalone citations check in checklist_gate.py. The wave is markdown content plus one hook and one gate-check block - no new runtime modules; the acceptance scaffolding (evals + offline selftest) lives under tests/, outside the payload. The recorded floor (23,243, recorded 2026-11-21) predates the W5 merges (#134, #136, #138, #140); per the repo convention the floor moves and justifications clear at the next release PR, where the tree stands at 26,144 lines.",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "registry-lens3",
+    "issue": "acceptance-pass",
+    "delta_lines": 2,
+    "files": [
+     "uxr-plugin/agents/hcd-researcher.md (lens 3 registry-first clause)"
+    ],
+    "reason": "Acceptance-pass residual of the source-registry wave (grounding-reliance law, design item 12): review lens 3 now names the grounding registry first - references/research-sources.md routes to one file per source under references/sources/, web tools only when no registered page covers the claim. +2 payload lines in the one hash-pinned reviewer file; re-pinned by the recorded PASS tuning run (runs/2026-11-22-registry-lens3, F1 0.28, p0 recall 1.00).",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "53-content",
+    "issue": 53,
+    "delta_lines": 221,
+    "files": [
+     "uxr-plugin/references/checklists/method-selection.md",
+     "uxr-plugin/references/checklists/qual-interviews.md",
+     "uxr-plugin/references/checklists/quant-surveys.md",
+     "uxr-plugin/references/writing-rules.md"
+    ],
+    "reason": "The confirmed 66-item checklist content set (MO 2026-11-23 ruling, tweak applied): the shared method-selection stage A0 (5 items), the qualitative interviews block (29 items), the quantitative surveys block (32 items), byte-exact from the confirmed note in the loader-parsed line shape with executor tags and optional tails, plus the writing-rules registry (26 seed rules in five families; ids stable forever, appending never renumbers). One MO-ruled append-only exception: the A1.4 line gains the format-law Source clause the confirmed line lacked, so the unchanged loader parses all 66. Loader parse and probe vocabulary unchanged; the enrolled checklist_gate selftest swaps its W4 empty-directory placeholder for the shipped-content law and keeps the absent-line check on an empty-directory override.",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "53-content",
+    "issue": 53,
+    "delta_lines": 177,
+    "files": [
+     "uxr-plugin/skills/survey-script/SKILL.md"
+    ],
+    "reason": "The survey skill counterpart of interview-script (MO round-2 rulings 2 and 8; build-wave dependency of checklist item B1.4): seven steps mirroring the script skill - inputs, output path survey-instrument-<KEY>.md with the -v2 rule, research-question to question-type to engagement mapping, burden budget and routing map and two-to-five alternatives and join fields, question rules by writing-rules registry id (R-S, X-S, R-H, R-A), the reader review loop ending in the survey mode of review_checks.py, save and report with the ticket and publish laws. One Grounding pointer line (230 bytes, inside the 256 budget); no rule text restated inline.",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "53-content",
+    "issue": 53,
+    "delta_lines": 360,
+    "files": [
+     "uxr-plugin/scripts/review_checks.py (survey mode)",
+     "uxr-plugin/skills/survey-script/SKILL.md (map-table shape line)"
+    ],
+    "reason": "The survey mode of the checker (the survey-script skill review loop, note section The survey skill counterpart step 6): four checks over the survey-instrument-<KEY>.md shape - burden count (section declares K, holds M; total against the **Burden budget** line), routing-map parse (every conditional question mapped, every landing real, no dead ends), coverage map (every RQ map row carries a digit in the Survey Qs column, warn), alternatives count (two to five per core question with the kept winner recorded) - plus the shared em-dash block and the structure exit 2 law. Exit codes copy check (0/1/2/3); check output byte-identical; the enrolled review_checks selftest gains the survey-mode coverage additively (items 14 and 15) and keeps all existing checks.",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "53-content",
+    "issue": 53,
+    "delta_lines": 115,
+    "files": [
+     "uxr-plugin/templates/workspace/method-selection.md",
+     "uxr-plugin/commands/uxr-init.md",
+     "uxr-plugin/commands/uxr-report.md",
+     "uxr-plugin/hooks/workspace_sync.py"
+    ],
+    "reason": "The A0 entry-stage wiring (design decisions 2, 3, and 6): the workspace template for the method-selection record the A0 items probe (classification table on the NN/g axes, method + alternatives, spec record, routing line with the named-gap wording; no template tokens), listed in the init plan tree so uxr-new workspaces get it through the scaffold copy; step 7b syncs the canonical set (three checklists + writing-rules registry) through the new SYNC_SET / sync_references plugin-to-workspace copy with recorded-local-override law (absent copies, identical unchanged, differing kept as an override; never clobbers, never deletes); the report phase 0 gate now runs the method-selection check before the type check with record-gap semantics (the one call site; the debrief per-session gate stays untouched).",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "53-content",
+    "issue": 53,
+    "delta_lines": 156,
+    "files": [
+     "uxr-plugin/lib/checklist_gate.py (pauses + output-only hierarchy attachment)",
+     "uxr-plugin/lib/config.py (one REQUIRED_KEYS line)",
+     "uxr-plugin/config/org.example.yaml (the autonomy key)",
+     "tests/uxr_selftests/checklist_gate.py (hierarchy + pauses coverage)"
+    ],
+    "reason": "The autonomy switch (note section The execution loop and the autonomy switch): the checklists.autonomy config key (execute | approve, default execute) beside checklists.enforcement, one REQUIRED_KEYS line mirroring the enforcement pattern; the sanctioned output-only loader change attaches the nearest ### group heading and the Executor default to each item JSON (parse unchanged, ITEM_RE unchanged); the pause plan joins the gate module - [human] and [draft] items pause in both modes, approve adds one pause per group boundary where the runner presents the group summary, the artifact links, and the missing list and waits for one go-ahead word - exposed as the pauses CLI (exit 0 plan, 2 usage; absent type prints the absent line). check and citations behavior unchanged. The MO tweak 2026-11-23 critical-decision law rides the tag rules: the human keeps every critical decision; [draft] drafts when context is available, never invents; [human] is never automated.",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "53-content",
+    "issue": 53,
+    "delta_lines": 12,
+    "files": [
+     "uxr-plugin/CHANGELOG.md (the [0.6.0] section)"
+    ],
+    "reason": "Release triple 0.5.0 to 0.6.0 for the confirmed checklist content wave: the [0.6.0] CHANGELOG section (12 lines) records the three checklists, the writing-rules registry, the survey skill, the survey checker mode, the autonomy switch, the method-selection artifact with the A0 entry wiring, and the content selftest. plugin.json, marketplace.json, and the README currently-v line carry the same version; net payload growth is the 12 release-note lines.",
+    "date": "2026-11-22"
+   },
+   {
+    "wave": "mailmerge-fix",
+    "issue": "w5-test-wave",
+    "delta_lines": 33,
+    "files": [
+     "uxr-plugin/scripts/recruit_send.py (env-precedence fix in load_send_settings)",
+     "tests/uxr_selftests/recruit_send.py (regression pin: env port beats example default)"
+    ],
+    "reason": "Mail-merge test wave fix: the example file's documentation defaults (smtp_port 587, use_tls true) reached the config layer through load_config's example+user merge and shadowed the UXR_RECRUIT_* env fallbacks, so an env-only account connected to the example port instead of the env port. load_send_settings now resets any config value that still equals the bare example file before the env fill, and the source line reports only layers that actually supplied a value. Regression pin added to the selftest. Payload delta measured 33 lines (script +20, selftest +13), all inside the two named files.",
+    "date": "2026-11-23"
+   }
+  ],
+  "golden_path_growth": null
+ }
 }

@@ -19,6 +19,11 @@ The requesting command names two inputs in its dispatch prompt:
    exists, otherwise the draft spec plus the background and decision text.
 2. The target artifact: the hypotheses and RQ draft, the interview script,
    the report draft, or the deck outline.
+3. Prior review notes, when the dispatch input carries a `Prior reviews:`
+   section: each prior finding is a claim to re-test against the current
+   artifact, and a prior finding that no longer holds is restated as
+   changed in your findings list. When the dispatch names no prior
+   reviews, review without them and never invent prior state.
 
 If no target artifact is named, reply with one line asking for it and
 stop.
@@ -38,8 +43,10 @@ Judge the artifact on, in order:
 3. **Evidence honesty.** Claims resting on outside evidence name where
    the evidence comes from. A claim that rests on outside evidence needs
    2 authoritative sources; otherwise its `source` must read exactly
-   `insufficient external evidence`. Use WebSearch and WebFetch to check
-   outside claims when the artifact cites them; read-only, nothing else.
+   `insufficient external evidence`. Check the grounding registry first:
+   `references/research-sources.md` routes to one file per source under
+   `references/sources/`; use WebSearch and WebFetch only when no
+   registered page covers the claim; read-only, nothing else.
 4. **Method fit.** The stated method matches the dominant question shape
    (qualitative leads for why questions; a survey is never the default
    for a why question).

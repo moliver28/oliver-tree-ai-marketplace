@@ -8,6 +8,8 @@ fixed folder set, and git rules that keep participant data out of version
 control. Every later command (`recruit`, `debrief`, `report`, `deck`,
 `trace`) finds its files here.
 
+Grounding: no registered sources serve this command; no search runs — the law paragraph lands in the workspace CLAUDE.md. Index: `references/research-sources.md`.
+
 Input: `$ARGUMENTS`. Exactly one of:
 
 - `<KEY>` - a ticket key (bare numbers resolve per `references/tracker.md`).
@@ -63,7 +65,8 @@ Steps:
 6. Show the plan and wait. One message with: ticket key and URL (or
    `no ticket`), status, folder path, UXR, group, sync target
    (`workspace.remote`, or `local only` when unset), and the file tree
-   the template creates (`00-overview.md`, `CLAUDE.md`, `.gitignore`,
+   the template creates (`00-overview.md`, `method-selection.md`,
+   `CLAUDE.md`, `.gitignore`,
    `.claude/settings.json`, `.sessions/`, `analysis/`, `deliverables/`,
    `interviews/`, `recruitment/`, `scripts/`, `sources/` with one folder
    per source type plus `interviews/`). End with exactly
@@ -90,6 +93,14 @@ Steps:
    ticket field except the title and slug. Exit 3 from the script: show
    its stderr and stop without retrying; exit 2: fix the invocation.
 
+7b. Sync the canonical set. Run
+   `python "${CLAUDE_PLUGIN_ROOT}/hooks/workspace_sync.py" sync-references --workspace "<research_root>/<slug>"`
+   and print its one-line result. The sync set carries the three checklist
+   files (`method-selection`, `qual-interviews`, `quant-surveys`) and the
+   writing-rules registry from the plugin's canonical copies; a workspace
+   edit later stays a recorded local override and is never clobbered by a
+   re-sync. A failure only warns in one line and never blocks the scaffold.
+
 8. Run the gitignore gate:
 
    ```
@@ -105,11 +116,29 @@ Steps:
    any `git add`. Print the blocked paths, tell
    the user to fix `<workspace>/.gitignore`, and end. Never write
    participant data while the gate fails.
+
+   Interview-data set (issue 57): also pass one path argument per entry
+   of the effective privacy set, and append every one of those entries
+   to `<workspace>/.gitignore` before the gate runs, so the config and
+   the file can never disagree. Read the effective set with
+   `python "${CLAUDE_PLUGIN_ROOT}/lib/config.py" --init-ignore-set` (one
+   path per line): when `privacy.init_ignore` is empty (the default) it
+   prints `interviews/`, which covers all interview data; when non-empty
+   it prints exactly the listed paths. The hardcoded floor entries stay
+   and are never replaceable.
 9. If `workspace.remote` is set: run
    `git -C "<target>" remote add origin <remote>` (ignore an
    already-exists error), then `git -C "<target>" push -u origin HEAD`.
    A push failure only warns: print the git error, note the workspace is
    committed locally, and continue.
+
+   Push gate (issue 58): a uxr-workspace commits to its main branch and
+   never creates branches or pull requests inside itself. The step-9
+   push runs only when `workspace.remote_push` is true; with the
+   default `false`, skip the push, note the workspace is committed
+   locally, and say in one line that `workspace.remote_push` controls
+   pushing. The marketplace repository is not a uxr-workspace; its own
+   flow is untouched.
 10. Print next steps, one line each, as plain command names with the key:
 
     - `show <KEY>` - open the study view

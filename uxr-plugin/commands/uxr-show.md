@@ -8,6 +8,8 @@ format)`, `item_url(key)`, and the `normalize_key` prefix rule (the read rows
 of `references/tracker.md`); the render is a script. It never calls
 `create_item`, `update_item`, `set_state`, or `add_comment`.
 
+Grounding: no registered sources serve this command (record-keeping; search is a tool, not a ritual). Index: `references/research-sources.md`.
+
 Input: `$ARGUMENTS`: one ticket key or a bare number.
 
 Steps:

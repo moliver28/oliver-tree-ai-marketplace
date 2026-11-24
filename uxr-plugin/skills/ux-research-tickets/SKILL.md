@@ -17,6 +17,8 @@ owns every tracker call and gate.
    `<name> is not in this build yet; mine and show are available.`
    and stop. Do not substitute a different command.
 
+Grounding: no registered sources serve this skill (record-keeping; search is a tool, not a ritual). Index: `references/research-sources.md`.
+
 ## Routing
 
 The intent pick is a script, not a guess. Run:

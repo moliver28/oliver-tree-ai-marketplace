@@ -18,6 +18,8 @@ you write the narrative on that skeleton. Nothing sends without the user.
 
 ## Inputs
 
+Grounding: consult registered sources in `references/sources/` (for this command: R-01 metrics, R-04 COREQ, R-20 scoring, R-21 HEART); page-first lookup; cite the URL with the claim. Index: `references/research-sources.md`.
+
 `$ARGUMENTS` is `<KEY>` with any of:
 `--audience=internal|product-team|leadership` (default `internal`),
 `--tier=lite|standard|strategic` (default: computed by `scope-tier`),
@@ -36,8 +38,8 @@ Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" rend
 
 | Phase | Steps |
 |---|---|
-| 0. Resolve | Find the workspace: `python "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold_workspace.py" lookup-workspace --ticket <KEY> --readme <research_root>/README.md`. Require at least one `interviews/*-summary.md` and a non-empty `analysis/codes.md` or `analysis/themes.md`. Else stop and point to `debrief` - there is nothing to report yet. |
-| 1. Scope | Read the ticket (summary, body, fields via `get_item` in `references/tracker.md`) and the workspace `00-overview.md` in parallel. Run `python "${CLAUDE_PLUGIN_ROOT}/references/report_helpers.py" scope-tier --type "<research type>" --investment "<investment>" --pod-names "<raw group string>"`. Show the scope card: type, investment, groups, computed tier (an explicit `--tier` flag overrides, and says so). Gate. |
+| 0. Resolve | Find the workspace: `python "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold_workspace.py" lookup-workspace --ticket <KEY> --readme <research_root>/README.md`. Require at least one `interviews/*-summary.md` and a non-empty `analysis/codes.md` or `analysis/themes.md`. Else stop and point to `debrief` - there is nothing to report yet. Then run the method-selection stage first - `python "${CLAUDE_PLUGIN_ROOT}/lib/checklist_gate.py" check --type method-selection --spec <state_dir>/specs/<KEY>.spec.json --workspace <workspace>` - and print its missing list as record-gap lines (never block; a method without a shipped checklist records its named-gap line in `method-selection.md` and the study proceeds under the shared law). Then run the type checklist gate - `python "${CLAUDE_PLUGIN_ROOT}/lib/checklist_gate.py" check --type <qual-interviews when the method is an interview, quant-surveys for a survey> --spec <state_dir>/specs/<KEY>.spec.json --workspace <workspace>` - and print its missing list as record-gap lines: warn and continue, never block (`checklists.enforcement: record`; in `block` mode the phase 5 write stops when more than half the items lack evidence). |
+| 1. Scope | Read the ticket (summary, body, fields via `get_item` in `references/tracker.md`) and the workspace `00-overview.md` in parallel. Run `python "${CLAUDE_PLUGIN_ROOT}/references/report_helpers.py" scope-tier --type "<research type>" --investment "<investment>" --pod-names "<raw group string>"`. Show the scope card: type, investment, groups, computed tier (an explicit `--tier` flag overrides, and says so). The scope card opens with the verbatim ask line `Original ask (<ask_source date>): <ask_verbatim>` from the spec (a pre-ask spec says `Original ask: not recorded (pre-ask spec)` in one line). Gate. |
 | 2. Gather | In one parallel batch: (A) the workspace analysis files (`analysis/codes.md`, `analysis/themes.md`, all summaries); (B) prior finished studies: tracker search (limit 8), Drive (past 18 months, limit 12), wiki (past 180 days, limit 8); (C) the feedback store, chat search in the study's channels, and the next 21 days of calendar. A failed source logs one line `<Tool>: unavailable (skipped)` and never blocks. Compress B and C into `<workspace>/.sessions/gather-brief-<KEY>-<date>.md` - the brief carries names, counts, and verdicts, not raw search JSON. Gate. |
 | 3. Synthesize | Run `python "${CLAUDE_PLUGIN_ROOT}/references/report_helpers.py" evidence-weight --workspace <workspace>`, then `verdict` on the tallies (or read them from the evidence-weight output). It warns when fewer than half of the sessions have an alignment block - show that warning and keep going. Copy verdict labels verbatim into the draft. Map each finding to its source as `[S:slug]`; a claim with no source is marked `UNCITED: <claim>` on its own line. Run the bias check: `codebook-codes --file <workspace>/analysis/codes.md` then `classify-themes --codes-file ... --themes-file ...`. Show the synthesis table (finding, verdict, sources) and the bias-check table. Gate. |
 | 4. Draft | This is the run's FIRST model call: write the narrative by the tier spec below, into `deliverables/<filename draft>` shape (front matter below), ending the draft with one `Headline:` line (one sentence, computed numbers and verdict labels verbatim) that phase 6 reuses. Run `python "${CLAUDE_PLUGIN_ROOT}/references/report_helpers.py" word-count-sections --file <draft>`; mark a section `OVER` at more than 20% above its limit; loop (rewrite the over sections) until none is over. Then the mandatory HCD gate (below): one checklist-scoped call that judges only the qualitative residual after the deterministic fact-check; fold in, or record a one-line decline; re-invoke only on a `p0` verdict. Optional: dispatch `stakeholder-reviewer` once per requested `--stakeholder-role`. Optional: run `cross-study --current-file <draft> --priors-glob "<the prior reports from phase 2>"` and show its `{confirms, reverses, new}` counts next to the draft. When no `--stakeholder-role` was requested, say in one line that a per-role stakeholder review is available by re-running with `--stakeholder-role=<role>`. |
@@ -72,11 +74,18 @@ sources_cited: [<slug>, ...]
 Label analyst inference exactly `Analyst inference` with no slug. Describe diagrams in words;
 never generate images. `--altitude=brief` writes the lite shape,
 `standard` the standard shape, `deep` the strategic shape (map it with
-`altitude --level`).
+`altitude --level`). The methodology section prints the original ask
+first - `Original ask (<ask_source date>): <ask_verbatim>` from the spec;
+a draft may quote an up-level after it, and up-levels live only in the
+spec's `ask_uplevels`, never in `ask_verbatim`. The methodology section
+also names the analysis plan actually followed - the deterministic gates
+that ran, in the order they ran.
 
 ## The HCD gate (phase 4; one call per run)
 
 Render the dispatch - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render hcd-gate --set "artifact=<the draft>" --set "artifact_kind=report" --set "factcheck=<the settled gates JSON: check-citations, word-count-sections, evidence-weight verdicts>"` - and dispatch it to `hcd-researcher` (Task tool, `subagent_type: hcd-researcher`). The deterministic fact-check already settled numbers, citations, and stance vocabulary; the agent judges only the qualitative residual (claim-evidence trace, method/RQ alignment, stance justification) and ends with a checklist-scoped `verdict: {"result": "pass"|"p0", "p0": [...]}` line. Fold every finding in, or record a one-line decline. Print the agent's Summary, Risks, and What to change verbatim. Re-invoke only on a `p0` verdict, after the fix.
+
+Before the dispatch, run `python "${CLAUDE_PLUGIN_ROOT}/scripts/researcher_state.py" digest --key <KEY>` and, when it prints reviews, paste its output into the dispatch input's study context under a `Prior reviews:` line; `no prior reviews` continues unchanged. The dispatch input's study context opens with the verbatim ask from the spec: `Original ask (<ask_source date>): <ask_verbatim>`; a pre-ask spec says `Original ask: not recorded (pre-ask spec)` in one line and continues.
 
 ## Verdicts (from `report.verdict_threshold`, default 0.60)
 

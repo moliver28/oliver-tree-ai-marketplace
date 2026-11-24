@@ -524,6 +524,54 @@ def _selftest() -> int:
         set(DEFAULT_INTERVIEW_STATUSES) <= set(status_set())
         and set(DEFAULT_SURVEY_STATUSES) <= set(status_set()),
     )
+    # --- W4 issue 60: the verbatim ask rule (fires only on _meta command "new") ---
+    ask_spec = dict(GOLDEN_SPEC)
+    ask_spec["ask_verbatim"] = "Should the invoice page ship to all tenants?"
+    ask_spec["ask_source"] = "intake interview, 2026-11-21"
+    new_meta = {"last_edited_by_command": "new"}
+    ok, errors = validate_spec({**ask_spec, "_meta": new_meta}, selftest_config())
+    check("a new-command spec with a filled ask validates", ok, repr(errors))
+    empty_ask = {**ask_spec, "ask_verbatim": "   ", "_meta": new_meta}
+    ok, errors = validate_spec(empty_ask, selftest_config())
+    check(
+        "an empty ask on a new-command spec fails with the exact line",
+        not ok and "ask_verbatim is empty (the original ask must be stored verbatim)" in errors,
+        repr(errors),
+    )
+    uplevel_spec = {
+        **ask_spec,
+        "_meta": new_meta,
+        "ask_uplevels": [
+            {"text": "Should the redesigned invoice page ship to all tenants?", "note": "sharpened"},
+        ],
+    }
+    ok, errors = validate_spec(uplevel_spec, selftest_config())
+    check("a distinct up-level keeps the spec valid", ok, repr(errors))
+    uplevel_spec["ask_uplevels"] = [{"text": ask_spec["ask_verbatim"], "note": "copy"}]
+    ok, errors = validate_spec(uplevel_spec, selftest_config())
+    check(
+        "a byte-equal up-level fails with the exact line",
+        not ok and "ask_uplevel must not replace the original ask" in errors,
+        repr(errors),
+    )
+    no_text = {**ask_spec, "ask_verbatim": "   ", "_meta": new_meta,
+               "ask_uplevels": [{"note": "carries no text key"}]}
+    ok, errors = validate_spec(no_text, selftest_config())
+    check(
+        "a text-less up-level never fires the replacement error (issue 133)",
+        not ok
+        and "ask_uplevel must not replace the original ask" not in errors
+        and "ask_verbatim is empty (the original ask must be stored verbatim)" in errors,
+        repr(errors),
+    )
+    edit_meta = {"last_edited_by_command": "edit"}
+    ok, errors = validate_spec({**GOLDEN_SPEC, "ask_verbatim": "", "_meta": edit_meta}, selftest_config())
+    check("the ask rule never fires on an edit-command spec", ok, repr(errors))
+    ok, errors = validate_spec(GOLDEN_SPEC, selftest_config())
+    check("the ask rule never fires on a spec without _meta (fixture shape)", ok, repr(errors))
+    retro_meta = {"last_edited_by_command": "retro"}
+    ok, errors = validate_spec({**GOLDEN_SPEC, "_meta": retro_meta}, selftest_config())
+    check("the ask rule never fires on a retro save (the gap records instead)", ok, repr(errors))
 
     if failures:
         print(f"selftest FAILED ({len(failures)} check(s))")

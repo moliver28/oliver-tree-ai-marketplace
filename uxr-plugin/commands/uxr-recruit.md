@@ -21,6 +21,8 @@ table from `scripts/recruit_funnel.py`.
 
 ## Inputs
 
+Grounding: consult registered sources in `references/sources/` (for this command: R-01 recruiting, R-15 ops); page-first lookup; cite the URL with the claim. Index: `references/research-sources.md`.
+
 `$ARGUMENTS` is `<KEY>` with any of: `--recruit=<name>`, `--reply=<name>`,
 `--level=i|ii|iii` (default `ii`), `--allow=<eventId>`, `--keep=<eventId>`,
 `--window=<N>` (default 14, max 60), `--external`, `--coordinate`,
@@ -45,6 +47,30 @@ days).
 6. Run `scaffold_workspace.py validate-recruitment --path
    <workspace>/recruitment/participants.md --method <method_key> --channel
    <channel>`; its warnings are advisory; never block on them.
+
+## Status gates (workspace participants table)
+
+The workspace `recruitment/participants.md` status column uses the
+locked vocabulary: identified, screened, invited, scheduled,
+completed, incentive-sent, withdrawn. A status may not advance while
+its gate columns are empty on the row; check the gates mechanically
+from the row before every status change (no model call):
+
+- `screened` needs a recorded `screener result`.
+- `invited` needs `contact` filled (external flow) or
+  `source (org-chart path)` filled (internal flow).
+- `scheduled` needs an outreach/contact action recorded: `DM sent
+  (date)` holds the date of the DM, chat note, merged send, or email
+  send that reached the participant.
+- `completed` needs `consent-to-record` set to yes.
+- `incentive-sent` needs the row already `completed`.
+- `withdrawn` needs nothing; it is allowed from any status at any
+  time.
+
+A blocked advance is one line: name the row and the empty gate column,
+then stop and ask for the value. The spec roster keeps its own status
+vocabulary (Outreach Sent, Scheduled, and the rest); these gates gate
+the workspace table only.
 
 ## Internal flow (default)
 
@@ -95,6 +121,11 @@ on a wave tab.
    `--coordinate`, draft the chat notes asking for those OKs and the warm
    intro; never send them; without `--coordinate`, say in one line that
    re-running with `--coordinate` drafts those chat notes).
+   Org-chart search (issue 50): with `--coordinate`, search the
+   org-chart connectors saved in `recruiting.org_chart_paths` for other
+   teams and accounts that could help recruit, and name what you find in
+   the drafted chat notes; the list empty means print one line that the
+   org chart is not configured and continue without it.
 7. **Booking page.** Reuse a verified page or build one to the settings in
    `references/recruit-outreach.md`. Verify the public link shows bookable
    slots.
@@ -122,11 +153,45 @@ Finish the external run with the recruitment table from
 Output never contains an email address; keep it that way in anything you
 paste into chat or the ticket.
 
+## Email send (MVP)
+
+The send path for the external participants table: one email per
+recipient, no mail-merge add-on. The draft-only rule (safety rule 1)
+keeps the agent at zero sends; the researcher runs the real send
+themselves, with `--send`, after the review.
+
+1. The command is `python "${CLAUDE_PLUGIN_ROOT}/scripts/recruit_send.py"
+   --participants <workspace>/recruitment/participants.md --template
+   <workspace>/recruitment/email-merge-template.md`. Without `--send` it
+   is a dry run: the merged messages print, and nothing changes - no
+   send, no stamp, no write.
+2. The send follows the status gates above: a row is sendable only at
+   `invited`, with `contact` filled and `DM sent (date)` empty; on send
+   success the row's `DM sent (date)` is stamped and the row advances to
+   `scheduled`; a failed row gets no stamp and stays at `invited`.
+3. One email per recipient: each message carries one `To` and no `Cc` or
+   `Bcc`; a duplicate address sends once and the later row is reported.
+   Contact values are masked in the report; `--show-contacts` shows
+   them.
+4. `--send` needs the SMTP account in `recruit.email.*` (real values in
+   the gitignored `config/org.yaml` or the `UXR_RECRUIT_*` env vars,
+   never in the repo).
+5. The template ships as
+   `templates/workspace/recruitment/email-merge-template.example.md`
+   (synthetic values only). Copy it into the workspace, rename it, and
+   fill in the message there. A `{{token}}` names an approved column
+   (`{{name_pseudonym}}` from `name/pseudonym`); an unknown token stops
+   the run before anything is sent.
+
+When the researcher follows the email with a chat DM, the DM carries
+context plus the row's `prep note`, or nothing - no other content.
+
 ## Scripts
 
 | Script | Contract |
 |---|---|
 | `scripts/recruit_funnel.py --spec <path> [--wave <tab>] [--preflight] [--reminder] [--funnel-data <json>] [--check-draft <file>] [--today <date>]` | Prints the nine-row recruitment table; `--preflight` exits 2 with `BLOCK <account> / <first>: <reason>` lines or prints `PREFLIGHT OK: <n> rows ready on <tab>`; `--reminder` drafts nudges; `--check-draft` is check V1. Output never contains an email address. |
+| `scripts/recruit_send.py --participants <participants.md> --template <file> [--send] [--show-contacts] [--today <date>]` | The MVP email send from the external participants table (see Email send). Dry run by default: the merged messages print, nothing changes. `--send` needs the `recruit.email.*` SMTP account; exit 0 clean, 1 a send failed, 2 usage. |
 | `scripts/source_contacts.py` | Sources and clears contacts; account match is normalized whole words ("Box" never matches "Dropbox"); missing do-not-contact or open-deal tab exits 2 and sources nothing. |
 | `scripts/roster_apply.py --spec <path> --ops <json-or-@file> --out <body.json> [--dry-run]` | The only spec write path: validate, render, then write spec and body; exit 3 on validation failure with nothing written; duplicate adds promote only, never demote. |
 | `scripts/calendar_prep.py <events.json> [--manager <names>] [--keep <id>] [--allow <id>]` | Classifies the window's events into `pto`, `immovable`, `movable`, `other`; weekends and declined events are skipped. |

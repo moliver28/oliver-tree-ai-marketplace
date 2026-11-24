@@ -20,6 +20,8 @@ gate, preview, create. Three model calls on the golden path (phases 2, 3–5,
 
 `fast`/`retro` win over the other paths.
 
+Grounding: consult registered sources in `references/sources/` (for this command: R-01 method pages); page-first lookup; cite the URL with the claim. Index: `references/research-sources.md`.
+
 ## Setup (once)
 
 1. Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - and follow it.
@@ -69,6 +71,8 @@ local path in Resources: search Drive for a match and ask for a separate
 1. Save the phase 5 set to a temp spec JSON and run `python "${CLAUDE_PLUGIN_ROOT}/scripts/trace_prompts.py" --rq-map <spec.json>`. Drop an RQ in the `unmapped` list, and say you dropped it and why.
 2. Fact-check first (citations/counts/stances come from the gates that already ran), then assemble the gate input and run it as this run's THIRD model call: `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render hcd-gate --set "artifact=<draft spec>" --set "artifact_kind=draft" --set "factcheck=<the settled JSON>"`, dispatched to the `hcd-researcher` agent (Task tool, `subagent_type: hcd-researcher`). It judges only the qualitative residual and ends with `verdict: {"result": "pass"|"p0", "p0": [...]}`.
 3. Fold every finding in, or record a one-line decline. Print the agent's Summary, Risks, and What to change verbatim, plus your fold-in or decline per finding. Re-invoke only on `p0`, after the fix. Wait for the user's go-ahead on the revised set.
+4. Prior reviews: when the study already resolves to a workspace (the retro path), run `python "${CLAUDE_PLUGIN_ROOT}/scripts/researcher_state.py" digest --key <study key>` (the overview `Ticket:` line match, else the workspace folder name) and, when it prints reviews, paste its output into the step 2 gate input's study context under a `Prior reviews:` line; `no prior reviews` continues unchanged.
+5. The gate input's study context opens with the verbatim ask: `Original ask: <the user's recorded ask, word-for-word from the interview>`, so the reviewer aligns on the original ask.
 
 ### Phase 7. Method, sample, investment (**Wait**)
 
@@ -101,7 +105,7 @@ or `go`.
 
 ## Build, validate, persist (shared with `init`)
 
-1. Assemble the spec in memory: `history`, `decision`, `hypotheses` (`{label, text}`, never empty), `assumptions`, `resources` (`{label, url or text, share_status, share_note}` from phase 2.5), `research_questions` (never empty), `sample_size`, `persona`, `session_length`, `results` (null unless `retro`), `study_title`, `method_key` (`interview` or `survey`; `survey` only when the method is Survey), `channel` (`internal`/`external`/`mixed`), the people names `init` reads (`uxr`, `pm`, `pd`, `em` owners when gathered), `jtbd_refs`, `persona_refs` (with ring tags), `slack_channel`.
+1. Assemble the spec in memory: `history`, `decision`, `hypotheses` (`{label, text}`, never empty), `assumptions`, `resources` (`{label, url or text, share_status, share_note}` from phase 2.5), `research_questions` (never empty), `sample_size`, `persona`, `session_length`, `results` (null unless `retro`), `study_title`, `method_key` (`interview` or `survey`; `survey` only when the method is Survey), `channel` (`internal`/`external`/`mixed`), the people names `init` reads (`uxr`, `pm`, `pd`, `em` owners when gathered), `jtbd_refs`, `persona_refs` (with ring tags), `slack_channel`. The spec carries the ask keys: `ask_verbatim` (the user's ask copied word-for-word from the source; the fast path uses the topic line), `ask_source` (where it was copied from, with a date), and optional `ask_uplevels` (a list of `{text, note}` up-levels; additive only, never a replacement).
 2. Pipe it through `python "${CLAUDE_PLUGIN_ROOT}/scripts/build_body.py"` (spec JSON on stdin). Non-zero exit: print stderr verbatim, write nothing, call no tracker tool, return to the interview phase that owns the failing content. Empty hypotheses exits 3 and never reaches `create_item`.
 3. `create_item` (`references/tracker.md`) with `tracker.study_item_type`, summary, rendered body, resolved field payloads. The plugin's only create call; runs only after the phase 8 gate.
 4. Read the body back (`get_item`), save to a temp file, run `python "${CLAUDE_PLUGIN_ROOT}/scripts/backfill_spec.py" check-readback --file <readback file>`. Report any miss and stop before the next step.
@@ -124,7 +128,7 @@ Input is a workspace path or Drive folder link for a finished study.
 1. List visible artifacts (files or Drive listing); ask "Correct?".
 2. Derive from the files ONLY: history, decision, hypotheses, assumptions, RQs, method, sample, 2-3 sentence `results`.
 3. Ask before adding scope the files do not support.
-4. Run the build block. No `init`: a finished study gets no new workspace.
+4. Run the build block. No `init`: a finished study gets no new workspace. Pass `--command retro` to the `save-spec` step: a finished study saves as retro, and an ask the source files do not carry records `ask_verbatim` empty with `ask_source: "unrecovered"` instead of blocking.
 
 ## Safety gates
 

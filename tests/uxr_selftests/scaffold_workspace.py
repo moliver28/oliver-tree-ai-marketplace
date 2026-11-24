@@ -633,6 +633,52 @@ def _selftest() -> int:
               and participants_columns("interview", "internal")
               == ["Name", "Title", "Reason", "Email", "Slack", "Status", "Session date", "Recording"])
 
+    # --- validate-recruitment, approved two-table shape (issue 135) ---------------
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        shipped = (Path(__file__).resolve().parents[2] / "uxr-plugin" / "templates"
+                   / "workspace" / "recruitment" / "participants.md").read_text(encoding="utf-8")
+        participants = root / "participants.md"
+        participants.write_text(shipped, encoding="utf-8")
+        check("the shipped two-table template validates clean (exit 0)",
+              cmd_validate_recruitment({"--path": str(participants), "--method": "interview",
+                                        "--channel": "internal"}) == EXIT_OK)
+        two_tables = (
+            "# Participants\n\n"
+            "## Internal flow (default)\n\n"
+            "| participant id | name | role/segment | team/org area |"
+            " source (org-chart path) | screener result | status | consent-to-record |"
+            " DM sent (date) | notes |\n"
+            "|---|---|---|---|---|---|---|---|---|---|\n"
+            "| I-01 | Val Example | engineer | platform | manager path | pass"
+            " | identified | | | |\n\n"
+            "## External flow (`--external`)\n\n"
+            "| participant id | name/pseudonym | contact | source (panel/channel) |"
+            " screener result | status | consent-to-record | incentive status |"
+            " DM sent (date) | prep note | notes |\n"
+            "|---|---|---|---|---|---|---|---|---|---|---|\n"
+            "| P-01 | Ada Example | ada.example@example.com | panel | role fit: yes"
+            " | invited | | not sent | | | |\n"
+        )
+        participants.write_text(two_tables, encoding="utf-8")
+        check("a filled two-table file validates clean (exit 0)",
+              cmd_validate_recruitment({"--path": str(participants), "--method": "interview",
+                                        "--channel": "internal"}) == EXIT_OK)
+        participants.write_text(
+            two_tables.replace("| screener result |", "| screener |", 1), encoding="utf-8")
+        check("a drifted approved header warns (exit 1), never asserts",
+              cmd_validate_recruitment({"--path": str(participants), "--method": "interview",
+                                        "--channel": "internal"}) == EXIT_WARN)
+        participants.write_text(
+            two_tables.replace("| invited |", "| maybe |"), encoding="utf-8")
+        check("an unknown status in the two-table shape warns (exit 1)",
+              cmd_validate_recruitment({"--path": str(participants), "--method": "interview",
+                                        "--channel": "internal"}) == EXIT_WARN)
+        participants.write_text("# Participants\n\nno tables here\n", encoding="utf-8")
+        check("a table-less file still asserts (exit 3)",
+              cmd_validate_recruitment({"--path": str(participants), "--method": "interview",
+                                        "--channel": "internal"}) == EXIT_ASSERT)
+
     if failures:
         print(f"selftest FAILED ({len(failures)} check(s))")
         return 4

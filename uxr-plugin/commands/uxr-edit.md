@@ -12,6 +12,8 @@ tracker fields resolve through `lib/field_map.py`. One run makes at most one
 
 ## Inputs
 
+Grounding: no registered sources serve this command (record-keeping; search is a tool, not a ritual). Index: `references/research-sources.md`.
+
 `$ARGUMENTS` takes one of three shapes:
 
 1. `<KEY>` alone: read the ticket, show it, and ask what to change.
@@ -144,6 +146,11 @@ Special rules:
       `edit`, `session_id` = `$CLAUDE_SESSION_ID`, `transcript_path` = the
       current session transcript path when the environment provides one.
       Keep `created_at` and every other `_meta` key unchanged.
+      Then run `python "${CLAUDE_PLUGIN_ROOT}/scripts/backfill_spec.py" assert-ask --file <spec path>`
+      and print its line verbatim: `ask OK` continues; `ask missing (pre-ask
+      spec)` records the legacy gap and continues; exit 5 prints the gap
+      line and stops before the update call. The ask keys are never edited
+      through the shorthand table - up-levels live only in `ask_uplevels`.
    b. Push the full body AND the resolved field payloads in one
       `update_item` call. The body is the whole rendered document from step
       7e -- never a fragment. This is the run's only write call.

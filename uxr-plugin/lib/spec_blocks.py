@@ -315,7 +315,10 @@ def validate_spec(spec: Any, config: dict | None = None) -> tuple[bool, list[str
     ``Potential Candidate``), and a ``channel`` of internal or external
     (default ``internal``); resources are dicts where a ``url`` requires a
     ``share_status`` of shared, private, or unknown, and a local file path
-    is never valid.
+    is never valid; and a spec whose ``_meta.last_edited_by_command`` is
+    ``new`` (issue 60) carries a non-empty verbatim ``ask_verbatim`` whose
+    ``ask_uplevels`` entries never byte-equal it. A retro save records an
+    unrecovered ask instead of blocking, so the rule never fires on it.
     """
     try:
         return _validate_spec(spec, config)
@@ -418,6 +421,27 @@ def _validate_spec(spec: Any, config: dict | None) -> tuple[bool, list[str]]:
                         f"resources[{index}].{field_name} looks like a local file path; "
                         "put the file in Drive (or the tracker) and link it instead"
                     )
+
+    # Issue 60: the original ask is stored verbatim. The rule fires ONLY on a
+    # spec saved by the `new` build block (a retro save records the gap
+    # instead); fixture specs carry no _meta and never reach it.
+    meta = spec.get("_meta")
+    if isinstance(meta, dict) and meta.get("last_edited_by_command") == "new":
+        ask = spec.get("ask_verbatim")
+        if not isinstance(ask, str) or not ask.strip():
+            add("ask_verbatim is empty (the original ask must be stored verbatim)")
+        uplevels = spec.get("ask_uplevels")
+        if isinstance(uplevels, list):
+            for index, uplevel in enumerate(uplevels):
+                # The str guard keeps an entry with no ``text`` key from
+                # firing the replacement error on top of the empty-ask
+                # error (issue 133: one misleading second error line).
+                if (
+                    isinstance(uplevel, dict)
+                    and isinstance(uplevel.get("text"), str)
+                    and uplevel.get("text") == ask
+                ):
+                    add("ask_uplevel must not replace the original ask")
 
     return (not errors), errors
 
