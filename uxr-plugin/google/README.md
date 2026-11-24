@@ -4,6 +4,24 @@
 #92 event-timed follow-ups). Google runs the sends from your account. The repo
 owns the script source. The plugin's `recruit_send.py` covers the SMTP path.
 
+## Template sheet (copy and go)
+
+Build one master Sheet, share it view-only, and every new researcher starts
+from **File > Make a copy**. The copy carries the script, the tabs, the sample
+rows, and the SETUP checklist. Triggers and authorizations do not copy, so the
+copy's **uxr mail merge** menu re-creates them (`Run mergeSend`,
+`Run setupScreener`, `Install syncEvents trigger`). The menu comes from
+`onOpen`, which needs no authorization and survives the copy.
+
+1. Open a blank Sheet. `Extensions > Apps Script`. Paste `mail-merge.gs` and
+   `template-builder.gs` as two files. Save.
+2. Choose `buildTemplate`. Click **Run**. Approve access. Every tab, the
+   sample rows, and the SETUP tab appear.
+3. Optional: delete `template-builder.gs` from the project, so copies carry
+   only the engine. Save. Then share the Sheet view-only.
+4. In a copy, work down the SETUP tab: deploy the web app, fill Config, then
+   use the **uxr mail merge** menu.
+
 ## Setup
 
 1. Open the merge Sheet in Google Sheets.
