@@ -93,7 +93,8 @@ def _selftest() -> int:
     check("the example config ships a generic empty suppression list",
           'suppression_list: ""' in example, "empty key line missing")
     config_py = _read("lib", "config.py")
-    for dotted in ("recruitment.pipeline", "recruitment.suppression_list"):
+    for dotted in ("recruitment.pipeline", "recruitment.suppression_list",
+                   "recruitment.meeting_service"):
         check(f"REQUIRED_KEYS carries {dotted}", f'"{dotted}",' in config_py, "key missing")
 
     # The command and reference docs carry the same law.
@@ -125,6 +126,31 @@ def _selftest() -> int:
               "skip: suppressed (suppression list)")), "reasons missing")
     check("the reference V4 line carries the suppressed counts",
           "suppressed counts" in reference and "suppression-list" in reference, "V4 missing")
+
+    # The meeting-service law (issue 55): the default never auto-attaches
+    # a conferencing link; the five documented values; V2 re-asserted.
+    check("the example config ships the appointment-link default",
+          'meeting_service: "appointment-link"' in example, "default missing")
+    check("the example config documents the five values",
+          all(value in example for value in (
+              "appointment-link", "none", "google-meet", "zoom", "other")),
+          "values missing")
+    check("the command carries the meeting-service safety rule",
+          "Meeting-service law" in command and "never auto-attach" in command,
+          "law missing")
+    check("the command names all five meeting-service values",
+          all(value in command for value in (
+              "`appointment-link`", "`none`", "`google-meet`", "`zoom`", "`other`")),
+          "values missing")
+    check("the command states the google-meet double condition",
+          "unless the config names" in command and "`google-meet` and the user's own flow creates it" in command,
+          "condition missing")
+    check("the reference carries the meeting-service law",
+          "## The meeting-service law" in reference and "never auto-attach" in reference,
+          "law missing")
+    check("the reference re-asserts the V2 self-test law",
+          "The V2 self-test law is unchanged" in reference and "no redirect URL" in reference,
+          "V2 missing")
 
     # No org-specific list, name, or default ships anywhere (issue 50).
     # The needle is split so this scan's own source never matches.

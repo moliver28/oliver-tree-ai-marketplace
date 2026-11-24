@@ -92,6 +92,17 @@ paste. Retest V2 on your own mail tool.
 - Never open slots over PTO (`calendar_prep.py` classifies `pto` events).
 - Verify the public link shows bookable slots before V3.
 
+## The meeting-service law
+
+Calendar events created by recruitment never auto-attach a conferencing
+link. The join link comes only from the configured meeting service's
+own flow: `recruitment.meeting_service` (default `appointment-link`;
+one of `appointment-link`, `none`, `google-meet`, `zoom`, `other`).
+The default means zero auto-created links. No Google Meet link may ever
+appear unless the config names `google-meet` and the user's own flow
+creates it. The V2 self-test law is unchanged: the self-test email
+shows the exact booking link and no redirect URL.
+
 ## The pre-send stop (external flow, exactly once)
 
 Show, in order: the recruitment table, off-sheet contacts, the "no email

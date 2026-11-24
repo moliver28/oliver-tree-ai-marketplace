@@ -138,6 +138,7 @@ REQUIRED_KEYS: tuple[str, ...] = (
     "recruiting.org_chart_paths",
     "recruitment.pipeline",
     "recruitment.suppression_list",
+    "recruitment.meeting_service",
     "calendar.working_hours",
     "calendar.default_level",
     "calendar.max_moves_per_recruit",

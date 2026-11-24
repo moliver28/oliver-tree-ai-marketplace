@@ -18,6 +18,13 @@ table from `scripts/recruit_funnel.py`.
 5. **Customer personal data stays in the spreadsheet store.** No customer email or account list in the repository, the ticket (outside engaged roster rows), or chat logs. Refer to a contact as account + first name. `recruit_funnel.py` scrubs emails from its output; do not paste them back in.
 6. **No URL in a mail draft body** when the mail tool rewrites links: keep the booking link in its merge column or print it for the user. Retest with check V2 on the user's own mail tool.
 7. `--dry-run` writes nothing: no spec change, no event, no draft.
+8. **Meeting-service law.** Calendar events created by recruitment
+   never auto-attach a conferencing link; the join link comes only from
+   the configured meeting service's own flow: `recruitment.meeting_service`
+   (default `appointment-link`; one of `appointment-link`, `none`,
+   `google-meet`, `zoom`, `other`). The default means zero auto-created
+   links. No Google Meet link may ever appear unless the config names
+   `google-meet` and the user's own flow creates it.
 
 ## Inputs
 
@@ -31,7 +38,7 @@ days).
 
 ## Setup (every run)
 
-1. Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - and follow it. Note `recruit.*` (statuses, window_days, session_minutes, nudge_after_days, sheets, wave_tab_headers, booking_url_regex), `recruitment.*` (pipeline, suppression_list), `calendar.*`, `org.internal_domains`, and `org.notetaker_email`. Run the pipeline check - `python "${CLAUDE_PLUGIN_ROOT}/scripts/recruit_funnel.py" --pipeline-check` - once per run; an unknown stage name or an unreadable configured suppression list exits 2: report the error line and stop.
+1. Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - and follow it. Note `recruit.*` (statuses, window_days, session_minutes, nudge_after_days, sheets, wave_tab_headers, booking_url_regex), `recruitment.*` (pipeline, suppression_list, meeting_service), `calendar.*`, `org.internal_domains`, and `org.notetaker_email`. Run the pipeline check - `python "${CLAUDE_PLUGIN_ROOT}/scripts/recruit_funnel.py" --pipeline-check` - once per run; an unknown stage name or an unreadable configured suppression list exits 2: report the error line and stop.
 2. Resolve the workspace with `scaffold_workspace.py lookup-workspace
    --ticket <KEY> --readme <research_root>/README.md`.
 3. Read the ticket: summary, status, start date, target end date. Load the
