@@ -40,6 +40,14 @@ One row per operation; use the column for the configured tracker.
 a bare number gets the `tracker.bare_number_prefix`. A key outside the
 study project is refused, never searched.
 
+## Ticket mentions (issue 52)
+
+Every ticket mention shows the number and the short title in one format:
+`(<key>: <short title>)`. The keyed form is `<KEY>-<num>` (Jira) or
+`#<num>` (GitHub Issues, GitLab Issues); a tracker whose items carry no
+number shows the key alone (Notion). The adapter's normalized key
+supplies the key and the number; the item read supplies the short title.
+
 ## Jira parameters (reference tracker)
 
 The current Atlassian MCP server is v2. It renamed two tools that the

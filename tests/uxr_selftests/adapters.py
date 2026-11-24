@@ -163,6 +163,9 @@ def _selftest() -> int:
     check("github pull invalid key returns the error dict",
           "error" in github.pull("UX1-237", gh_pull), repr(github.pull("UX1-237", gh_pull)))
     check("github pull empty key returns the error dict", "error" in github.pull("", gh_pull))
+    check("github display data: the normalized key carries the #num form (issue 52)",
+          github.pull("306", gh_pull)["key"] == "#306"
+          and github.pull("#306", gh_pull)["key"].lstrip("#").isdecimal())
 
     if not FIXTURES_DIR.is_dir():
         print("skip: fixture-backed checks (fixtures not shipped at repo level)")

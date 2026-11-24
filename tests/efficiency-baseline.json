@@ -467,6 +467,16 @@
    ],
    "reason": "Backend parity wave P1 follow-up (issue 114): the onboard command's connection-values pointer names references/tracker-github.md for github, which moved there from trackers-other.md in the P1 commit. Net-new 1 payload line; no behavior change.",
    "date": "2026-11-24"
+  },
+  {
+   "wave": "parity-P1-display",
+   "issue": 52,
+   "delta_lines": 9,
+   "files": [
+    "uxr-plugin/references/tracker.md"
+   ],
+   "reason": "Issue 52 display law (parity waves fold): tracker.md gains the Ticket mentions section - one mention format (<key>: <short title>), the keyed <KEY>-<num> and #<num> forms, and the adapters-supply-what-they-have rule; the harness holds the law and the selftests assert the display data per adapter (selftests live outside the payload). Net-new 9 payload lines in tracker.md.",
+   "date": "2026-11-24"
   }
   ],
   "golden_path_growth": null
