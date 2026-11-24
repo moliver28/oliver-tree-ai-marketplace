@@ -92,8 +92,8 @@ ADAPTER_DEFAULTS: dict[str, dict[str, Any]] = {
         "capabilities": {"pull": True, "push": True, "spec_transform": True},
     },
     "github": {
-        "module": "",
-        "doc": "references/trackers-other.md",
+        "module": "lib/adapter_github.py",
+        "doc": "references/tracker-github.md",
         "area": "issues",
         "capabilities": {"pull": True, "push": True, "spec_transform": True},
     },

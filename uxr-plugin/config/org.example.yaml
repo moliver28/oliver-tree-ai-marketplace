@@ -520,8 +520,8 @@ adapters:
     area: issues
     capabilities: {pull: true, push: true, spec_transform: true}
   github:
-    module: ""
-    doc: "references/trackers-other.md"
+    module: "lib/adapter_github.py"
+    doc: "references/tracker-github.md"
     area: issues
     capabilities: {pull: true, push: true, spec_transform: true}
   asana:

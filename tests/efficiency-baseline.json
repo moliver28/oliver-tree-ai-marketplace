@@ -440,7 +440,24 @@
     ],
     "reason": "Mail-merge test wave fix: the example file's documentation defaults (smtp_port 587, use_tls true) reached the config layer through load_config's example+user merge and shadowed the UXR_RECRUIT_* env fallbacks, so an env-only account connected to the example port instead of the env port. load_send_settings now resets any config value that still equals the bare example file before the env fill, and the source line reports only layers that actually supplied a value. Regression pin added to the selftest. Payload delta measured 33 lines (script +20, selftest +13), all inside the two named files.",
     "date": "2026-11-23"
-   }
+   },
+  {
+   "wave": "parity-P1",
+   "issue": 114,
+   "delta_lines": 287,
+   "files": [
+    "uxr-plugin/lib/adapter_github.py",
+    "uxr-plugin/references/tracker-github.md",
+    "uxr-plugin/CHANGELOG.md",
+    "uxr-plugin/references/tracker.md",
+    "uxr-plugin/references/trackers-other.md",
+    "uxr-plugin/lib/adapters.py",
+    "uxr-plugin/config/org.example.yaml",
+    "uxr-plugin/README.md"
+   ],
+   "reason": "Backend parity wave P1 (issue 114): the GitHub Issues adapter ships. Net-new 287 of 23,243 payload lines (1.2 percent), inside the 10 percent cap of about 2,324 lines: the adapter module at the exact Jira shape (208), its doc reference file holding the gh CLI parameters (75), the changelog entry (6), the tracker.md pointer split (+2), the trackers-other.md scope change (-4). The registry, config, and README flips are net zero. Commands, goldens, and all pin counts are unchanged; tests live outside the payload.",
+   "date": "2026-11-24"
+  }
   ],
   "golden_path_growth": null
  }

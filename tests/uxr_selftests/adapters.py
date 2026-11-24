@@ -5,6 +5,7 @@ import yaml  # selftest-only import (the shipped example contract, parsed direct
 
 bind("lib.adapters", globals())
 bind("lib.adapter_jira", globals())
+import lib.adapter_github as github  # bound under its name: bare names stay jira's
 #: fixtures live at repo level in a checkout; absent in an installed plugin
 FIXTURES_DIR = (PLUGIN_ROOT if (PLUGIN_ROOT / "tests").is_dir() else PLUGIN_ROOT.parent) / "tests" / "fixtures"
 #: the shipped example contract only; a configured config/org.yaml cannot reach this module
@@ -21,12 +22,13 @@ def _with_kind(kind: str) -> dict:
 
 
 def _selftest() -> int:
-    """Cover the resolver rules, the four Jira operations, and the describe CLI.
+    """Cover the resolver rules, the four Jira operations, the four GitHub
+    operations, and the describe CLI.
 
     Absence first (the harness works with the sync half absent), then
     registration, declared-not-built, unknown kind, configured-but-broken,
-    connect, pull, push, spec_transform, and the KB capability shape.
-    No live tracker anywhere: fixture-backed only.
+    connect, pull, push, spec_transform for jira and github, and the KB
+    capability shape. No live tracker anywhere: fixture-backed only.
     """
     print("lib/adapters.py + lib/adapter_jira.py test module")
     failures: list[str] = []
@@ -52,6 +54,18 @@ def _selftest() -> int:
         },
         repr(record),
     )
+    record = resolve(_with_kind("github"))
+    check(
+        "github record",
+        record == {
+            "kind": "github",
+            "module": "lib/adapter_github.py",
+            "doc": "references/tracker-github.md",
+            "area": "issues",
+            "capabilities": {"pull": True, "push": True, "spec_transform": True},
+        },
+        repr(record),
+    )
     check(
         "doc pointers exist for every shipped kind",
         all(
@@ -60,9 +74,9 @@ def _selftest() -> int:
         ),
     )
 
-    # 3. Declared-not-built: the shipped linear/github/asana entries.
+    # 3. Declared-not-built: the shipped linear/asana entries (github is
+    # built since wave P1; the jira-shape registry entries stay data).
     check("linear (module empty) resolves to None", resolve(_with_kind("linear")) is None)
-    check("github (module empty) resolves to None", resolve(_with_kind("github")) is None)
     check("asana (module empty) resolves to None", resolve(_with_kind("asana")) is None)
 
     # 4. Unknown kind resolves to None; the shipped declared KB kind too
@@ -129,6 +143,27 @@ def _selftest() -> int:
           "error" in pull("ZZZ-1", pull_cfg), repr(pull("ZZZ-1", pull_cfg)))
     check("pull empty key returns the error dict", "error" in pull("", pull_cfg))
 
+    # 7b. GitHub connect + pull (wave P1): the same contract, the GitHub
+    # key rule. A bare number composes #<n>; no prefix key is needed.
+    gh_cfg = dict(EXAMPLE_CONFIG)
+    gh_cfg["tracker"] = {**EXAMPLE_CONFIG["tracker"], "kind": "github",
+                         "workspace_id": "acme/uxr-research",
+                         "base_url": "https://github.com", "body_format": "markdown",
+                         "project_key": "UXR", "ticket_regex": r"#\d+"}
+    gh_facts = github.connect(gh_cfg)
+    check("github connect ready when the keys are filled", gh_facts["ready"] is True)
+    check("github connect lists the same five tracker keys when empty",
+          github.connect(EXAMPLE_CONFIG)["missing"] == facts["missing"],
+          repr(github.connect(EXAMPLE_CONFIG)["missing"]))
+    gh_pull = dict(EXAMPLE_CONFIG)
+    gh_pull["tracker"] = {**EXAMPLE_CONFIG["tracker"], "ticket_regex": r"#\d+"}
+    check("github pull composes a bare number with #", github.pull("42", gh_pull) == {"key": "#42"})
+    check("github pull passes a regex-valid key unchanged",
+          github.pull("#237", gh_pull) == {"key": "#237"})
+    check("github pull invalid key returns the error dict",
+          "error" in github.pull("UX1-237", gh_pull), repr(github.pull("UX1-237", gh_pull)))
+    check("github pull empty key returns the error dict", "error" in github.pull("", gh_pull))
+
     if not FIXTURES_DIR.is_dir():
         print("skip: fixture-backed checks (fixtures not shipped at repo level)")
     else:
@@ -146,11 +181,29 @@ def _selftest() -> int:
               refused["exit"] == 3 and refused["body"] == "" and refused["fields"] == [],
               repr(refused["stderr"]))
 
-        # 9. spec_transform: byte-equal to build_document for both formats.
+        # 8b. GitHub push (wave P1): the same contract through the github
+        # module; the body renders identically (markdown is the default).
+        gh_result = github.push(spec, [], EXAMPLE_CONFIG)
+        check("github push exits 0 on the shipped spec fixture", gh_result["exit"] == 0, gh_result["stderr"])
+        check("github push body byte-equal to build_document",
+              gh_result["body"] == _spec_blocks.build_document(spec, config=EXAMPLE_CONFIG) + "\n")
+        check("github push carries no fields without shorthands", gh_result["fields"] == [])
+        gh_refused = github.push(spec, ["no operator here"], EXAMPLE_CONFIG)
+        check("github push rejects a bad shorthand with exit 3",
+              gh_refused["exit"] == 3 and gh_refused["body"] == "" and gh_refused["fields"] == [],
+              repr(gh_refused["stderr"]))
+
+        # 9. spec_transform: byte-equal to build_document for both formats,
+        # jira and github modules alike (same delegated function).
         for fmt in ("markdown", "adf"):
             check(
                 f"spec_transform {fmt} byte-equal to build_document",
                 spec_transform(spec, EXAMPLE_CONFIG, body_format=fmt)
+                == _spec_blocks.build_document(spec, EXAMPLE_CONFIG, body_format=fmt),
+            )
+            check(
+                f"github spec_transform {fmt} byte-equal to build_document",
+                github.spec_transform(spec, EXAMPLE_CONFIG, body_format=fmt)
                 == _spec_blocks.build_document(spec, EXAMPLE_CONFIG, body_format=fmt),
             )
 
@@ -180,6 +233,16 @@ def _selftest() -> int:
               json.loads(probe.stdout.strip()).get("kind") == "jira", probe.stdout[:120])
     except ValueError as exc:
         check("describe prints the jira record as one JSON line", False, str(exc))
+    probe = subprocess.run(
+        [sys.executable, str(script), "describe", "--kind", "github"],
+        capture_output=True, text=True, cwd=str(PLUGIN_ROOT), timeout=10,
+    )
+    check("describe --kind github exits 0", probe.returncode == 0, probe.stderr)
+    try:
+        check("describe prints the github record as one JSON line",
+              json.loads(probe.stdout.strip()).get("kind") == "github", probe.stdout[:120])
+    except ValueError as exc:
+        check("describe prints the github record as one JSON line", False, str(exc))
     probe = subprocess.run(
         [sys.executable, str(script), "describe", "--kind", "linear"],
         capture_output=True, text=True, cwd=str(PLUGIN_ROOT), timeout=10,

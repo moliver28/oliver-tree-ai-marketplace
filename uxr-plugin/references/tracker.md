@@ -5,8 +5,10 @@ table, reading the column for the configured `tracker.kind` (`jira`,
 `linear`, `github`, or `asana`). Every per-organization value comes from
 `config/org.yaml` through `lib/config.py`; `lib/field_map.py` resolves a
 field shorthand (`method=Survey`) into the payload and implements the
-routing helpers. Linear/GitHub/Asana detail lives in
-`references/trackers-other.md` — read it when `tracker.kind` is not `jira`.
+routing helpers. Linear and Asana detail lives in
+`references/trackers-other.md`; GitHub Issues detail lives in
+`references/tracker-github.md`. Read the file for `tracker.kind` when it
+is not `jira`.
 
 ## Session rules (every command)
 

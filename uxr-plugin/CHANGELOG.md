@@ -2,6 +2,12 @@
 
 All notable changes to uxr-plugin. One `## X.Y.Z` heading per release, newest first.
 
+## [0.7.0] - 2026-11-24
+
+### Added
+
+- The GitHub Issues adapter (issue 114 parity wave P1): `lib/adapter_github.py` implements the four adapter operations for `tracker.kind == "github"` at the exact `adapter_jira.py` shape - `connect` over the same five `tracker.*` keys, `pull` as the `normalize_key` rule of the `tracker.md` GitHub Issues column in code (a bare number composes `#<n>` in the repo from `tracker.workspace_id`; no prefix key is needed), `push` through `lib/field_map` and `scripts/build_body` with the unchanged exit-code contract (0 ok, 3 refused with zero writes, 2/4 errors), and `spec_transform` delegating to `lib/spec_blocks.build_document` byte-identically. All four stay deterministic, network-free, and tool-call-free; the commands hold the `gh` CLI calls. The registry entry flips from declared-not-built to built in `ADAPTER_DEFAULTS` and `config/org.example.yaml`, and its `doc` pointer names the new reference `references/tracker-github.md` (the per-operation `gh` parameters, `verify-live` marks until the first live pass). `references/trackers-other.md` keeps Linear/Asana parameters plus the field-kind mapping table for every non-Jira tracker. The adapters selftest grows the GitHub assertions at Jira's level (45 checks) and joins the `tests/test_parity.py` SELFTESTS, so the parity gate exercises the adapter contract.
+
 ## [0.6.0] - 2026-11-22
 
 ### Added
