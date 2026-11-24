@@ -70,9 +70,23 @@ def run(spec_text: str, config: dict | None = None) -> tuple[int, str, str]:
     return 0, _dump(body), ""
 
 
+MCP_SURFACE = {
+    "description": (
+        "build_body.py: render a study spec into the tracker ticket body. Pass "
+        "the spec JSON in 'stdin'; the rendered body comes back on stdout "
+        "(markdown, html, or ADF JSON). Exit 3 means the spec failed "
+        "validation; a validation failure makes zero tracker calls."),
+    "flags": [],
+    "stdin": {"name": "stdin", "required": True, "help": "the study spec JSON document"},
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     _force_utf8_stdio()
     args = list(sys.argv[1:] if argv is None else argv)
+    if args and args[0] == "--print-mcp-surface":
+        print(json.dumps(MCP_SURFACE))
+        return 0
     if args and args[0] in ("-h", "--help"):
         print(__doc__.strip())
         return 0

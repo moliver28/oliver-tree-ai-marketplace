@@ -507,8 +507,30 @@ def _parse_args(argv: list[str]) -> tuple[str, dict[str, str]] | None:
     return command, parsed
 
 
+MCP_SURFACE = {
+    "description": (
+        "deck_render.py: outline JSON in, .pptx out. 'lint' prints one FAIL "
+        "line per overflow or overlap; 'render' lints first and writes "
+        "nothing on any FAIL. A deck is always regenerated from the outline; "
+        "an existing file is never edited."),
+    "subcommand": {
+        "name": "subcommand", "required": True,
+        "values": ["lint", "render"]},
+    "flags": [
+        {"name": "outline", "kind": "positional", "type": "string", "required": True,
+         "help": "path to the outline JSON"},
+        {"name": "out", "kind": "positional", "type": "string",
+         "subs": ["render"], "required": True,
+         "help": "render: path for the .pptx output"},
+    ],
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
+    if args and args[0] == "--print-mcp-surface":
+        print(json.dumps(MCP_SURFACE))
+        return EXIT_OK
     if not args:
         print(__doc__.strip().splitlines()[0])  # terse bare-run pointer; -h prints the full doc
         return EXIT_OK

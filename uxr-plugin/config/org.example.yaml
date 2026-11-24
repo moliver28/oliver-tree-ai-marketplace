@@ -221,8 +221,11 @@ org:
 # paths: local filesystem locations ('~' and ${VAR} references are expanded)
 # -----------------------------------------------------------------------------
 paths:
-  # Root folder that holds one subfolder (workspace) per study.
-  research_root: "~/Documents/Research"
+  # Root folder that holds one subfolder (workspace) per study. The
+  # universal default is ~/uxr-workspaces on every OS; this override wins
+  # over the default, and UXR_RESEARCH_DIRS wins over both. Existing
+  # workspaces keep working wherever they live.
+  research_root: "~/uxr-workspaces"
   # Per-user plugin data (specs, journal, events).
   state_dir: "${CLAUDE_PLUGIN_DATA}/state"
 

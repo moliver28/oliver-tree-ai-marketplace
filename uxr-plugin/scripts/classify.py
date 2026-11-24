@@ -151,8 +151,34 @@ def _usage(message: str) -> str:
     return f"classify: {message}\nusage: classify.py intent|reply|method|decision|route-finding"
 
 
+MCP_SURFACE = {
+    "description": (
+        "classify.py: deterministic classifiers. 'intent' routes a user "
+        "request, 'reply' classes a recruit reply, 'method' picks the method "
+        "shape from research questions, 'decision' checks the decision shape, "
+        "'route-finding' routes a review finding."),
+    "subcommand": {
+        "name": "subcommand", "required": True,
+        "values": ["intent", "reply", "method", "decision", "route-finding"]},
+    "flags": [
+        {"name": "text", "kind": "positional", "type": "string", "required": True,
+         "subs": ["intent", "reply", "decision"],
+         "help": "the plain input text"},
+        {"name": "prefix", "flag": "--prefix", "type": "string", "subs": ["intent"],
+         "help": "prefix label for the verdict"},
+        {"name": "rqs", "flag": "--rqs", "type": "string", "subs": ["method"],
+         "help": "research questions, semicolon or newline separated"},
+        {"name": "category", "flag": "--category", "type": "string", "subs": ["route-finding"],
+         "help": "finding category"},
+    ],
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
+    if args and args[0] == "--print-mcp-surface":
+        print(json.dumps(MCP_SURFACE))
+        return 0
     if not args:
         print(_usage("a subcommand is required"), file=sys.stderr)
         return 2

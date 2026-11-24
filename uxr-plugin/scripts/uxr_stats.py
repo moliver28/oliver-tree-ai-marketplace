@@ -203,8 +203,25 @@ def run(state_dir: Path, days: int | None, as_json: bool,
     return 0, render(rollup, days)
 
 
+MCP_SURFACE = {
+    "description": (
+        "uxr_stats.py: read-only journal and analytics rollup. Reads the state "
+        "directory from UXR_STATE_DIR or paths.state_dir in the plugin "
+        "config; prints the table, or one JSON object with 'json'."),
+    "switches": [
+        {"name": "json", "flag": "--json", "type": "boolean",
+         "help": "print one JSON object"},
+        {"name": "days", "flag": "--days", "type": "integer",
+         "help": "restrict the journal to the last N days"},
+    ],
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
+    if raw and raw[0] == "--print-mcp-surface":
+        print(json.dumps(MCP_SURFACE))
+        return 0
     parser = argparse.ArgumentParser(
         prog="uxr_stats.py", description="Journal and analytics rollup (read-only).")
     parser.add_argument("--json", action="store_true", help="print one JSON object")

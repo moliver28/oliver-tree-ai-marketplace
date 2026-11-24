@@ -37,7 +37,8 @@ OVERVIEW_MARKER = "00-overview.md"
 
 
 def _research_roots(config: dict | None, environ: dict) -> list[str]:
-    """Candidate research roots: the environment list, then the config path."""
+    """Candidate research roots: the environment list, then the config path,
+    then the universal ~/uxr-workspaces default (overrides always win)."""
     roots: list[str] = []
     for part in environ.get(ENV_RESEARCH_DIRS, "").split(os.pathsep):
         if part.strip():
@@ -46,6 +47,8 @@ def _research_roots(config: dict | None, environ: dict) -> list[str]:
         value = config.get("paths", {}).get("research_root")
         if isinstance(value, str) and value.strip():
             roots.append(value)
+    if not roots:
+        roots.append("~/uxr-workspaces")
     return roots
 
 

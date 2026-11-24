@@ -358,9 +358,32 @@ def run(
     return EXIT_OK, "\n".join(report) + "\n"
 
 
+MCP_SURFACE = {
+    "description": (
+        "roster_apply.py: apply recruitment ops to the study spec, validate, "
+        "re-render the body, and write the spec and body files (or nothing on "
+        "any failure). The only write path the recruit command uses against "
+        "the spec."),
+    "flags": [
+        {"name": "spec", "flag": "--spec", "type": "string", "required": True},
+        {"name": "ops", "flag": "--ops", "type": "string", "required": True,
+         "help": "ops JSON inline, or @path to an ops file"},
+        {"name": "out", "flag": "--out", "type": "string", "required": True,
+         "help": "path to write the rendered body JSON"},
+    ],
+    "switches": [
+        {"name": "dry_run", "flag": "--dry-run", "type": "boolean",
+         "help": "apply nothing; report only"},
+    ],
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     _force_utf8_stdio()
     args = list(sys.argv[1:] if argv is None else argv)
+    if args and args[0] == "--print-mcp-surface":
+        print(json.dumps(MCP_SURFACE))
+        return EXIT_OK
     if args and args[0] in ("-h", "--help"):
         print(__doc__.strip())
         return EXIT_OK
