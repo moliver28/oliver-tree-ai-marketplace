@@ -603,6 +603,57 @@
      "uxr-plugin/CHANGELOG.md"
     ],
     "reason": "Divisor correction (orchestrator arithmetic-error fix, 2026-11-24, #114): the support mode divides by the total possible score 17 (the summed maxima 3+3+3+2+3+3) instead of the misruled 16, so the all-max judgment lands exactly 100 percent; the 16-vs-17 divergence disclosure is replaced by the correction note in the script docstring and constant comment, references/onboarding.md, and the 0.8.0 CHANGELOG bullet; the two earlier P4 reason lines that argued the 16 divisor are corrected here in place. MO labels and thresholds unchanged (>80 UXR to Lead / 51-80 UXR to Support / <=50 UXR to Review); the metal-name absence pin stays. Selftest support landings recomputed for /17 (82.35 Lead, 76.47/70.59/52.94 Support, 47.06 Review). Net +4 of the shipped payload.",
+   "date": "2026-11-24"
+   },
+   {
+    "wave": "uxr-recruit-pipeline",
+    "issue": 50,
+    "delta_lines": 487,
+    "files": [
+     "uxr-plugin/scripts/recruit_funnel.py",
+     "uxr-plugin/scripts/recruit_send.py",
+     "uxr-plugin/commands/uxr-recruit.md",
+     "uxr-plugin/references/recruit-outreach.md",
+     "uxr-plugin/config/org.example.yaml",
+     "uxr-plugin/lib/config.py",
+     "uxr-plugin/README.md"
+    ],
+    "reason": "Configurable deterministic recruitment pipeline with the default-on suppress stage (#50): recruitment.pipeline (the ordered stage list; shipped default identify, screen, suppress, invite, schedule, send; an unknown stage is a usage exit 2 through the new --pipeline-check) and recruitment.suppression_list (one identifier per line, an email or an account id; fail closed) join the key contract; the three deterministic never-contact checks (the locked status vocabularies, prior-wave bounce marks, the configured list) wire into --preflight, which now reports the suppressed counts per check on both exit paths with queued-rows-only candidacy, and into the MVP send as a pre-send skip gate. Command and reference sections are additive law text; the README MCP row regenerates from the surface. Net-new 487 payload lines (scripts +412, commands +39, config +17, references +16, lib +2, root README +1) of 23,243 (2.1 percent), inside the 10 percent cap; deterministic only, zero model calls added (golden path unchanged at 6).",
+    "date": "2026-11-24"
+   },
+   {
+    "wave": "uxr-recruit-pipeline",
+    "issue": 51,
+    "delta_lines": 36,
+    "files": [
+     "uxr-plugin/scripts/recruit_funnel.py",
+     "uxr-plugin/commands/uxr-recruit.md"
+    ],
+    "reason": "The finished recruitment funnel table (#51): one Target persona caption line above the fixed nine-row schema (funnel.fit.basis with its as_of; not recorded yet without; the schema itself never changes across waves), the suppress stage feeding the Not allowed row (suppressed totals join the excluded accounts and users cells; the this-wave cell adds the wave's suppressed rows), and the default-chat-visual law stated in the command (answer recruitment questions with the table; the population sample size stays out of the table, noted beside it). The uc-4 golden re-pins for the caption line (hashes.json same edit). Net-new 36 payload lines (scripts +27, commands +9) of 23,243 (under 0.2 percent); deterministic only, zero model calls added.",
+    "date": "2026-11-24"
+   },
+   {
+    "wave": "uxr-recruit-pipeline",
+    "issue": 55,
+    "delta_lines": 27,
+    "files": [
+     "uxr-plugin/commands/uxr-recruit.md",
+     "uxr-plugin/references/recruit-outreach.md",
+     "uxr-plugin/config/org.example.yaml",
+     "uxr-plugin/lib/config.py"
+    ],
+    "reason": "The meeting-service law (#55): recruitment.meeting_service joins the key contract with the appointment-link default and the five documented values (appointment-link, none, google-meet, zoom, other); safety rule 8 in the command and the law section in the reference state that calendar events created by recruitment never auto-attach a conferencing link, the join link comes only from the configured meeting service's own flow, the default means zero auto-created links, and no Google Meet link may ever appear unless the config names google-meet AND the user's own flow creates it; the V2 self-test law (no redirect URL) is re-asserted unchanged. Net-new 27 payload lines (commands +8 net, references +11, config +7, lib +1) of 23,243 (under 0.2 percent); law text and one config key, no code path, zero model calls added.",
+    "date": "2026-11-24"
+   },
+   {
+    "wave": "uxr-recruit-pipeline",
+    "issue": 0,
+    "delta_lines": 14,
+    "files": [
+     "uxr-plugin/CHANGELOG.md",
+     "uxr-plugin/README.md"
+    ],
+    "reason": "Release bookkeeping for the recruitment pipeline wave (#50, #51, #55; version bump 0.7.0 to 0.8.0): the CHANGELOG release section naming the pipeline and suppress stage, the finished funnel table, and the meeting-service law, plus the README currently-v line. The two JSON version surfaces (.claude-plugin/plugin.json and the marketplace entry) sit outside the counted suffixes; both also collapse the duplicate version key the 0.7.0 wave stacked (0.7.0 over 0.6.0), so the smoke version-triple check is green again. Net-new 14 payload lines, all in CHANGELOG.md (README is 1 in, 1 out); wave total after all four commits: 564 net-new payload lines, each carried by its own entry.",
     "date": "2026-11-24"
    }
   ],

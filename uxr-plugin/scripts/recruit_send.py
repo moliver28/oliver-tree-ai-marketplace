@@ -13,7 +13,10 @@ account (org config ``recruit.email.*`` in the user's gitignored
 State machine (recorded in the W5 decision note): a row is sendable when
 it sits at ``invited`` in the external table, its outreach gate column
 (``contact``) is non-empty, its ``DM sent (date)`` cell is empty (never
-double-send), and the ``contact`` cell carries an email address. On send
+double-send), and the ``contact`` cell carries an email address. The
+suppression gate (issue 50) runs before all of it: a row whose contact
+email is on the configured ``recruitment.suppression_list`` file is
+skipped and reported, in the dry run and the real send alike. On send
 success the row's ``DM sent (date)`` is stamped and the status advances
 to ``scheduled`` -- legal per the shipped gate map, because the stamp
 satisfies the ``scheduled`` gate. A failed row gets no stamp and stays
@@ -270,13 +273,56 @@ def row_map(header: list[str], cells: list[str], variant: str = SEND_VARIANT) ->
     return row, bool(extras)
 
 
-def evaluate_row(row: dict) -> dict:
+def load_suppression_ids(
+    config_file: str | os.PathLike[str] | None = None,
+) -> tuple[list[str], str]:
+    """The configured suppression identifiers (issue 50); read-only.
+
+    Reads ``recruitment.suppression_list`` through the config layer (the
+    documented PyYAML exception). Returns ``(identifiers, source)``: an
+    empty list with source ``none`` when the key is unset or the config
+    cannot load, the file's lines (one identifier per line, an email or
+    an account id) with the path as source otherwise. A configured but
+    unreadable file raises usage (fail closed), reusing the recruit
+    funnel's reader.
+    """
+    try:
+        from lib.config import load_config  # PyYAML: the documented exception
+
+        recruitment = load_config(user_file=config_file).get("recruitment")
+        list_path = (
+            str(recruitment.get("suppression_list") or "").strip()
+            if isinstance(recruitment, dict)
+            else ""
+        )
+    except Exception:  # config absent or unreadable: no list is configured
+        return [], "none"
+    if not list_path:
+        return [], "none"
+    from scripts.recruit_funnel import read_suppression_ids  # noqa: E402  (the shared reader)
+
+    try:
+        return read_suppression_ids(list_path), list_path
+    except Exception as exc:  # fail closed as this module's usage error
+        raise _Usage(str(exc)) from exc
+
+
+def evaluate_row(row: dict, suppression_ids: list[str] | tuple = ()) -> dict:
     """One external row's send decision; pure.
 
     Returns ``{"action": "send" | "skip" | "block", "reason": str}`` and,
-    for a sendable row, ``address``. The gate check runs from the row
+    for a sendable row, ``address``. The suppression gate (issue 50)
+    runs first: a contact email on ``suppression_ids`` is a skip no
+    matter the row's status. The gate check then runs from the row
     (never from the roster), per the recruit status-gate law.
     """
+    address_match = _EMAIL_RE.search(str(row.get("contact") or ""))
+    listed = {str(item).strip().lower() for item in suppression_ids if str(item).strip()}
+    if address_match and address_match.group(0).strip().lower() in listed:
+        return {
+            "action": "skip",
+            "reason": "on the recruitment suppression list; never contacted",
+        }
     status_raw = str(row.get("status") or "")
     vocab_issue = participant_status_issue(status_raw)
     if vocab_issue:
@@ -297,27 +343,27 @@ def evaluate_row(row: dict) -> dict:
             "action": "block",
             "reason": "; ".join(gate_lines) + "; the row is never emailed with an empty gate",
         }
-    match = _EMAIL_RE.search(str(row.get("contact") or ""))
-    if not match:
+    if not address_match:
         return {
             "action": "skip",
             "reason": "no email address in contact (a Slack-only contact is not emailed)",
         }
-    return {"action": "send", "reason": "", "address": match.group(0)}
+    return {"action": "send", "reason": "", "address": address_match.group(0)}
 
 
-def plan_sends(entries: list[dict]) -> tuple[list[dict], list[dict]]:
+def plan_sends(entries: list[dict], suppression_ids: list[str] | tuple = ()) -> tuple[list[dict], list[dict]]:
     """Decide every row; pure. Returns ``(plan, skipped)``.
 
     ``plan`` holds sendable rows in table order, one per recipient: the
     first row for an address sends, and every later row with the same
-    address is a duplicate skip (one email per recipient).
+    address is a duplicate skip (one email per recipient). The
+    suppression ids pass through to every row decision (issue 50).
     """
     plan: list[dict] = []
     skipped: list[dict] = []
     claimed: dict[str, str] = {}
     for entry in entries:
-        decision = evaluate_row(entry["row"])
+        decision = evaluate_row(entry["row"], suppression_ids)
         if decision["action"] != "send":
             skipped.append({**entry, "action": decision["action"], "reason": decision["reason"]})
             continue
@@ -585,9 +631,11 @@ def run(
             continue
         entries.append({"row": row, "line": table_row["line"]})
 
-    plan, skipped = plan_sends([
-        entry for entry in entries if "skip_note" not in entry
-    ])
+    suppression_ids, _suppression_source = load_suppression_ids(config_file)
+    plan, skipped = plan_sends(
+        [entry for entry in entries if "skip_note" not in entry],
+        suppression_ids,
+    )
     flagged = [entry for entry in entries if "skip_note" in entry]
 
     report: list[str] = []

@@ -46,8 +46,23 @@ Reply options offered with every draft block: `sent`, `edit slack`,
   Recipient | Email Sent | Booking link | Email Source`.
 - Every skip is still a row, with a blank Recipient and
   `skip: <reason>` in Email Sent. Never delete a row; mark bounces with
-  " (bounced)".
+  " (bounced)". The suppress stage marks its rows the same way:
+  `skip: suppressed (status law)`, `skip: suppressed (bounce)`, or
+  `skip: suppressed (suppression list)`.
 - One wave tab per send; save the tab name into `funnel.tabs` in the spec.
+
+## The suppress stage (deterministic, zero model calls)
+
+Before any invite, three checks remove rows from the ready count:
+
+1. Status law: never re-contact `completed`, `incentive-sent`,
+   `withdrawn`, or `cancelled`.
+2. Bounce marks: never email a recipient marked " (bounced)" on an
+   earlier wave.
+3. Suppression list: never contact anyone on the file at
+   `recruitment.suppression_list` (one identifier per line, an email or
+   an account id). The plugin ships no list; the file must read when
+   configured, or the checks fail closed (exit 2).
 
 ## The four checks before any mass send
 
@@ -58,7 +73,8 @@ Reply options offered with every draft block: `sent`, `edit slack`,
 - **V3**: the link opens the booking page and the page shows bookable
   slots.
 - **V4**: `recruit_funnel.py --spec <spec> --preflight` prints
-  `PREFLIGHT OK: <n> rows ready on <wave>`.
+  `PREFLIGHT OK: <n> rows ready on <wave>` plus one suppressed counts
+  line per check (`status-law`, `bounce`, `suppression-list`).
 
 Rule 6 of the issue: if your mail tool rewrites links (the reference tool
 redirected every URL), the draft body carries no URL at all. The booking
@@ -75,6 +91,17 @@ paste. Retest V2 on your own mail tool.
 - Reminders at 1 day, 8 hours, 10 minutes, and 0 minutes.
 - Never open slots over PTO (`calendar_prep.py` classifies `pto` events).
 - Verify the public link shows bookable slots before V3.
+
+## The meeting-service law
+
+Calendar events created by recruitment never auto-attach a conferencing
+link. The join link comes only from the configured meeting service's
+own flow: `recruitment.meeting_service` (default `appointment-link`;
+one of `appointment-link`, `none`, `google-meet`, `zoom`, `other`).
+The default means zero auto-created links. No Google Meet link may ever
+appear unless the config names `google-meet` and the user's own flow
+creates it. The V2 self-test law is unchanged: the self-test email
+shows the exact booking link and no redirect URL.
 
 ## The pre-send stop (external flow, exactly once)
 

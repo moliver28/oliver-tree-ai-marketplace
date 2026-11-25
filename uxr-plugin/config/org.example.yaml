@@ -431,6 +431,30 @@ recruiting:
   org_chart_paths: []
 
 # -----------------------------------------------------------------------------
+# recruitment: the deterministic pipeline and its suppression inputs (issue 50)
+# -----------------------------------------------------------------------------
+recruitment:
+  # The ordered pipeline stages the recruit flow moves a participant
+  # through. Each name names a deterministic check or action (zero model
+  # calls in the stage machinery); an unknown name is a usage error, and
+  # recruit_funnel.py --pipeline-check exits 2 naming it. The shipped
+  # default is this exact list.
+  pipeline: ["identify", "screen", "suppress", "invite", "schedule", "send"]
+  # Path to your organization's suppression-list file: one identifier per
+  # line, an email or an account id. Nobody on the list is ever
+  # contacted. The plugin ships no list; an empty value means none is
+  # configured. The file must read when configured: the pre-send checks
+  # fail closed (exit 2) otherwise.
+  suppression_list: ""
+  # The meeting service whose own flow produces the session join link
+  # (issue 55). One of: appointment-link (the default; the booking
+  # page's own scheduling flow), none, google-meet, zoom, other.
+  # Calendar events created by recruitment never auto-attach a
+  # conferencing link; no Google Meet link may appear unless this key
+  # names google-meet AND the user's own flow creates it.
+  meeting_service: "appointment-link"
+
+# -----------------------------------------------------------------------------
 # calendar: calendar holds and moves (issue 10; drafts, never sends)
 # -----------------------------------------------------------------------------
 calendar:

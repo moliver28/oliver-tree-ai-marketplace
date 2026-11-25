@@ -18,6 +18,13 @@ table from `scripts/recruit_funnel.py`.
 5. **Customer personal data stays in the spreadsheet store.** No customer email or account list in the repository, the ticket (outside engaged roster rows), or chat logs. Refer to a contact as account + first name. `recruit_funnel.py` scrubs emails from its output; do not paste them back in.
 6. **No URL in a mail draft body** when the mail tool rewrites links: keep the booking link in its merge column or print it for the user. Retest with check V2 on the user's own mail tool.
 7. `--dry-run` writes nothing: no spec change, no event, no draft.
+8. **Meeting-service law.** Calendar events created by recruitment
+   never auto-attach a conferencing link; the join link comes only from
+   the configured meeting service's own flow: `recruitment.meeting_service`
+   (default `appointment-link`; one of `appointment-link`, `none`,
+   `google-meet`, `zoom`, `other`). The default means zero auto-created
+   links. No Google Meet link may ever appear unless the config names
+   `google-meet` and the user's own flow creates it.
 
 ## Inputs
 
@@ -31,7 +38,7 @@ days).
 
 ## Setup (every run)
 
-1. Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - and follow it. Note `recruit.*` (statuses, window_days, session_minutes, nudge_after_days, sheets, wave_tab_headers, booking_url_regex), `calendar.*`, `org.internal_domains`, and `org.notetaker_email`.
+1. Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - and follow it. Note `recruit.*` (statuses, window_days, session_minutes, nudge_after_days, sheets, wave_tab_headers, booking_url_regex), `recruitment.*` (pipeline, suppression_list, meeting_service), `calendar.*`, `org.internal_domains`, and `org.notetaker_email`. Run the pipeline check - `python "${CLAUDE_PLUGIN_ROOT}/scripts/recruit_funnel.py" --pipeline-check` - once per run; an unknown stage name or an unreadable configured suppression list exits 2: report the error line and stop.
 2. Resolve the workspace with `scaffold_workspace.py lookup-workspace
    --ticket <KEY> --readme <research_root>/README.md`.
 3. Read the ticket: summary, status, start date, target end date. Load the
@@ -71,6 +78,43 @@ A blocked advance is one line: name the row and the empty gate column,
 then stop and ask for the value. The spec roster keeps its own status
 vocabulary (Outreach Sent, Scheduled, and the rest); these gates gate
 the workspace table only.
+
+## Pipeline and suppression (deterministic, zero model calls)
+
+The pipeline is the ordered stage list in config `recruitment.pipeline`.
+Shipped default: identify, screen, suppress, invite, schedule, send.
+Every stage name names a deterministic check or action; the stage
+machinery makes no model call. `recruit_funnel.py --pipeline-check`
+prints the resolved stages and exits 2 on an unknown name.
+
+The suppress stage is default-on and runs three checks, in order,
+before any invite:
+
+1. Status law: a participant at `completed`, `incentive-sent`,
+   `withdrawn` (workspace vocabulary), or `cancelled` (roster
+   vocabulary) is never re-contacted.
+2. Bounce marks: a recipient marked " (bounced)" on an earlier wave tab
+   is not emailed again.
+3. Suppression list: the file at `recruitment.suppression_list` (one
+   identifier per line, an email or an account id). An organization's
+   own never-contact list is one instance of this file; the plugin
+   ships none. The list must read when configured; the checks fail
+   closed (exit 2) otherwise.
+
+A suppressed row stays in the sheet: blank Recipient, `skip: suppressed
+(<check>)` in Email Sent (the same skip law as every other skip). Never
+delete the row. The suppress stage feeds the funnel table's Not allowed
+row, and `--preflight` prints the suppressed counts per check with the
+ready count.
+
+## The recruitment table (the default chat visual)
+
+The recruitment table is the default visual for recruitment chat
+output: answer any recruitment question or status question with the
+table, not a prose list. The caption line names the target persona from
+`funnel.fit` (issue 51), and the fixed schema holds across waves. The
+population sample size stays out of the table; note it beside the table
+when the study needs it.
 
 ## Internal flow (default)
 
@@ -133,10 +177,18 @@ on a wave tab.
    it to `funnel.sheet`. Create the draft, then run the checks: V1 with
    `recruit_funnel.py --check-draft <draft>`; V2 self-test to the user's
    own inbox only; V3 open the link; V4 `recruit_funnel.py --spec <spec>
-   --preflight --funnel-data <export>`.
-9. **Wave tab.** Build the tab with the headers from the reference; each
-   skip is a row with `skip: <reason>` in Email Sent. Save the tab name
-   into `funnel.tabs` with `roster_apply.py`.
+   --preflight --funnel-data <export>`. Assemble the export with
+   `suppression_list` (the identifiers read from
+   `recruitment.suppression_list`) and `participants` (the workspace
+   participants rows) so the suppress stage checks them
+   deterministically; V4 prints the suppressed counts per check with
+   the ready count.
+9. **Wave tab.** Run the suppress stage (the three checks above): a
+   suppressed row is a tab row with a blank Recipient and `skip:
+   suppressed (<check>)` in Email Sent; it stays in the sheet. Build
+   the tab with the headers from the reference; each skip is a row
+   with `skip: <reason>` in Email Sent. Save the tab name into
+   `funnel.tabs` with `roster_apply.py`.
 10. **Pre-send review (the stop).** Show the recruitment table, off-sheet
     contacts, the no-email-found list, flagged accounts, proposed calendar
     moves, the exact subject and body, and the V1 to V4 results. Last line:
@@ -168,7 +220,10 @@ themselves, with `--send`, after the review.
 2. The send follows the status gates above: a row is sendable only at
    `invited`, with `contact` filled and `DM sent (date)` empty; on send
    success the row's `DM sent (date)` is stamped and the row advances to
-   `scheduled`; a failed row gets no stamp and stays at `invited`.
+   `scheduled`; a failed row gets no stamp and stays at `invited`. The
+   suppression gate runs before all of it: a row whose contact email is
+   on the configured `recruitment.suppression_list` file is skipped and
+   reported, in the dry run and the real send alike.
 3. One email per recipient: each message carries one `To` and no `Cc` or
    `Bcc`; a duplicate address sends once and the later row is reported.
    Contact values are masked in the report; `--show-contacts` shows

@@ -1,23 +1,36 @@
 #!/usr/bin/env python3
 """Recruitment funnel table, wave preflight, nudges, and the V1 draft check (issue 10).
 
-This script computes; the ``recruit`` command writes. Four jobs:
+This script computes; the ``recruit`` command writes. Five jobs:
 
 - default / ``--status``: print the fixed nine-row recruitment table
   (Fit, Looked at, Allowed, Not allowed, Sent, Bounced, Scheduled,
   Attempted % of fit, Recruited % of fit) across the five fixed columns
   (Internal users, In-product accounts, In-product users, Other accounts,
-  Other users). Every count cell reads ``all waves (this wave)`` and a
-  this-wave value never exceeds its total. Roster numbers are
-  authoritative; sheet-derived numbers come from ``--funnel-data`` (the
-  JSON export the command assembles after reading the live wave tabs).
+  Other users), under one caption line naming the target persona (issue
+  51: ``funnel.fit.basis`` with its ``as_of``; ``not recorded yet``
+  without). Every count cell reads ``all waves (this wave)`` and a
+  this-wave value never exceeds its total. The suppress stage feeds the
+  Not allowed row (issue 50: the suppressed rows join the excluded
+  totals). Roster numbers are authoritative; sheet-derived numbers come
+  from ``--funnel-data`` (the JSON export the command assembles after
+  reading the live wave tabs).
 - ``--preflight``: check the target wave's rows and exit 2 with
   ``BLOCK <account> / <first>: <reason>`` lines for anyone listed twice,
   already booked or declined, on an open-deal account, emailed in an
   earlier wave, on the do-not-contact tab, or whose booking link is not
   exactly one booking-page URL; ``BLOCK - / -: no rows ready`` when
   nothing is left. Success prints ``PREFLIGHT OK: <n> rows ready on
-  <wave>``. Nothing is ever sent here.
+  <wave>``. The suppress stage (issue 50) runs first: rows matching one
+  of its three checks leave the ready count without blocking, and the
+  suppressed counts per check print with the result on both paths.
+  Nothing is ever sent here.
+- ``--pipeline-check``: print the resolved recruitment pipeline (the
+  ordered stage list from config ``recruitment.pipeline``, default
+  ``identify -> screen -> suppress -> invite -> schedule -> send``) and
+  the configured suppression-list state. An unknown stage name or an
+  unreadable configured suppression-list file is a usage error (exit 2,
+  fail closed). Nothing is ever written here.
 - ``--reminder``: list contacts whose send is older than
   ``recruit.nudge_after_days`` business days with no reply, plus one
   shorter follow-up draft (draft only; the link stays in the merge
@@ -34,6 +47,7 @@ Usage::
     python scripts/recruit_funnel.py --spec <path.spec.json>
         [--wave <tab>] [--preflight] [--status] [--reminder]
         [--funnel-data <json>] [--check-draft <file>] [--today <YYYY-MM-DD>]
+    python scripts/recruit_funnel.py --pipeline-check
 
 Exit codes: 0 clean (or V1 pass), 1 V1 draft check failed, 2 usage /
 preflight blocked.
@@ -181,6 +195,68 @@ DEFAULT_BOOKING_URL_RE = (
     r"calendar\.app\.google/)"
 )
 
+#: The recruitment pipeline (issue 50): the ordered deterministic stages
+#: the recruit flow moves a participant through. The config key
+#: ``recruitment.pipeline`` carries the ordered list; the default is the
+#: shipped flow below. Every stage name names a deterministic check or
+#: action (no model call in the stage machinery itself); an unknown name
+#: is a usage error (exit 2) through ``--pipeline-check`` and
+#: :func:`resolve_pipeline`.
+DEFAULT_PIPELINE: tuple[str, ...] = (
+    "identify",
+    "screen",
+    "suppress",
+    "invite",
+    "schedule",
+    "send",
+)
+
+#: The known stage names and the deterministic check/action each one
+#: names (issue 50). One line each; ``--pipeline-check`` prints them.
+KNOWN_STAGES: dict[str, str] = {
+    "identify": (
+        "identify: name the target rows (funnel.fit persona, roster adds "
+        "through roster_apply.py; source_contacts.py on the external flow)"
+    ),
+    "screen": (
+        "screen: the screener result records fit before a row may advance "
+        "(the workspace screened gate; source_contacts.py filters)"
+    ),
+    "suppress": (
+        "suppress: the three deterministic never-contact checks below run "
+        "before any invite (recruit_funnel.py --preflight reports the counts)"
+    ),
+    "invite": (
+        "invite: the merged draft block through the invited gate (drafts "
+        "only; recruit_send.py merges one message per recipient)"
+    ),
+    "schedule": (
+        "schedule: the booking or hold lands and the DM sent (date) stamp "
+        "advances the row per the gate map (calendar_prep.py picks holds)"
+    ),
+    "send": (
+        "send: the researcher's real send through the send script's real-send "
+        "flag (one email per recipient; the agent itself never sends)"
+    ),
+}
+
+#: The workspace and roster statuses the suppress stage never re-contacts
+#: (issue 50). ``completed``, ``incentive-sent``, and ``withdrawn`` come
+#: from the locked workspace participants vocabulary; ``cancelled`` is
+#: the roster's declined status. Compared case-insensitively.
+NEVER_RECONTACT_STATUSES: frozenset[str] = frozenset(
+    {"completed", "incentive-sent", "withdrawn", "cancelled"}
+)
+
+#: The suppress-stage check names, in check order (issue 50). A row that
+#: matches more than one check counts under the first, so the counts sum
+#: to the suppressed total.
+SUPPRESSION_CHECKS: tuple[str, ...] = ("status law", "bounce", "suppression list")
+
+#: The skip reason the command marks into a suppressed wave row's Email
+#: Sent cell (blank Recipient), per the existing skip law.
+SUPPRESSION_SKIP_PREFIX = "skip: suppressed"
+
 _EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.\-]+", re.UNICODE)
 
 
@@ -266,11 +342,14 @@ def build_table(
     funnel_data: dict | None = None,
     wave: str | None = None,
 ) -> tuple[str, dict]:
-    """Render the fixed recruitment table; pure.
+    """Render the fixed recruitment table under its persona caption; pure.
 
+    The caption line names the target persona (``funnel.fit.basis`` with
+    its ``as_of``; ``not recorded yet`` without; issue 51). The Not
+    allowed row includes the suppress stage's counts (issue 50).
     Returns ``(markdown_table, numbers)``; ``numbers`` carries every
-    computed total so preflight and tests can assert on values
-    without re-parsing the table.
+    computed total (plus the suppressed counts per check) so preflight
+    and tests can assert on values without re-parsing the table.
     """
     config = config if isinstance(config, dict) else {}
     funnel = spec.get("funnel") if isinstance(spec.get("funnel"), dict) else {}
@@ -290,6 +369,10 @@ def build_table(
     not_allowed_sheet = sum(_num(v) for v in excluded.values())
     sheet_looked_override = (funnel_data or {}).get("looked_at")
     sheet_looked_override = sheet_looked_override if isinstance(sheet_looked_override, dict) else {}
+    suppressed = {
+        "all": suppression_counts(spec, funnel_data or {}, config=config),
+        "wave": suppression_counts(spec, funnel_data or {}, config=config, wave_tab=wave_tab),
+    }
 
     sent_rows = [row for row in all_rows if str(row.get("email_sent") or "").strip() and not str(row.get("email_sent") or "").strip().lower().startswith("skip")]
     wave_sent = [row for row in wave_rows if str(row.get("email_sent") or "").strip() and not str(row.get("email_sent") or "").strip().lower().startswith("skip")]
@@ -321,7 +404,15 @@ def build_table(
         other_accounts_total,
         external_total,
     )
-    not_allowed = (0, _num(excluded.get("accounts")), _num(excluded.get("users")) or not_allowed_sheet, 0, 0)
+    # The suppress stage feeds Not allowed (issue 50 through issue 51):
+    # the suppressed rows join the excluded totals.
+    not_allowed = (
+        0,
+        _num(excluded.get("accounts")) + suppressed["all"]["accounts"],
+        (_num(excluded.get("users")) or not_allowed_sheet) + suppressed["all"]["total"],
+        0,
+        0,
+    )
     allowed = tuple(max(l - n, 0) for l, n in zip(looked, not_allowed))
     sent = (
         sent_status_count(internal),
@@ -366,13 +457,25 @@ def build_table(
         "Fit": (0, 0, 0, 0, 0),
         "Looked at": (0, 0, len(wave_rows) + len(wave_skips), 0, 0),
         "Allowed": (0, 0, max(len(wave_rows) + len(wave_skips) - (len(wave_sent) + len(wave_skip_sent)), 0), 0, 0),
-        "Not allowed": (0, 0, len(wave_skips), 0, 0),
+        "Not allowed": (0, 0, len(wave_skips) + suppressed["wave"]["total"], 0, 0),
         "Sent": sent_this,
         "Bounced": bounced_this,
         "Scheduled": scheduled_this,
     }
 
-    lines = ["| Metric | " + " | ".join(TABLE_COLUMNS) + " |", "|---|---|---|---|---|---|"]
+    basis = str(fit.get("basis") or "").strip()
+    as_of = str(fit.get("as_of") or "").strip()
+    if basis and as_of:
+        persona_line = f"Target persona: {basis} (as of {as_of})"
+    elif basis:
+        persona_line = f"Target persona: {basis}"
+    else:
+        persona_line = "Target persona: not recorded yet"
+    lines = [
+        persona_line,
+        "| Metric | " + " | ".join(TABLE_COLUMNS) + " |",
+        "|---|---|---|---|---|---|",
+    ]
     for row_name in ("Fit", "Looked at", "Allowed", "Not allowed", "Sent", "Bounced", "Scheduled"):
         cells = [_cell(t, this_wave[row_name][i]) for i, t in enumerate(totals[row_name])]
         lines.append(f"| {row_name} | " + " | ".join(cells) + " |")
@@ -384,7 +487,12 @@ def build_table(
         ]
         lines.append(f"| {row_name} | " + " | ".join(cells) + " |")
 
-    numbers = {"totals": {k: v for k, v in totals.items()}, "this_wave": this_wave, "wave": wave_tab}
+    numbers = {
+        "totals": {k: v for k, v in totals.items()},
+        "this_wave": this_wave,
+        "wave": wave_tab,
+        "suppressed": suppressed,
+    }
     table = "\n".join(lines)
     return table, numbers
 
@@ -401,6 +509,227 @@ def _booking_regex(config: dict | None) -> re.Pattern:
         return re.compile(DEFAULT_BOOKING_URL_RE)
 
 
+def resolve_pipeline(config: dict | None = None) -> tuple[str, ...]:
+    """The configured recruitment pipeline (issue 50); pure.
+
+    Reads ``recruitment.pipeline`` (an ordered list of stage names; a
+    comma-separated string is accepted too). Empty or absent returns
+    :data:`DEFAULT_PIPELINE` (the shipped flow). An unknown stage name
+    raises usage (exit 2 through ``main``), naming the first unknown and
+    the known stages.
+    """
+    config = config if isinstance(config, dict) else {}
+    recruitment = config.get("recruitment") if isinstance(config.get("recruitment"), dict) else {}
+    stages = recruitment.get("pipeline") if isinstance(recruitment, dict) else None
+    if isinstance(stages, str):
+        names = [part.strip() for part in stages.split(",") if part.strip()]
+    elif isinstance(stages, (list, tuple)):
+        names = [str(part).strip() for part in stages if str(part).strip()]
+    elif stages is None:
+        names = []
+    else:
+        raise _Usage(f"recruitment.pipeline must be a list of stage names; got {stages!r}")
+    if not names:
+        return DEFAULT_PIPELINE
+    unknown = [name for name in names if name not in KNOWN_STAGES]
+    if unknown:
+        raise _Usage(
+            f"recruitment.pipeline: unknown stage {unknown[0]!r} "
+            "(known stages: " + ", ".join(DEFAULT_PIPELINE) + ")"
+        )
+    return tuple(names)
+
+
+def read_suppression_ids(path_value: str) -> list[str]:
+    """The suppression-list identifiers, one per line; fail closed.
+
+    The configured file (``recruitment.suppression_list``) must exist
+    and read: a missing or unreadable file raises usage (exit 2), never
+    an improvised empty list. One identifier per line (an email or an
+    account id); blank lines are skipped. The plugin ships no list.
+    """
+    path = Path(str(path_value)).expanduser()
+    if not path.is_file():
+        raise _Usage(
+            f"recruitment.suppression_list is configured but cannot be read: {path}"
+        )
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise _Usage(
+            f"recruitment.suppression_list is configured but cannot be read ({path}): {exc}"
+        ) from exc
+    return [line.strip() for line in text.splitlines() if line.strip()]
+
+
+def _split_ids(identifiers: list[str]) -> tuple[list[str], list[str]]:
+    """Split identifiers into ``(emails, account ids)``; an ``@`` marks an email."""
+    emails: list[str] = []
+    accounts: list[str] = []
+    for identifier in identifiers:
+        raw = str(identifier).strip()
+        if not raw:
+            continue
+        if "@" in raw:
+            emails.append(raw.lower())
+        else:
+            accounts.append(raw)
+    return emails, accounts
+
+
+def _roster_hit(
+    email: str, first: str, account: str, roster: list[dict], roster_emails: dict
+) -> dict | None:
+    """The roster row a wave row names, or None (the shared preflight match)."""
+    hit = roster_emails.get(email) if email else None
+    if hit is None and first:
+        hit = next(
+            (
+                r
+                for r in roster
+                if str(r.get("name") or "").lower().startswith(first.lower())
+                and account
+                and _source.accounts_match(account, str(r.get("company") or ""))
+            ),
+            None,
+        )
+    return hit
+
+
+def _suppression_context(
+    spec: dict, funnel_data: dict, config: dict | None, wave_tab: str
+) -> dict:
+    """The precomputed match data the suppress-stage checks read; pure.
+
+    Carries the roster (with its email index), the prior-wave bounce
+    emails, the workspace-participants rows from the funnel data's
+    optional ``participants`` export, and the suppression identifiers
+    (the funnel data's optional ``suppression_list`` entries plus the
+    configured file, which must read or the check fails closed).
+    """
+    roster = [row for row in (spec.get("roster") or []) if isinstance(row, dict)]
+    roster_emails = {str(row.get("email") or "").strip().lower(): row for row in roster}
+    prior_bounced: set[str] = set()
+    for name, tab_rows in _rows_by_tab(funnel_data).items():
+        if wave_tab and name == wave_tab:
+            continue
+        for row in tab_rows:
+            email = _row_email(row)
+            if email and " (bounced)" in str(row.get("email_sent") or ""):
+                prior_bounced.add(email)
+    raw_participants = funnel_data.get("participants")
+    participants = (
+        [row for row in raw_participants if isinstance(row, dict)]
+        if isinstance(raw_participants, list)
+        else []
+    )
+    raw_ids = funnel_data.get("suppression_list")
+    raw_ids = [str(i) for i in raw_ids if str(i).strip()] if isinstance(raw_ids, list) else []
+    config = config if isinstance(config, dict) else {}
+    recruitment = config.get("recruitment") if isinstance(config.get("recruitment"), dict) else {}
+    list_path = (
+        str(recruitment.get("suppression_list") or "").strip()
+        if isinstance(recruitment, dict)
+        else ""
+    )
+    if list_path:
+        raw_ids = raw_ids + read_suppression_ids(list_path)
+    emails, accounts = _split_ids(raw_ids)
+    return {
+        "roster": roster,
+        "roster_emails": roster_emails,
+        "prior_bounced": prior_bounced,
+        "participants": participants,
+        "emails": emails,
+        "accounts": accounts,
+    }
+
+
+def _suppression_hit(row: dict, email: str, context: dict) -> str | None:
+    """The suppress-stage check that suppresses this wave row, or None.
+
+    The stage guards queued rows: a row already carrying a send date is
+    past the invite stage and is never a suppression candidate. For the
+    remaining rows, first check wins, in :data:`SUPPRESSION_CHECKS`
+    order: (1) status law: the matching roster or workspace-participants
+    row sits at a never-recontact status (``completed``,
+    ``incentive-sent``, ``withdrawn``, ``cancelled``; case-insensitive);
+    (2) bounce: the email carries " (bounced)" on a prior wave tab;
+    (3) suppression list: the email or the account id is on the
+    configured list.
+    """
+    if str(row.get("email_sent") or "").strip():
+        return None
+    account, first = _identity(row)
+    roster_hit = _roster_hit(email, first, account, context["roster"], context["roster_emails"])
+    if (
+        roster_hit is not None
+        and str(roster_hit.get("status") or "").strip().lower() in NEVER_RECONTACT_STATUSES
+    ):
+        return "status law"
+    for participant in context["participants"]:
+        if str(participant.get("status") or "").strip().lower() not in NEVER_RECONTACT_STATUSES:
+            continue
+        contact_match = _EMAIL_RE.search(str(participant.get("contact") or ""))
+        if email and contact_match and contact_match.group(0).strip().lower() == email:
+            return "status law"
+        name_words = str(
+            participant.get("name") or participant.get("name/pseudonym") or ""
+        ).strip().lower().split()
+        if first and name_words and name_words[0] == first.lower():
+            return "status law"
+    if email and email in context["prior_bounced"]:
+        return "bounce"
+    if email and email in context["emails"]:
+        return "suppression list"
+    if account and any(_source.accounts_match(account, item) for item in context["accounts"]):
+        return "suppression list"
+    return None
+
+
+def suppression_counts(
+    spec: dict,
+    funnel_data: dict,
+    config: dict | None = None,
+    wave_tab: str | None = None,
+) -> dict:
+    """The suppress-stage counts (issue 50); pure.
+
+    Classifies every non-skip row of ``wave_tab`` (every tab when it is
+    empty) against the three checks and returns one count per check plus
+    ``total`` and ``accounts`` (the distinct suppressed accounts). A row
+    matching more than one check counts under the first, so the counts
+    sum to the total. Rows already carrying a skip reason stay out (the
+    command's suppression marks among them are already sheet skips).
+    Raises usage when the configured suppression-list file cannot be
+    read (fail closed).
+    """
+    data_tabs = _rows_by_tab(funnel_data)
+    skip_tabs = _skips_by_tab(funnel_data)
+    context = _suppression_context(spec, funnel_data, config, wave_tab or "")
+    tabs = [wave_tab] if wave_tab else list(data_tabs.keys())
+    counts = {check: 0 for check in SUPPRESSION_CHECKS}
+    accounts: set[str] = set()
+    total = 0
+    for tab in tabs:
+        skips = skip_tabs.get(tab, [])
+        for row in data_tabs.get(tab, []):
+            account, first = _identity(row)
+            already_skip = any(
+                _identity(s) == (account, first) and str(s.get("reason") or "").strip()
+                for s in skips
+            )
+            if already_skip:
+                continue
+            hit = _suppression_hit(row, _row_email(row), context)
+            if hit:
+                counts[hit] += 1
+                total += 1
+                if account:
+                    accounts.add(account)
+    return {**counts, "total": total, "accounts": len(accounts)}
+
+
 def preflight(
     spec: dict,
     funnel_data: dict,
@@ -409,14 +738,16 @@ def preflight(
 ) -> tuple[int, list[str]]:
     """Check the target wave; pure. Returns ``(exit_code, output_lines)``.
 
-    Reasons (issue 10): listed twice (on more than one wave tab), already
-    booked or declined, open deal, emailed in an earlier wave, on the
-    do-not-contact tab, booking link not one value or not a booking-page
-    URL, no rows ready.
+    The suppress stage (issue 50) runs first: a row matching one of its
+    three checks leaves the ready count, never blocks, and counts under
+    its check. The remaining reasons (issue 10): listed twice (on more
+    than one wave tab), already booked or declined, open deal, emailed
+    in an earlier wave, on the do-not-contact tab, booking link not one
+    value or not a booking-page URL, no rows ready. The suppressed
+    counts per check print with the result on both paths; when nothing
+    is left ready the gate exits 2 exactly as before.
     """
     config = config if isinstance(config, dict) else {}
-    roster = [row for row in (spec.get("roster") or []) if isinstance(row, dict)]
-    roster_emails = {str(row.get("email") or "").strip().lower(): row for row in roster}
     booking_re = _booking_regex(config)
 
     data_tabs = _rows_by_tab(funnel_data)
@@ -428,6 +759,7 @@ def preflight(
             f"BLOCK - / -: wave tab {wave_tab!r} is not in the funnel data; "
             "save the wave export first"
         ]
+    context = _suppression_context(spec, funnel_data, config, wave_tab)
 
     deal_accounts = [str(a) for a in (funnel_data.get("open_deal_accounts") or [])]
     dnc_emails = {str(e).strip().lower() for e in (funnel_data.get("dnc_emails") or [])}
@@ -441,12 +773,13 @@ def preflight(
                 listing_counts[email] = listing_counts.get(email, 0) + 1
 
     lines: list[str] = []
+    suppressed_counts = {check: 0 for check in SUPPRESSION_CHECKS}
     ready = 0
+    skips = skip_tabs.get(wave_tab, [])
     for row in rows:
         account, first = _identity(row)
         label = f"{account or '-'} / {first or '-'}"
         email = _row_email(row)
-        skips = skip_tabs.get(wave_tab, [])
         is_skip = any(
             _identity(s) == (account, first) and str(s.get("reason") or "").strip()
             for s in skips
@@ -454,21 +787,15 @@ def preflight(
         if is_skip:
             continue
 
+        hit = _suppression_hit(row, email, context)
+        if hit is not None:
+            suppressed_counts[hit] += 1
+            continue
+
         problems: list[str] = []
         if email and listing_counts.get(email, 0) > 1:
             problems.append("listed twice (on more than one wave tab)")
-        roster_hit = roster_emails.get(email) if email else None
-        if roster_hit is None and first:
-            roster_hit = next(
-                (
-                    r
-                    for r in roster
-                    if str(r.get("name") or "").lower().startswith(first.lower())
-                    and account
-                    and _source.accounts_match(account, str(r.get("company") or ""))
-                ),
-                None,
-            )
+        roster_hit = _roster_hit(email, first, account, context["roster"], context["roster_emails"])
         if roster_hit is not None and (
             str(roster_hit.get("status") or "") in SCHEDULED_STATUSES
             or str(roster_hit.get("status") or "") == "Cancelled"
@@ -497,14 +824,22 @@ def preflight(
         else:
             ready += 1
 
+    counts_line = (
+        f"suppressed on {wave_tab}: {suppressed_counts['status law']} status-law, "
+        f"{suppressed_counts['bounce']} bounce, "
+        f"{suppressed_counts['suppression list']} suppression-list"
+    )
     if not any(row for row in rows):
         lines.append("BLOCK - / -: no rows ready")
     if lines:
         # Any blocked row stops the send: the gate is all-or-nothing.
         if ready == 0 and not any(line.endswith("no rows ready") for line in lines):
             lines.append("BLOCK - / -: no rows ready")
-        return EXIT_BLOCKED, lines
-    return EXIT_OK, [f"PREFLIGHT OK: {ready} rows ready on {wave_tab}"]
+        return EXIT_BLOCKED, lines + [counts_line]
+    if ready == 0:
+        # Nothing blocked and nothing ready: every row was suppressed.
+        return EXIT_BLOCKED, ["BLOCK - / -: no rows ready", counts_line]
+    return EXIT_OK, [f"PREFLIGHT OK: {ready} rows ready on {wave_tab}", counts_line]
 
 
 def business_days_between(start: date, end: date) -> int:
@@ -670,12 +1005,45 @@ def participant_gate_lines(row: dict, target_status: str, variant: str) -> list[
     return problems
 
 
+def pipeline_report(config: dict | None = None) -> tuple[int, str]:
+    """``--pipeline-check`` output (issue 50); pure. Never writes.
+
+    Prints the resolved stage list, one deterministic action line per
+    stage, and the suppression-list state. An unknown stage name or an
+    unreadable configured suppression-list file raises usage (exit 2
+    through ``main``), fail closed.
+    """
+    stages = resolve_pipeline(config)
+    lines = ["pipeline: " + " -> ".join(stages)]
+    lines.extend(f"- {KNOWN_STAGES[stage]}" for stage in stages)
+    config = config if isinstance(config, dict) else {}
+    recruitment = config.get("recruitment") if isinstance(config.get("recruitment"), dict) else {}
+    list_path = (
+        str(recruitment.get("suppression_list") or "").strip()
+        if isinstance(recruitment, dict)
+        else ""
+    )
+    if list_path:
+        identifiers = read_suppression_ids(list_path)
+        emails, accounts = _split_ids(identifiers)
+        lines.append(
+            f"suppression list: {len(identifiers)} identifiers from {list_path} "
+            f"({len(emails)} email, {len(accounts)} account id)"
+        )
+    else:
+        lines.append("suppression list: none configured")
+    return EXIT_OK, "\n".join(lines) + "\n"
+
+
 def run(args: dict[str, str], config: dict | None = None) -> tuple[int, str]:
     """One CLI invocation; returns ``(exit_code, stdout_text)``. Never writes."""
     check_draft = str(args.get("check_draft") or "").strip()
     if check_draft:
         v1_code, v1_lines = check_draft_v1(check_draft)
         return v1_code, "\n".join(v1_lines) + "\n"
+
+    if args.get("pipeline_check"):
+        return pipeline_report(config)
 
     spec_value = str(args.get("spec") or "").strip()
     if not spec_value:
@@ -728,8 +1096,10 @@ def run(args: dict[str, str], config: dict | None = None) -> tuple[int, str]:
 MCP_SURFACE = {
     "description": (
         "recruit_funnel.py: print the fixed nine-row recruitment funnel table, "
-        "run the wave preflight (BLOCK lines for repeat recruits), draft nudge "
-        "reminders, or check a V1 draft. Computes only; nothing is sent."),
+        "run the wave preflight (BLOCK lines for repeat recruits, suppressed "
+        "counts per suppress-stage check), draft nudge reminders, check a V1 "
+        "draft, or resolve the configured recruitment pipeline. Computes "
+        "only; nothing is sent."),
     "flags": [
         {"name": "spec", "flag": "--spec", "type": "string",
          "help": "path to the study spec JSON (required unless check_draft)"},
@@ -746,6 +1116,7 @@ MCP_SURFACE = {
         {"name": "preflight", "flag": "--preflight", "type": "boolean"},
         {"name": "status", "flag": "--status", "type": "boolean"},
         {"name": "reminder", "flag": "--reminder", "type": "boolean"},
+        {"name": "pipeline_check", "flag": "--pipeline-check", "type": "boolean"},
     ],
 }
 
@@ -769,7 +1140,12 @@ def main(argv: list[str] | None = None) -> int:
         "--check-draft": "check_draft",
         "--today": "today",
     }
-    switches = {"--preflight": "preflight", "--status": "status", "--reminder": "reminder"}
+    switches = {
+        "--preflight": "preflight",
+        "--status": "status",
+        "--reminder": "reminder",
+        "--pipeline-check": "pipeline_check",
+    }
     while index < len(args):
         token = args[index]
         if token in flag_names:
@@ -786,8 +1162,23 @@ def main(argv: list[str] | None = None) -> int:
         print(f"recruit_funnel: unknown argument {token!r}", file=sys.stderr)
         return EXIT_USAGE
 
+    config = None
+    if flags.get("pipeline_check"):
+        # The one CLI path that reads the org config (issue 50): the
+        # pipeline stage list and the suppression-list path live there.
+        try:
+            from lib.config import load_config  # PyYAML: the documented exception
+
+            config = load_config()
+        except Exception as exc:
+            print(
+                f"recruit_funnel: the org config cannot load for --pipeline-check: {exc}",
+                file=sys.stderr,
+            )
+            return EXIT_USAGE
+
     try:
-        code, output = run(flags)
+        code, output = run(flags, config=config)
     except _Usage as exc:
         print(f"recruit_funnel: {exc}", file=sys.stderr)
         return EXIT_USAGE

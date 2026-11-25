@@ -99,6 +99,29 @@ def _selftest() -> int:
     check("invited row with contact and no stamp is sendable",
           decision["action"] == "send" and decision["address"] == "ada.example@example.com",
           str(decision))
+    # Suppression gate (issue 50): a listed contact email never sends,
+    # whatever the row's status; an unlisted row passes untouched.
+    decision = evaluate_row(row, ["ada.example@example.com"])
+    check("a listed contact email is skipped before the send (suppression gate)",
+          decision["action"] == "skip" and "suppression list" in decision["reason"],
+          str(decision))
+    decision = evaluate_row(dict(row, status="withdrawn"), ["ada.example@example.com"])
+    check("the suppression gate fires on any status",
+          decision["action"] == "skip" and "suppression list" in decision["reason"],
+          str(decision))
+    decision = evaluate_row(row, ["rook.example@example.com"])
+    check("an unlisted row is not suppressed",
+          decision["action"] == "send", str(decision))
+    decision = evaluate_row(row, ("ADA.EXAMPLE@EXAMPLE.COM",))
+    check("the suppression match is case-insensitive",
+          decision["action"] == "skip", str(decision))
+    decision = evaluate_row(row, ["not-an-email"])
+    check("an account id never matches an email contact",
+          decision["action"] == "send", str(decision))
+    decision = evaluate_row(dict(row, contact="@kit-slack"), ["@kit-slack"])
+    check("a non-email identifier on the list still leaves a Slack contact une-mailed",
+          decision["action"] == "skip" and "no email address" in decision["reason"],
+          str(decision))
     empty_contact = dict(row, contact="")
     decision = evaluate_row(empty_contact)
     check("empty contact blocks the send (the gate law, fail closed)",
@@ -206,6 +229,40 @@ def _selftest() -> int:
                          "show_contacts": "1", "today": "2026-11-22"}, environ={})
         check("--show-contacts shows the contact (the explicit flag)",
               "ada.example@example.com" in out, out[:200])
+
+        # Suppression gate at the run level (issue 50): the configured list
+        # file removes a listed row from the plan before anything merges.
+        list_path = Path(directory) / "suppression.txt"
+        list_path.write_text("ida.example@example.com\n\n", encoding="utf-8", newline="")
+        list_config = Path(directory) / "org-list.yaml"
+        list_config.write_text(
+            "recruitment:\n  suppression_list: \"" + list_path.as_posix() + "\"\n",
+            encoding="utf-8", newline="")
+        ids, ids_source = load_suppression_ids(config_file=str(list_config))
+        check("the configured list file loads its identifiers",
+              ids == ["ida.example@example.com"] and "suppression" in ids_source,
+              f"{ids} {ids_source}")
+        blank_config = Path(directory) / "org-blank.yaml"
+        blank_config.write_text("", encoding="utf-8", newline="")
+        ids, ids_source = load_suppression_ids(config_file=str(blank_config))
+        check("no configured list carries no identifiers",
+              ids == [] and ids_source == "none", f"{ids} {ids_source}")
+        missing_config = Path(directory) / "org-missing-list.yaml"
+        missing_config.write_text(
+            "recruitment:\n  suppression_list: \""
+            + (Path(directory) / "no-such-list.txt").as_posix() + "\"\n",
+            encoding="utf-8", newline="")
+        try:
+            load_suppression_ids(config_file=str(missing_config))
+            check("a configured but unreadable list fails closed", False, "no error raised")
+        except _Usage:
+            check("a configured but unreadable list fails closed", True)
+        code, out = run({"participants": participants_path, "template": template_path,
+                         "today": "2026-11-22"}, environ={}, config_file=str(list_config))
+        check("the listed row is skipped with the suppression reason (dry run)",
+              "SKIP row P-07: on the recruitment suppression list" in out, out[:400])
+        check("the unlisted sendable row still plans",
+              "SEND row P-01" in out, out[:400])
 
         # Exit-code law: a failed send exits 1 and stamps nothing.
         SEND_ENV = {"UXR_RECRUIT_SMTP_HOST": "smtp.example.com",

@@ -113,6 +113,7 @@ Reminder printed: update `recruitment/participants.md`.
 ## Run-ending recruitment table (`recruit_funnel.py --spec`, exit 0, verbatim)
 
 ```
+Target persona: not recorded yet
 | Metric | Internal users | In-product accounts | In-product users | Other accounts | Other users |
 |---|---|---|---|---|---|
 | Fit | 4 (0) | 0 (0) | 0 (0) | 0 (0) | 1 (0) |
