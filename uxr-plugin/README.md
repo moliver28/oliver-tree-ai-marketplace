@@ -50,6 +50,7 @@ Fill the values by hand from the contract comments (there is no wizard); verify 
 
 | Command | What it does |
 |---|---|
+| `/uxr-onboard` | One-shot setup: adapters, fields, calculator inputs, privacy, workspace, recruit config, then the four-feature walkthrough gate |
 | `/uxr-new` | Guided interview with evidence sweep; validates the spec, then creates the ticket |
 | `/uxr-mine` | Your open studies (closed states excluded; `all` to include them) |
 | `/uxr-show KEY` | One ticket rendered from spec order, UXR fields first, newest 5 comments |

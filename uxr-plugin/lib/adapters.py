@@ -109,6 +109,15 @@ ADAPTER_DEFAULTS: dict[str, dict[str, Any]] = {
         "area": "issues",
         "capabilities": {"pull": True, "push": True, "spec_transform": True},
     },
+    #: Declared, not built (issue 114 wave P4): the adapter module lands in
+    #: its own PR; the registry contract and the tracker kind are ready, so
+    #: the entry lights up by pointing ``module`` at the module file.
+    "gitlab": {
+        "module": "",
+        "doc": "references/trackers-other.md",
+        "area": "issues",
+        "capabilities": {"pull": True, "push": True, "spec_transform": True},
+    },
     "notion": {
         "module": "lib/adapter_notion.py",
         "doc": "references/tracker-notion.md",

@@ -48,7 +48,7 @@ SELFTESTS = [
     "classify.py", "evidence_sweep.py", "eod_journal.py",
     "backfill_spec.py", "calendar_prep.py", "trace_prompts.py",
     "debrief_helpers.py", "researcher_state.py", "checklist_gate.py",
-    "grounding_budget.py",
+    "grounding_budget.py", "prioritize.py", "walkthrough.py",
     "adapters.py",
 ]
 

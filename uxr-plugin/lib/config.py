@@ -118,6 +118,7 @@ REQUIRED_KEYS: tuple[str, ...] = (
     "defaults.fast_path.outcomes",
     "priority.weights",
     "priority.formula",
+    "prioritization.fields",
     "links.calculator",
     "links.templates",
     "links.plugin_repo",

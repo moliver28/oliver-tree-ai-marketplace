@@ -314,14 +314,48 @@ defaults:
 # -----------------------------------------------------------------------------
 priority:
   # Weights for the prioritization calculator, keyed by the operator's own
-  # input names (the custom fields onboarding records). An input without a
-  # weight carries weight 1. Empty = the built-in weights documented in
-  # references/onboarding.md (impact 3, confidence 2, urgency 1).
+  # input names. Setting any weight switches the calculator from the
+  # built-in handbook preset to the weighted-sum mode (inputs answered
+  # 1 to 3; an input without a weight carries weight 1). Empty (the
+  # shipped state) = the handbook preset runs.
   weights: {}
-  # Formula string that replaces the built-in calculator formula when set.
-  # Empty = the built-in formula (score = impact*3 + confidence*2 +
-  # urgency*1, each input answered 1 to 3).
+  # Formula string that switches the calculator to the weighted-sum mode
+  # when set (terms as <input> or <input>*<weight> in a + separated sum;
+  # the earlier default impact*3 + confidence*2 + urgency*1 stays
+  # reachable this way). Empty = the handbook preset runs.
   formula: ""
+
+# -----------------------------------------------------------------------------
+# prioritization: maps each handbook criterion to the tracker's field
+# (issue 114; default preset ruled by MO 2026-11-24)
+# -----------------------------------------------------------------------------
+prioritization:
+  # The calculator's zero-configuration default is the GitLab handbook
+  # priority calculator:
+  # https://handbook.gitlab.com/handbook/upstream-studios/experience-research/research-prioritization/
+  # Six criteria (impact, users, dependency, timeline, alternatives,
+  # alignment), each scored 1 to 5 (1 = most urgent), aggregated as the
+  # unweighted average and banded verbatim (<=1.5 P1 Must Do; <=2.4 P2
+  # Should Do; <=3.5 P3 Nice to Do; <=4.5 P4 Backlog; >4.5 Will Not Do).
+  # Saved by onboarding (/uxr-onboard). One entry per tracker kind (the
+  # adapter registry selector); inside it, one entry per mapped
+  # criterion, shaped:
+  #   <criterion>: { id: "", kind: select|number|labels, values: [], low: , high: }
+  # `id` is the tracker-side source (a Jira custom field id, a GitHub or
+  # GitLab label name or prefix, a Notion property name). `values` is the
+  # ordinal value list, most urgent first, for select and labels rules.
+  # `low` and `high` bound a number rule. The normalizer in
+  # scripts/prioritize.py maps every mapped value onto 1 to 5 in the
+  # preset; the documented law lives in references/onboarding.md. An
+  # unmapped criterion is answered 1 to 5 at scoring time, or asked at
+  # runtime with --ask. Empty per kind (the shipped state): the
+  # calculator runs on the handbook criteria. Example shape:
+  #   fields:
+  #     jira:
+  #       impact: {id: "customfield_10130", kind: select, values: [Critical, High, Moderate, Low, Minimal]}
+  #     github:
+  #       impact: {id: "impact/", kind: labels, values: ["impact/1", "impact/2", "impact/3", "impact/4", "impact/5"]}
+  fields: {}
 
 # -----------------------------------------------------------------------------
 # links: checklist links rendered into the ticket body (issue 04)
@@ -537,9 +571,6 @@ adapters:
     doc: "references/trackers-other.md"
     area: issues
     capabilities: {pull: true, push: true, spec_transform: true}
-  notion:
-    module: "lib/adapter_notion.py"
-    doc: "references/tracker-notion.md"
     area: issues
     capabilities: {pull: true, push: true, spec_transform: true}
   # Knowledge-base kinds (issue 114): declared now, first KB adapter lands
@@ -548,6 +579,11 @@ adapters:
   # Notion is both: the built issues entry above and the declared KB entry
   # here (same system, different areas = two entries; the KB entry of a
   # system that is also the issue system is <kind>-kb).
+  notion:
+    module: "lib/adapter_notion.py"
+    doc: "references/tracker-notion.md"
+    area: issues
+    capabilities: {pull: true, push: true, spec_transform: true}
   notion-kb:
     module: ""
     doc: "references/onboarding.md"

@@ -101,6 +101,16 @@ Adapter duties before the write:
 3. The interval payload for Jira is already the JSON string the tracker
    expects; pass it through unparsed.
 
+## Prioritization inputs from Jira (issue 114)
+
+The calculator (`scripts/prioritize.py`) reads each input's value from the
+`fields.*` entry named in `prioritization.fields.jira.<input>.id` (a Jira
+custom field id) on the same ticket read that fills the field payloads
+above. A single-select custom field maps as a `select` rule with the
+option order low to high; a numeric field maps as a `number` rule with
+its bounds. The same `get_item` read serves both, so scoring adds no
+second tracker read.
+
 ## Researcher routing (config-driven; used by `new`)
 
 Routing lives in `config/org.yaml` under `routing`; commands never carry it
