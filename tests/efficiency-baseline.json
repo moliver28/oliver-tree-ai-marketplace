@@ -683,6 +683,16 @@
      "uxr-plugin/skills/interview-script/SKILL.md"
     ],
     "reason": "Zero-loss dedupe, wave 1 (MO efficiency program 2026-11-25): exact restatements removed from five command files and two skill files; every dropped law keeps a live carrier (carrier audit before each drop; recap/failure tables dropped only after sole-carrier laws moved into their sections). Front matter, safety sections, code fences, script invocation strings, config keys, and quoted gate words untouched. Each file graded by a mechanical containment checker before apply; payload 33,626 -> 33,585 lines (-41)."
+   },
+   {
+    "wave": "w3-rewrite-new-debrief",
+    "issue": 0,
+    "delta_lines": -76,
+    "files": [
+     "uxr-plugin/commands/uxr-new.md",
+     "uxr-plugin/commands/uxr-debrief.md"
+    ],
+    "reason": "Rephrase wave (MO efficiency program 2026-11-25): uxr-new 3004->2796 and uxr-debrief 2969->2803 body tokens (-376 cl100k body-only), zero law loss; all 24 invocation strings byte-identical modulo line-wrap, safety sections verbatim, one orchestrator-restored zero-writes parenthetical; payload 33585 -> 33509 lines (-76)."
    }
   ],
   "golden_path_growth": null
