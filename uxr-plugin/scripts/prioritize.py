@@ -74,8 +74,9 @@ validation 2 / solution validation 1), Ownership (yes 3 / somewhat 2 /
 no 1), Design Support (study led by UXR 3 / requesting team has
 designers 2 / no designers 1), Complexity (yes 2 / no 1 / unknown 0),
 Skill Development (yes 3 / somewhat 2 / no 1), Confidence (high 3 /
-medium 2 / low 1). The sum divided by the total possible (16) is the
-percentage, and the percentage names the level with the MO-renamed
+medium 2 / low 1). The sum divided by the total possible score
+(17 - the summed maxima 3+3+3+2+3+3; divisor correction 2026-11-24) is
+the percentage, and the percentage names the level with the MO-renamed
 labels - never the handbook's metal names::
 
     > 80%    UXR to Lead     - the researcher drives the study end to end.
@@ -224,12 +225,13 @@ PRESET_BANDS: tuple[tuple[float | None, str], ...] = (
 )
 
 #: The support-level calculator: six per-project judgments, not tracker
-#: fields, summed against the ruling's divisor. Handbook criteria and
-#: point values, verbatim; the choice tokens are the ask's accepted
-#: names (a numbered answer always works too). The ruling divides the
-#: sum by 16; the listed maxima sum to 17, so the all-max judgment
-#: lands above 100 percent and stays UXR to Lead (disclosed in the PR).
-SUPPORT_TOTAL = 16
+#: fields, summed against the total possible score. Handbook criteria
+#: and point values, verbatim; the choice tokens are the ask's accepted
+#: names (a numbered answer always works too). The total possible is
+#: the summed maxima 3+3+3+2+3+3 = 17 (divisor correction 2026-11-24:
+#: the earlier 16 was arithmetic error), so the all-max judgment lands
+#: exactly 100 percent.
+SUPPORT_TOTAL = 17
 
 SUPPORT_CRITERIA: tuple[dict[str, Any], ...] = (
     {
@@ -631,8 +633,9 @@ def support_level(percent: float) -> str:
 
     The law: above 80 percent is ``UXR to Lead``; above 50 through 80 is
     ``UXR to Support``; 50 and below is ``UXR to Review``. The real
-    percentages are multiples of 6.25 (sum / 16), so the named bounds
-    80, 51, and 50 are the ones the CLI can land on.
+    percentages are multiples of 100/17 (sum / 17), so the CLI lands on
+    82.35, 76.47, 52.94, and 47.06 around the named bounds 80, 51, and
+    50.
     """
     if percent > 80.0:
         return "UXR to Lead"
@@ -918,7 +921,7 @@ def _print_preset_inputs(inputs: list[dict]) -> None:
 
 
 def _print_support_inputs() -> None:
-    print("prioritize inputs: support mode (sum / 16)")
+    print(f"prioritize inputs: support mode (sum / {SUPPORT_TOTAL})")
     for criterion in SUPPORT_CRITERIA:
         print(f"{criterion['label']}: {criterion['question']}")
         for position, (label, points) in enumerate(criterion["choices"], start=1):

@@ -577,7 +577,7 @@
     "files": [
      "uxr-plugin/scripts/prioritize.py"
     ],
-    "reason": "Calculator default swapped to the GitLab handbook priority calculator and the support mode shipped (MO ruling 2026-11-24, #114): the six handbook criteria with their verbatim 1-5 scale wording and the five verbatim bands (unweighted mean, sum / 6) replace the shipped impact*3 + confidence*2 + urgency default (that formula stays reachable as a priority.formula override; weights or formula switch to the weighted-sum mode at the shipped 1-to-3 scale law); the deterministic runtime ask (--ask: a numbered prompt printing the criterion handbook scale wording, one bounded re-ask, answers recorded via --record as one JSON line, prompts on stderr so --json stays parseable); the --support mode (six per-project judgments through the same ask, summed against 16 - the ruling divisor; the listed maxima sum to 17 and the all-max judgment lands above 100 percent, disclosed - and the MO-renamed labels UXR to Lead / UXR to Support / UXR to Review, the handbook metal names never shipped); preset-mode rules normalize onto 1 to 5 and a mapping naming a non-criterion input is a usage error. The prior 3-field normalization table is generalized to a scale parameter; no adapter module touched (registry law kept). Net +616 of the shipped payload (prioritize.py only; the tests/ selftest lives outside the payload).",
+    "reason": "Calculator default swapped to the GitLab handbook priority calculator and the support mode shipped (MO ruling 2026-11-24, #114): the six handbook criteria with their verbatim 1-5 scale wording and the five verbatim bands (unweighted mean, sum / 6) replace the shipped impact*3 + confidence*2 + urgency default (that formula stays reachable as a priority.formula override; weights or formula switch to the weighted-sum mode at the shipped 1-to-3 scale law); the deterministic runtime ask (--ask: a numbered prompt printing the criterion handbook scale wording, one bounded re-ask, answers recorded via --record as one JSON line, prompts on stderr so --json stays parseable); the --support mode (six per-project judgments through the same ask, summed against the total possible score (corrected to 17, the summed maxima 3+3+3+2+3+3, by the divisor correction of 2026-11-24) - and the MO-renamed labels UXR to Lead / UXR to Support / UXR to Review, the handbook metal names never shipped); preset-mode rules normalize onto 1 to 5 and a mapping naming a non-criterion input is a usage error. The prior 3-field normalization table is generalized to a scale parameter; no adapter module touched (registry law kept). Net +616 of the shipped payload (prioritize.py only; the tests/ selftest lives outside the payload).",
     "date": "2026-11-24"
    },
    {
@@ -590,7 +590,19 @@
      "uxr-plugin/commands/uxr-onboard.md",
      "uxr-plugin/CHANGELOG.md"
     ],
-    "reason": "The same ruling swept through the shipped text (#114): the config example documents the handbook preset with the citation comment and the criterion-only mapping shape (the non-criterion example line removed - it would now be a usage error); references/onboarding.md retells the preset, the verbatim bands, the per-backend criterion mapping (most-urgent-first value order), the runtime ask law, the support mode with the three renamed labels and the divisor disclosure, and the weighted-sum override mode; the onboard command asks per criterion, refuses non-criterion names, and its walkthrough calculator step runs the preset with --ask and offers the support disclosure; the 0.8.0 CHANGELOG bullets describe the shipped default as ruled (same release, no version bump). Net +64 of the shipped payload.",
+    "reason": "The same ruling swept through the shipped text (#114): the config example documents the handbook preset with the citation comment and the criterion-only mapping shape (the non-criterion example line removed - it would now be a usage error); references/onboarding.md retells the preset, the verbatim bands, the per-backend criterion mapping (most-urgent-first value order), the runtime ask law, the support mode with the three renamed labels, and the weighted-sum override mode; the onboard command asks per criterion, refuses non-criterion names, and its walkthrough calculator step runs the preset with --ask and offers the support disclosure; the 0.8.0 CHANGELOG bullets describe the shipped default as ruled (same release, no version bump). Net +64 of the shipped payload.",
+    "date": "2026-11-24"
+   },
+   {
+    "wave": "P4",
+    "issue": 114,
+    "delta_lines": 4,
+    "files": [
+     "uxr-plugin/scripts/prioritize.py",
+     "uxr-plugin/references/onboarding.md",
+     "uxr-plugin/CHANGELOG.md"
+    ],
+    "reason": "Divisor correction (orchestrator arithmetic-error fix, 2026-11-24, #114): the support mode divides by the total possible score 17 (the summed maxima 3+3+3+2+3+3) instead of the misruled 16, so the all-max judgment lands exactly 100 percent; the 16-vs-17 divergence disclosure is replaced by the correction note in the script docstring and constant comment, references/onboarding.md, and the 0.8.0 CHANGELOG bullet; the two earlier P4 reason lines that argued the 16 divisor are corrected here in place. MO labels and thresholds unchanged (>80 UXR to Lead / 51-80 UXR to Support / <=50 UXR to Review); the metal-name absence pin stays. Selftest support landings recomputed for /17 (82.35 Lead, 76.47/70.59/52.94 Support, 47.06 Review). Net +4 of the shipped payload.",
     "date": "2026-11-24"
    }
   ],

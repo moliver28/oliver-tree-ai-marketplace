@@ -406,11 +406,11 @@ def _selftest() -> int:
 
     # 7. Support mode: the handbook criteria and points, sum / 16, the
     #    MO-renamed labels (never the metal names).
-    check("support divisor is 16 (the ruling, verbatim)",
-          SUPPORT_TOTAL == 16, repr(SUPPORT_TOTAL))
-    check("disclosed divergence: the listed maxima sum to 17",
-          sum(max(points for _, points in c["choices"])
-              for c in SUPPORT_CRITERIA) == 17, None)
+    check("support total possible is 17 (divisor correction 2026-11-24)",
+          SUPPORT_TOTAL == 17, repr(SUPPORT_TOTAL))
+    check("total possible equals the summed maxima (3+3+3+2+3+3)",
+          SUPPORT_TOTAL == sum(max(points for _, points in c["choices"])
+                               for c in SUPPORT_CRITERIA), None)
     check("support criteria are the handbook six",
           SUPPORT_NAMES == ("type", "ownership", "design", "complexity",
                             "skill", "confidence"), repr(SUPPORT_NAMES))
@@ -454,33 +454,44 @@ def _selftest() -> int:
     best = support_score({"type": "foundational", "ownership": "yes",
                           "design": "study led by uxr", "complexity": "yes",
                           "skill": "yes", "confidence": "high"})
-    check("the all-max judgment is sum 17 -> 106.25% -> UXR to Lead "
-          "(the disclosed divergence)",
-          best["total"] == 17 and best["percent"] == 106.25
+    check("the all-max judgment is sum 17 -> exactly 100% -> UXR to Lead",
+          best["total"] == 17 and best["percent"] == 100.0
           and best["level"] == "UXR to Lead", repr(best["percent"]))
     hundred = support_score({"type": "foundational", "ownership": "yes",
                              "design": "study led by uxr", "complexity": "yes",
                              "skill": "yes", "confidence": "medium"})
-    check("sum 16 -> exactly 100% -> UXR to Lead",
-          hundred["total"] == 16 and hundred["percent"] == 100.0
+    check("sum 16 -> 94.12% -> UXR to Lead",
+          hundred["total"] == 16 and hundred["percent"] == 94.12
           and hundred["level"] == "UXR to Lead", repr(hundred["percent"]))
+    lead_edge = support_score({"type": "foundational", "ownership": "yes",
+                               "design": "study led by uxr", "complexity": "yes",
+                               "skill": "somewhat", "confidence": "low"})
+    check("sum 14 -> 82.35% -> UXR to Lead (the real landing above 80)",
+          lead_edge["total"] == 14 and lead_edge["percent"] == 82.35
+          and lead_edge["level"] == "UXR to Lead", repr(lead_edge["level"]))
     mid = support_score({"type": "foundational", "ownership": "yes",
                          "design": "study led by uxr", "complexity": "yes",
                          "skill": "no", "confidence": "low"})
-    check("sum 13 -> 81.25% -> UXR to Lead (the real landing above 80)",
-          mid["total"] == 13 and mid["percent"] == 81.25
-          and mid["level"] == "UXR to Lead", repr(mid["level"]))
+    check("sum 13 -> 76.47% -> UXR to Support",
+          mid["total"] == 13 and mid["percent"] == 76.47
+          and mid["level"] == "UXR to Support", repr(mid["level"]))
     edge = support_score({"type": "problem validation", "ownership": "somewhat",
                           "design": "requesting team has designers", "complexity": "yes",
                           "skill": "yes", "confidence": "low"})
-    check("sum 12 -> 75% -> UXR to Support",
-          edge["total"] == 12 and edge["percent"] == 75.0
+    check("sum 12 -> 70.59% -> UXR to Support",
+          edge["total"] == 12 and edge["percent"] == 70.59
           and edge["level"] == "UXR to Support", repr(edge["level"]))
+    support_edge = support_score({"type": "foundational", "ownership": "somewhat",
+                                  "design": "no designers", "complexity": "no",
+                                  "skill": "no", "confidence": "low"})
+    check("sum 9 -> 52.94% -> UXR to Support (the real landing above 50)",
+          support_edge["total"] == 9 and support_edge["percent"] == 52.94
+          and support_edge["level"] == "UXR to Support", repr(support_edge["level"]))
     floor = support_score({"type": "problem validation", "ownership": "no",
                            "design": "requesting team has designers", "complexity": "no",
                            "skill": "no", "confidence": "low"})
-    check("sum 8 -> 50% -> UXR to Review (the boundary lands Review)",
-          floor["total"] == 8 and floor["percent"] == 50.0
+    check("sum 8 -> 47.06% -> UXR to Review (the highest Review landing)",
+          floor["total"] == 8 and floor["percent"] == 47.06
           and floor["level"] == "UXR to Review", repr(floor["level"]))
     full = {name: "1" for name in SUPPORT_NAMES}
     err = _raises(UsageError, support_score, dict(full, reach="1"))
@@ -529,7 +540,7 @@ def _selftest() -> int:
             probe.returncode == 0
             and payload["mode"] == "support"
             and payload["total"] == 16
-            and payload["percent"] == 100.0
+            and payload["percent"] == 94.12
             and payload["level"] == "UXR to Lead"
             and recorded["level"] == "UXR to Lead"
             and recorded["record_format"] == 1
@@ -582,7 +593,7 @@ def _selftest() -> int:
         payload = json.loads(probe.stdout)
         check("cli inputs --support --json parses",
               probe.returncode == 0 and payload["mode"] == "support"
-              and payload["possible"] == 16
+              and payload["possible"] == 17
               and len(payload["criteria"]) == 6, probe.stdout[:120])
     except Exception as exc:
         check("cli inputs --support --json parses", False, repr(exc))

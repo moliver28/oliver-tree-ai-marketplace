@@ -131,10 +131,11 @@ validation 1), Ownership (yes 3 / somewhat 2 / no 1), Design Support
 (study led by UXR 3 / requesting team has designers 2 / no designers
 1), Complexity (yes 2 / no 1 / unknown 0), Skill Development (yes 3 /
 somewhat 2 / no 1), Confidence (high 3 / medium 2 / low 1). The sum
-divides by 16 (the ruling's divisor; the listed maxima sum to 17, so
-the all-max judgment lands above 100 percent) and the percentage names
-the level with the MO-renamed labels verbatim - the handbook's former
-metal names never ship:
+divides by the total possible score, 17 (the summed maxima
+3+3+3+2+3+3; divisor correction 2026-11-24), the all-max judgment lands
+exactly 100 percent, and the percentage names the level with the
+MO-renamed labels verbatim - the handbook's former metal names never
+ship:
 
 - above 80 percent: `UXR to Lead` - the researcher drives the study end
   to end.
