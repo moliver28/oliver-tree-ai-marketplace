@@ -43,165 +43,49 @@ with empty ids, and nothing in this module needs them.
 
 from __future__ import annotations
 
-import json
-import re
-import sys
 from collections.abc import Mapping
 from typing import Any
 
 try:
-    from . import config as _config  # package context: import lib.adapter_gitlab
-    from . import field_map as _field_map
-    from . import spec_blocks as _spec_blocks
+    from .adapter_common import connect as _connect
+    from .adapter_common import pull as _pull
+    from .adapter_common import push as _push
+    from .adapter_common import spec_transform as _spec_transform
 except ImportError:  # direct execution: python lib/adapter_gitlab.py
-    import config as _config  # type: ignore
-    import field_map as _field_map  # type: ignore
-    import spec_blocks as _spec_blocks  # type: ignore
-
-try:
-    from scripts import build_body as _build_body  # plugin root on sys.path
-except ImportError:  # direct execution: add the plugin root, then retry
-    if str(_config.PLUGIN_ROOT) not in sys.path:
-        sys.path.insert(0, str(_config.PLUGIN_ROOT))
-    from scripts import build_body as _build_body  # type: ignore
+    from adapter_common import (  # type: ignore
+        connect as _connect,
+        pull as _pull,
+        push as _push,
+        spec_transform as _spec_transform,
+    )
 
 #: The ``tracker.*`` connection keys, in record order. ``tracker.kind`` is
 #: the selector, not a fact, so it is not in this tuple.
 _CONNECTION_KEYS = ("base_url", "project_key", "workspace_id", "ticket_regex", "body_format")
 
+_compose = lambda text, tracker: f"#{text}"  # noqa: E731  (the #<iid> composition)
+
 
 def connect(config: Mapping[str, Any]) -> dict:
-    """Return the connection facts, the empty ones, and readiness.
-
-    The record carries ``tracker.kind`` and the five ``tracker.*``
-    connection keys, plus ``missing`` (the dotted keys still empty) and
-    ``ready`` (true when nothing is missing). The live session steps stay
-    command-side prose in ``references/tracker-gitlab.md``.
-    """
-    tracker = config.get("tracker") if isinstance(config, Mapping) else None
-    tracker = tracker if isinstance(tracker, Mapping) else {}
-    record: dict[str, Any] = {"kind": str(tracker.get("kind") or "")}
-    for key in _CONNECTION_KEYS:
-        record[key] = str(tracker.get(key) or "")
-    missing = [f"tracker.{key}" for key in _CONNECTION_KEYS if not record[key]]
-    record["missing"] = missing
-    record["ready"] = not missing
-    return record
+    """Connection facts, empty keys, and readiness over the five keys."""
+    return _connect(config, _CONNECTION_KEYS)
 
 
 def pull(key: Any, config: Mapping[str, Any]) -> dict:
-    """Normalize one issue key: the GitLab ``normalize_key`` rule in code.
-
-    A key matching ``tracker.ticket_regex`` passes unchanged. A bare
-    number composes ``#<number>`` (``42`` becomes ``#42``, the project
-    comes from ``tracker.workspace_id``); the composed key is validated
-    against the regex when one is configured. Anything else returns
-    ``{"error": "..."}`` with a deterministic message — no exception, no
-    network call. With no ``ticket_regex`` configured there is nothing to
-    validate against, so a non-bare key passes unchanged and a bare
-    number still composes.
-    """
-    tracker = config.get("tracker") if isinstance(config, Mapping) else None
-    tracker = tracker if isinstance(tracker, Mapping) else {}
-    text = str(key or "").strip()
-    if not text:
-        return {"error": "pull: no issue key given"}
-    regex = str(tracker.get("ticket_regex") or "")
-    pattern = None
-    if regex:
-        try:
-            pattern = re.compile(regex)
-        except re.error as exc:
-            return {"error": f"pull: tracker.ticket_regex does not compile: {exc}"}
-    if pattern is not None and pattern.fullmatch(text):
-        return {"key": text}
-    if text.isdecimal():
-        composed = f"#{text}"
-        if pattern is not None and not pattern.fullmatch(composed):
-            return {
-                "error": f"pull: {composed!r} does not match tracker.ticket_regex; "
-                "check the configured issue-key pattern"
-            }
-        return {"key": composed}
-    if pattern is None:
-        return {"key": text}
-    return {
-        "error": f"pull: {text!r} does not match tracker.ticket_regex and is not a bare number"
-    }
+    """The GitLab ``normalize_key`` rule: #<iid> composition through common."""
+    return _pull(
+        key,
+        config,
+        empty_msg="pull: no issue key given",
+        compose=_compose,
+    )
 
 
-def push(
-    spec: Any,
-    shorthands: list[str] | None,
-    config: Mapping[str, Any] | None = None,
-) -> dict:
-    """Resolve the field payloads and render the body; the command writes.
-
-    ``spec`` is the spec dict or None (a field-only edit). ``shorthands``
-    is a list of field shorthand strings, resolved in order through
-    ``lib.field_map.resolve_shorthand``; ``fields`` keeps the input order.
-    The body renders through ``scripts.build_body.run``, which validates
-    first: a refusal keeps exit 3 with the stderr lines and zero writes,
-    exactly as today. One failed shorthand or a failed render refuses the
-    whole push: ``fields`` and ``body`` come back empty and ``exit`` names
-    the failure (0 ok, 3 rejected shorthand or spec, 2 config or JSON
-    error, 4 incomplete document — no new exit codes).
-    """
-    if config is None:
-        try:
-            config = _config.load_config()
-        except _config.ConfigError as exc:
-            return {
-                "exit": 2,
-                "body": "",
-                "fields": [],
-                "stderr": f"adapter_gitlab: config error: {exc}\n",
-            }
-    fields: list[dict] = []
-    for shorthand in shorthands or []:
-        try:
-            fields.append(_field_map.resolve_shorthand(str(shorthand), config))
-        except _field_map.ResolveError as exc:
-            return {
-                "exit": 3,
-                "body": "",
-                "fields": [],
-                "stderr": f"rejected shorthand: {exc}\n",
-            }
-        except _config.ConfigError as exc:
-            return {
-                "exit": 2,
-                "body": "",
-                "fields": [],
-                "stderr": f"config error: {exc}\n",
-            }
-    body = ""
-    if spec is not None:
-        try:
-            spec_text = json.dumps(spec, ensure_ascii=False)
-        except (TypeError, ValueError) as exc:
-            return {
-                "exit": 2,
-                "body": "",
-                "fields": [],
-                "stderr": f"adapter_gitlab: spec is not JSON-serializable: {exc}\n",
-            }
-        code, stdout, stderr = _build_body.run(spec_text, config)
-        if code != 0:
-            return {"exit": code, "body": "", "fields": [], "stderr": stderr}
-        body = stdout
-    return {"exit": 0, "body": body, "fields": fields, "stderr": ""}
+def push(spec, shorthands, config=None) -> dict:
+    """The shared push pipeline; ``adapter_gitlab`` labels its two errors."""
+    return _push("adapter_gitlab", spec, shorthands, config)
 
 
-def spec_transform(
-    spec: Any,
-    config: Mapping[str, Any] | None = None,
-    body_format: str | None = None,
-) -> dict | str:
-    """Render one spec into the tracker body; delegates to build_document.
-
-    Byte-identical to ``lib.spec_blocks.build_document`` because it is the
-    same function. ``body_format`` overrides ``tracker.body_format``; when
-    both are empty the body renders as Markdown (the GitLab body format).
-    """
-    return _spec_blocks.build_document(spec, config=config, body_format=body_format)
+def spec_transform(spec, config=None, body_format=None):
+    """Render the tracker body; byte-identical to build_document."""
+    return _spec_transform(spec, config, body_format)
