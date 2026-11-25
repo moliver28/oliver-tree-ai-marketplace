@@ -1,6 +1,6 @@
 # uxr-plugin
 
-UX research operations plugin for Claude Code, currently v0.8.0.
+UX research operations plugin for Claude Code, currently v0.8.1.
 
 One plugin for the research lifecycle: study tickets, specs, recruitment, interview scripts, reports, and decks. Code owns the rules (deterministic scripts; their offline selftests live in the repo's tests/uxr_selftests/); the model owns judgment. Drafts, never sends. Hooks fail open; exclusions fail closed. See docs/ARCHITECTURE.md for the vocabulary and principles.
 
