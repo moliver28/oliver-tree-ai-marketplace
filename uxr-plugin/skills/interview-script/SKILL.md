@@ -160,7 +160,8 @@ Every RQ map row names at least one script question in `Script Qs`.
 2. Ingest the artifact. Read the ticket's resources. A design tool link
    goes to the design MCP (pull metadata and screenshots); a Drive link
    goes to the Drive MCP. No such link is the legitimate no-artifact
-   branch; do not invent an artifact. Write
+   branch; do not invent an artifact. No artifact fetched means zero
+   `artifact_grounded: true` flags. Write
    `<workspace>/.sessions/artifact-manifest-<KEY>.md` holding the
    observed screens, controls, labels, task steps, and a JTBD map. Name
    only what the ingest actually showed.
@@ -192,7 +193,9 @@ Every RQ map row names at least one script question in `Script Qs`.
 4. Dispatch `script-writer` once, after both reader flag arrays are back.
    Include the script, both flag arrays, and the manifest.
 5. Apply the writer's output. Confirm every quoted span existed in the
-   draft; drop an edit whose `before_text` does not match. Then copy each
+   draft; drop an edit whose `before_text` does not match. Writer edits
+   never change headings, question numbers, minute values, or RQ map
+   cells, and every edit resolves at least one flag. Then copy each
    edit-log entry into `## Quality Check` as:
 
    `agent: script-writer. Resolves flag(s): <ids>. Flag type: <type>. Before: "<text>". After: "<text>". Hard rules preserved: <values>.`
@@ -216,7 +219,6 @@ Read the live state list from the tracker. Move the ticket to the first
 match in `workflow.script_status_candidates` (reference order: `writing
 script / survey`, `writing script`, `script`, `in progress`). With no
 match, or on any tracker error: skip the move and say so in one line.
-Never move before the loop succeeded.
 
 ### 12. Optional publish
 
@@ -232,10 +234,3 @@ Publish when the user passes `--drive`, or answers yes to one question
    it to a Google Doc. Print the doc URL. Never share the doc and never
    change its permissions.
 4. Offer chat and mail drafts to reviewers. Never send them; drafts only.
-
-## Hard rules recap
-
-- No artifact fetched means zero `artifact_grounded: true` flags.
-- Writer edits never change headings, question numbers, minute values, or
-  RQ map cells, and every edit resolves at least one flag.
-- Published docs contain no Quality Check text.

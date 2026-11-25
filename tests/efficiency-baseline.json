@@ -668,6 +668,21 @@
      "uxr-plugin/CHANGELOG.md"
     ],
     "reason": "Install + doctor program (MO directive 2026-11-25): plugin_doctor.py validates the harness, prunes optional modules (mcp, scripting) from an installed copy (reversable; repo tree never shrinks), and repairs a broken install from the marketplace source; commands/uxr-doctor.md is the user entry; smoke check 2 reconstructs pre-prune counts from .profile.json so pruned installs meet the floors a full install met. The growth buys a per-user cut: a core install ships ~2,100 fewer lines. Delta corrected 2026-11-25: the gate total moved 33,308 to 33,708 across this wave's two commits (the recorded 247 covered only the doctor commit's five payload files, not the net)."
+   },
+   {
+    "wave": "zero-loss-dedupe-w1",
+    "issue": 0,
+    "delta_lines": -41,
+    "files": [
+     "uxr-plugin/commands/uxr-recruit.md",
+     "uxr-plugin/commands/uxr-report.md",
+     "uxr-plugin/commands/uxr-edit.md",
+     "uxr-plugin/commands/uxr-move.md",
+     "uxr-plugin/commands/uxr-trace.md",
+     "uxr-plugin/skills/survey-script/SKILL.md",
+     "uxr-plugin/skills/interview-script/SKILL.md"
+    ],
+    "reason": "Zero-loss dedupe, wave 1 (MO efficiency program 2026-11-25): exact restatements removed from five command files and two skill files; every dropped law keeps a live carrier (carrier audit before each drop; recap/failure tables dropped only after sole-carrier laws moved into their sections). Front matter, safety sections, code fences, script invocation strings, config keys, and quoted gate words untouched. Each file graded by a mechanical containment checker before apply; payload 33,626 -> 33,585 lines (-41)."
    }
   ],
   "golden_path_growth": null

@@ -85,7 +85,7 @@ The pipeline is the ordered stage list in config `recruitment.pipeline`.
 Shipped default: identify, screen, suppress, invite, schedule, send.
 Every stage name names a deterministic check or action; the stage
 machinery makes no model call. `recruit_funnel.py --pipeline-check`
-prints the resolved stages and exits 2 on an unknown name.
+prints the resolved stages.
 
 The suppress stage is default-on and runs three checks, in order,
 before any invite:
@@ -127,7 +127,7 @@ when the study needs it.
 | E. Sent | On `sent`: `scripts/roster_apply.py --spec <spec> --ops '{"update":[{"match":"<name>","set":{"status":"Outreach Sent"}}]}' --out <body.json>` (survey studies use `Survey Sent`), push the body through `references/tracker.md` `update_item`, append one `outreach-log.md` entry with `scaffold_workspace.py append-outreach-entry`, and remind the user to update `participants.md`. |
 | F. Reply | `--reply=<name>`: ask the user to paste the reply, then run `scripts/classify.py reply "<the reply>"` - the pasted reply goes
 to the classifier verbatim, never paraphrased. `slot-picked` with a hold: tell the user to add the recruit to the hold guests, set the row to `Scheduled` with `roster_apply.py`, and remind them to delete the other holds. `booked`: same flip from the booking link. `declined`: set the row to `Cancelled`. `new-options`: back to phase C for new slots and holds. `free-text` (`lane: exception`): the one metered model call - read the reply, say which action you picked, and continue as above. |
-| G. Moves | Only on `go ahead and move <id>`: show the current time, the proposed time, the attendees, and the rule from `calendar-rules.md`; wait for a plain `yes`; then move, read the event back, and show the result. One go moves one event; count to 3 per recruit per run. |
+| G. Moves | Only on `go ahead and move <id>`: show the current time, the proposed time, the attendees, and the rule from `calendar-rules.md`; wait for a plain `yes`; then move, read the event back, and show the result. |
 | H. Check | `--check`: for each active study, find roster rows in an outreach status, search chat and mail for replies over the last 14 days, classify each with `scripts/classify.py reply` (slot-picked, new-options, declined, free-text; a reply found but empty of text counts as no reply), and propose exactly one action per row via the script's `action`: `book <name>`, `send <name>`, `edit`, `skip`, `decline`, `go`. Then run `recruit_funnel.py --reminder` logic: after `--nudge-after` business days with no reply, draft one shorter follow-up (template first; a free-text follow-up is the exception lane). |
 
 Finish every internal run (and every `--status`) by printing the
@@ -150,8 +150,7 @@ on a wave tab.
 4. **Source.** Export the allowed-to-send, do-not-contact, and open-deal
    tabs to CSV, then `scripts/source_contacts.py --contacts <csv> --dnc
    <csv> --deals <csv> --accounts "<list>" [--filter --industry
-   --job-level --segment] [--stale-days <N>]`. Exit 2 means stop: the
-   exclusions failed closed.
+   --job-level --segment] [--stale-days <N>]`.
 5. **Email ladder.** Ask every connected channel, merge by email, and
    record the lowest-numbered source in the wave tab's Email Source
    column: (1) the contact sheet; (2) the analytics cohort; (3) the
@@ -181,11 +180,8 @@ on a wave tab.
    `suppression_list` (the identifiers read from
    `recruitment.suppression_list`) and `participants` (the workspace
    participants rows) so the suppress stage checks them
-   deterministically; V4 prints the suppressed counts per check with
-   the ready count.
-9. **Wave tab.** Run the suppress stage (the three checks above): a
-   suppressed row is a tab row with a blank Recipient and `skip:
-   suppressed (<check>)` in Email Sent; it stays in the sheet. Build
+   deterministically.
+9. **Wave tab.** Run the suppress stage (the three checks above). Build
    the tab with the headers from the reference; each skip is a row
    with `skip: <reason>` in Email Sent. Save the tab name into
    `funnel.tabs` with `roster_apply.py`.
@@ -207,8 +203,7 @@ paste into chat or the ticket.
 
 ## Email send (MVP)
 
-The send path for the external participants table: one email per
-recipient, no mail-merge add-on. The draft-only rule (safety rule 1)
+The send path for the external participants table: no mail-merge add-on. The draft-only rule (safety rule 1)
 keeps the agent at zero sends; the researcher runs the real send
 themselves, with `--send`, after the review.
 
@@ -245,8 +240,8 @@ context plus the row's `prep note`, or nothing - no other content.
 
 | Script | Contract |
 |---|---|
-| `scripts/recruit_funnel.py --spec <path> [--wave <tab>] [--preflight] [--reminder] [--funnel-data <json>] [--check-draft <file>] [--today <date>]` | Prints the nine-row recruitment table; `--preflight` exits 2 with `BLOCK <account> / <first>: <reason>` lines or prints `PREFLIGHT OK: <n> rows ready on <tab>`; `--reminder` drafts nudges; `--check-draft` is check V1. Output never contains an email address. |
-| `scripts/recruit_send.py --participants <participants.md> --template <file> [--send] [--show-contacts] [--today <date>]` | The MVP email send from the external participants table (see Email send). Dry run by default: the merged messages print, nothing changes. `--send` needs the `recruit.email.*` SMTP account; exit 0 clean, 1 a send failed, 2 usage. |
+| `scripts/recruit_funnel.py --spec <path> [--wave <tab>] [--preflight] [--reminder] [--funnel-data <json>] [--check-draft <file>] [--today <date>]` | Prints the nine-row recruitment table; `--preflight` exits 2 with `BLOCK <account> / <first>: <reason>` lines or prints `PREFLIGHT OK: <n> rows ready on <tab>`; `--reminder` drafts nudges. |
+| `scripts/recruit_send.py --participants <participants.md> --template <file> [--send] [--show-contacts] [--today <date>]` | The MVP email send from the external participants table (see Email send); exit 0 clean, 1 a send failed, 2 usage. |
 | `scripts/source_contacts.py` | Sources and clears contacts; account match is normalized whole words ("Box" never matches "Dropbox"); missing do-not-contact or open-deal tab exits 2 and sources nothing. |
 | `scripts/roster_apply.py --spec <path> --ops <json-or-@file> --out <body.json> [--dry-run]` | The only spec write path: validate, render, then write spec and body; exit 3 on validation failure with nothing written; duplicate adds promote only, never demote. |
 | `scripts/calendar_prep.py <events.json> [--manager <names>] [--keep <id>] [--allow <id>]` | Classifies the window's events into `pto`, `immovable`, `movable`, `other`; weekends and declined events are skipped. |

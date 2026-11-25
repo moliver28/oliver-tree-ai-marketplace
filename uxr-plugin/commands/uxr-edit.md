@@ -25,10 +25,10 @@ Grounding: no registered sources serve this command (record-keeping; search is a
 
 | Kind | Keys |
 |---|---|
-| Spec scalars | `history=`, `decision=`, `results=`, `sample=` (to `sample_size`), `persona=`, `length=` (to `session_length`), `artifact=` (to `artifact_link`, and also the script link field), `questions=` (split on `\|` or newlines) |
+| Spec scalars | `history=`, `decision=`, `results=`, `sample=` (to `sample_size`), `persona=`, `length=` (to `session_length`), `artifact=`, `questions=` |
 | Spec lists | `hypotheses+=label\|text`, `hypotheses~=label\|field=value`, `hypotheses-=label`; same for `assumptions`; `resources+=label\|url_or_text\|share_status\|share_note`, `resources~=`, `resources-=`, `roster+=Name\|email\|slack\|reason\|status\|channel`, `roster~=Name\|field=value`, `roster-=Name` |
 | Fields | every shorthand in the issue 03 field table (`lib/field_map.py`); multi-select fields accept `=A,B` (replace), `+=A` (add), `-=A` (remove) |
-| Standard | `summary=`, `assignee=me\|<name>`, `priority=`, `labels=a,b` or `labels=+x`, `duedate=`, `description=` (warn: replaces the full body; prefer sections) |
+| Standard | `summary=`, `assignee=me\|<name>`, `priority=`, `labels=a,b` or `labels=+x`, `duedate=`, `description=` |
 
 Spec-path keys: the spec scalars and every list operation in the table
 above; everything else is a field-path key. Any spec-path key routes the
@@ -46,7 +46,8 @@ Special rules:
 - `assignee=me` resolves to the cached current user (`references/tracker.md`
   session rules); `assignee=<name>` resolves with `find_user`.
 - `description=` replaces the entire ticket body. Warn, require an explicit
-  yes, and refuse to combine it with spec-path shorthands in one run.
+  yes, and refuse to combine it with spec-path shorthands in one run;
+  prefer sections.
 
 ## Steps
 
@@ -85,8 +86,7 @@ Special rules:
 
      Then stop. Make zero tracker calls for the rest of the run -- no
      `get_item`, no `find_user`, no write. Never auto-migrate, never run
-     `backfill_spec.py` yourself. (A run with only field-path keys skips
-     this step entirely and continues at step 10.)
+     `backfill_spec.py` yourself.
 
 7. Spec-path preparation, in order:
    a. **Drift check.** Call `get_item` once, read the live `updated` time.
@@ -94,9 +94,7 @@ Special rules:
       print exactly `<KEY> was edited in the tracker after the spec was last saved; recompiling will overwrite that change`
       and wait for go or cancel. Keep the fields from this read; they feed
       steps 9 and 12.
-   b. **Patch the spec in memory.** Scalars assign (`sample=` lands in
-      `sample_size`, `length=` in `session_length`, `artifact=` in
-      `artifact_link`); `questions=` splits on `|` or literal newlines into
+   b. **Patch the spec in memory.** Scalars assign; `questions=` splits on `|` or literal newlines into
       trimmed, non-empty strings. List operations go through
       `scripts/parse_shorthand.py`: pipe one JSON request per operation --
       `{"kind": "roster|hypotheses|assumptions|resources", "op": "+=|~=|-=", "arg": "<pipe string>"}`
@@ -153,12 +151,10 @@ Special rules:
       through the shorthand table - up-levels live only in `ask_uplevels`.
    b. Push the full body AND the resolved field payloads in one
       `update_item` call. The body is the whole rendered document from step
-      7e -- never a fragment. This is the run's only write call.
+      7e -- never a fragment.
    c. Read the live `updated` time back from the same call's response (or
       one `get_item`), save it to `_meta.tracker_updated_at`, and save the
       spec file again.
-   d. Never transition a status from `edit`, even when the ticket now
-      qualifies.
 
 10. Field-only path: no spec load, no body push. Preview the resolved
     payloads (step 8 format), gate on the same words, then one
