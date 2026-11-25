@@ -58,7 +58,6 @@ from __future__ import annotations
 
 import os
 import re
-import smtplib
 import sys
 import tempfile
 from datetime import date
@@ -519,6 +518,8 @@ def _smtp_deliver(
         "off",
     )
     sent: set[int] = set()
+    import smtplib  # lazy: only the --send path pays the SMTP import
+
     try:
         server = smtplib.SMTP(host, port, timeout=_SMTP_TIMEOUT_SECONDS)
         server.ehlo()

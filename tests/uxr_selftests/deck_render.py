@@ -84,6 +84,7 @@ def _selftest() -> int:
     check("argument parser rejects unknown flags", _parse_args(["lint", "--png", "o.json"]) is None)
 
     # 8. Render round trip only when python-pptx is present (skipped otherwise).
+    _load_pptx()
     if HAVE_PPTX:
         import tempfile
 

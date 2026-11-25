@@ -107,8 +107,9 @@ def draft_auto(rows: list[dict], ticket: str, day: str, footer: str = "") -> str
 def rewrite_journal(state: Path, days: list[str], posted: set[str], readonly: set[str]) -> int:
     """Flip ``processed`` for every posted ticket's rows and every skipped
     read-only session, atomically, under the provenance file lock."""
-    sys.path.insert(0, str(PLUGIN_ROOT / "hooks"))
-    from provenance import file_lock  # noqa: E402
+    if str(PLUGIN_ROOT) not in sys.path:
+        sys.path.insert(0, str(PLUGIN_ROOT))
+    from lib.util import file_lock  # noqa: E402  (moved from hooks/provenance)
     changed = 0
     for day in days:
         path = state / ("work-log-%s.jsonl" % day)

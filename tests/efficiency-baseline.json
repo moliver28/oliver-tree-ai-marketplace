@@ -718,6 +718,26 @@
      "uxr-plugin/commands/uxr-report.md"
     ],
     "reason": "Rephrase wave (MO efficiency program 2026-11-25): uxr-recruit 4817->4169 and uxr-report 4289->3905 body tokens (-1032 cl100k body-only), zero law loss; 19 invocation strings identical, safety sections verbatim, yaml fence byte-identical, orchestrator restored 3 heading law parentheticals (status-gates object, deterministic zero-model-calls, default chat visual); payload 33493 -> 33334 lines (-159)."
+   },
+   {
+    "wave": "w4-exec-lazy-imports",
+    "issue": 0,
+    "delta_lines": 51,
+    "files": [
+     "uxr-plugin/hooks/analytics_flush.py",
+     "uxr-plugin/hooks/review_gate.py",
+     "uxr-plugin/hooks/provenance.py",
+     "uxr-plugin/lib/util.py",
+     "uxr-plugin/scripts/deck_render.py",
+     "uxr-plugin/scripts/eod_journal.py",
+     "uxr-plugin/scripts/recruit_send.py",
+     "uxr-plugin/scripts/render_script_docx.py",
+     "uxr-plugin/scripts/researcher_state.py",
+     "uxr-plugin/scripts/walkthrough.py",
+     "tests/uxr_selftests/deck_render.py",
+     "tests/uxr_selftests/render_script_docx.py"
+    ],
+    "reason": "Latency wave (MO efficiency program 2026-11-25, W4 divergent survey rows 2/7/8/9/10/17): lazy network and format-library imports - analytics_flush network stack only on the consent-on flush path (SessionStart chain 164->127 ms measured), deck_render pptx only on the render path (lint/usage path 337->52 ms), render_script_docx docx only on render/verify (usage 228->51 ms), smtplib only inside recruit_send _smtp_deliver, review_gate researcher_state only on Stop/SubagentStop; file_lock moved from hooks/provenance to lib/util with re-export (kills the scripts->hooks import direction). All stdout/stderr/exit byte proofs identical pre/post; 3 gates green. Wrapper lines cost +51 payload (33334 -> 33385)."
    }
   ],
   "golden_path_growth": null
