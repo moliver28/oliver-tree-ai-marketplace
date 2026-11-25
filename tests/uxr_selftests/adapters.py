@@ -6,6 +6,7 @@ import yaml  # selftest-only import (the shipped example contract, parsed direct
 bind("lib.adapters", globals())
 bind("lib.adapter_jira", globals())
 import lib.adapter_github as github  # bound under its name: bare names stay jira's
+import lib.adapter_gitlab as gitlab  # bound under its name: bare names stay jira's
 #: fixtures live at repo level in a checkout; absent in an installed plugin
 FIXTURES_DIR = (PLUGIN_ROOT if (PLUGIN_ROOT / "tests").is_dir() else PLUGIN_ROOT.parent) / "tests" / "fixtures"
 #: the shipped example contract only; a configured config/org.yaml cannot reach this module
@@ -22,12 +23,12 @@ def _with_kind(kind: str) -> dict:
 
 
 def _selftest() -> int:
-    """Cover the resolver rules, the four Jira operations, the four GitHub
-    operations, and the describe CLI.
+    """Cover the resolver rules, the four Jira operations, the four GitHub and
+    GitLab operations, and the describe CLI.
 
     Absence first (the harness works with the sync half absent), then
     registration, declared-not-built, unknown kind, configured-but-broken,
-    connect, pull, push, spec_transform for jira and github, and the KB
+    connect, pull, push, spec_transform for jira, github, and gitlab, and the KB
     capability shape. No live tracker anywhere: fixture-backed only.
     """
     print("lib/adapters.py + lib/adapter_jira.py test module")
@@ -66,6 +67,20 @@ def _selftest() -> int:
         },
         repr(record),
     )
+    record = resolve(_with_kind("gitlab"))
+    check(
+        "gitlab record",
+        record == {
+            "kind": "gitlab",
+            "module": "lib/adapter_gitlab.py",
+            "doc": "references/tracker-gitlab.md",
+            "area": "issues",
+            "capabilities": {"pull": True, "push": True, "spec_transform": True},
+        },
+        repr(record),
+    )
+    check("github kind is validated (TRACKER_KINDS)", "github" in _config.TRACKER_KINDS)
+    check("gitlab kind is validated (TRACKER_KINDS)", "gitlab" in _config.TRACKER_KINDS)
     check(
         "doc pointers exist for every shipped kind",
         all(
@@ -74,8 +89,9 @@ def _selftest() -> int:
         ),
     )
 
-    # 3. Declared-not-built: the shipped linear/asana entries (github is
-    # built since wave P1; the jira-shape registry entries stay data).
+    # 3. Declared-not-built: the shipped linear/asana entries (github and
+    # gitlab are built since waves P1/P2; the jira-shape registry entries
+    # stay data).
     check("linear (module empty) resolves to None", resolve(_with_kind("linear")) is None)
     check("asana (module empty) resolves to None", resolve(_with_kind("asana")) is None)
 
@@ -167,6 +183,30 @@ def _selftest() -> int:
           github.pull("306", gh_pull)["key"] == "#306"
           and github.pull("#306", gh_pull)["key"].lstrip("#").isdecimal())
 
+    # 7c. GitLab connect + pull (wave P2): the same contract, the GitLab
+    # key rule. A bare number composes #<n>; no prefix key is needed.
+    gl_cfg = dict(EXAMPLE_CONFIG)
+    gl_cfg["tracker"] = {**EXAMPLE_CONFIG["tracker"], "kind": "gitlab",
+                         "workspace_id": "acme/uxr-research",
+                         "base_url": "https://gitlab.com", "body_format": "markdown",
+                         "project_key": "UXR", "ticket_regex": r"#\d+"}
+    gl_facts = gitlab.connect(gl_cfg)
+    check("gitlab connect ready when the keys are filled", gl_facts["ready"] is True)
+    check("gitlab connect lists the same five tracker keys when empty",
+          gitlab.connect(EXAMPLE_CONFIG)["missing"] == facts["missing"],
+          repr(gitlab.connect(EXAMPLE_CONFIG)["missing"]))
+    gl_pull = dict(EXAMPLE_CONFIG)
+    gl_pull["tracker"] = {**EXAMPLE_CONFIG["tracker"], "ticket_regex": r"#\d+"}
+    check("gitlab pull composes a bare number with #", gitlab.pull("42", gl_pull) == {"key": "#42"})
+    check("gitlab pull passes a regex-valid key unchanged",
+          gitlab.pull("#237", gl_pull) == {"key": "#237"})
+    check("gitlab pull invalid key returns the error dict",
+          "error" in gitlab.pull("UX1-237", gl_pull), repr(gitlab.pull("UX1-237", gl_pull)))
+    check("gitlab pull empty key returns the error dict", "error" in gitlab.pull("", gl_pull))
+    check("gitlab display data: the normalized key carries the #num form (issue 52)",
+          gitlab.pull("306", gl_pull)["key"] == "#306"
+          and gitlab.pull("#306", gl_pull)["key"].lstrip("#").isdecimal())
+
     if not FIXTURES_DIR.is_dir():
         print("skip: fixture-backed checks (fixtures not shipped at repo level)")
     else:
@@ -196,8 +236,20 @@ def _selftest() -> int:
               gh_refused["exit"] == 3 and gh_refused["body"] == "" and gh_refused["fields"] == [],
               repr(gh_refused["stderr"]))
 
+        # 8c. GitLab push (wave P2): the same contract through the gitlab
+        # module; the body renders identically (markdown is the default).
+        gl_result = gitlab.push(spec, [], EXAMPLE_CONFIG)
+        check("gitlab push exits 0 on the shipped spec fixture", gl_result["exit"] == 0, gl_result["stderr"])
+        check("gitlab push body byte-equal to build_document",
+              gl_result["body"] == _spec_blocks.build_document(spec, config=EXAMPLE_CONFIG) + "\n")
+        check("gitlab push carries no fields without shorthands", gl_result["fields"] == [])
+        gl_refused = gitlab.push(spec, ["no operator here"], EXAMPLE_CONFIG)
+        check("gitlab push rejects a bad shorthand with exit 3",
+              gl_refused["exit"] == 3 and gl_refused["body"] == "" and gl_refused["fields"] == [],
+              repr(gl_refused["stderr"]))
+
         # 9. spec_transform: byte-equal to build_document for both formats,
-        # jira and github modules alike (same delegated function).
+        # jira, github, and gitlab modules alike (same delegated function).
         for fmt in ("markdown", "adf"):
             check(
                 f"spec_transform {fmt} byte-equal to build_document",
@@ -207,6 +259,11 @@ def _selftest() -> int:
             check(
                 f"github spec_transform {fmt} byte-equal to build_document",
                 github.spec_transform(spec, EXAMPLE_CONFIG, body_format=fmt)
+                == _spec_blocks.build_document(spec, EXAMPLE_CONFIG, body_format=fmt),
+            )
+            check(
+                f"gitlab spec_transform {fmt} byte-equal to build_document",
+                gitlab.spec_transform(spec, EXAMPLE_CONFIG, body_format=fmt)
                 == _spec_blocks.build_document(spec, EXAMPLE_CONFIG, body_format=fmt),
             )
 
@@ -246,6 +303,16 @@ def _selftest() -> int:
               json.loads(probe.stdout.strip()).get("kind") == "github", probe.stdout[:120])
     except ValueError as exc:
         check("describe prints the github record as one JSON line", False, str(exc))
+    probe = subprocess.run(
+        [sys.executable, str(script), "describe", "--kind", "gitlab"],
+        capture_output=True, text=True, cwd=str(PLUGIN_ROOT), timeout=10,
+    )
+    check("describe --kind gitlab exits 0", probe.returncode == 0, probe.stderr)
+    try:
+        check("describe prints the gitlab record as one JSON line",
+              json.loads(probe.stdout.strip()).get("kind") == "gitlab", probe.stdout[:120])
+    except ValueError as exc:
+        check("describe prints the gitlab record as one JSON line", False, str(exc))
     probe = subprocess.run(
         [sys.executable, str(script), "describe", "--kind", "linear"],
         capture_output=True, text=True, cwd=str(PLUGIN_ROOT), timeout=10,

@@ -4,11 +4,12 @@ Parameter detail for the Linear and Asana columns of the generic
 operations table in `tracker.md`, plus the field-kind mapping for every
 non-Jira tracker. The built GitHub Issues adapter has its own file,
 `references/tracker-github.md`; read it when `tracker.kind` is `github`.
+The built GitLab Issues adapter has its own file,
+`references/tracker-gitlab.md`; read it when `tracker.kind` is `gitlab`.
 The listed parameter sets are examples: an operator-named kind (`other`
 in onboarding) asks the same six connection keys. None of it has been
 live-verified in this build; treat every parameter as `verify-live`
 before first use.
-
 ## Linear, Asana parameters
 
 - **Linear (GraphQL API):** `viewer`; `userLookup` or the users search for
@@ -29,10 +30,10 @@ Map each configured field kind onto the tracker's closest mechanism; the
 mapping per field lives in `fields.<name>` (`id`), the mechanism choice
 here:
 
-| Kind | GitHub Issues | Linear | Asana |
-|---|---|---|---|
-| `single_select` | Projects single-select field, or label `name:value` | label group | enum custom field |
-| `multi_select` | labels | labels | multi-enum custom field |
-| `interval` | two date fields (start, target) | two custom dates or cycle | start and due dates |
-| `user` | assignees or Projects people field | assignee plus custom user property | custom people field |
-| `url` | Projects text field | link attachment | text custom field |
+| Kind | GitHub Issues | GitLab Issues | Linear | Asana |
+|---|---|---|---|---|
+| `single_select` | Projects single-select field, or label `name:value` | scoped label `name:value` | label group | enum custom field |
+| `multi_select` | labels | labels | labels | multi-enum custom field |
+| `interval` | two date fields (start, target) | `start_date` and `due_date` | two custom dates or cycle | start and due dates |
+| `user` | assignees or Projects people field | assignee username | assignee plus custom user property | custom people field |
+| `url` | Projects text field | label convention or configured custom field | link attachment | text custom field |

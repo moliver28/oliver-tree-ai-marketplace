@@ -477,6 +477,36 @@
    ],
    "reason": "Issue 52 display law (parity waves fold): tracker.md gains the Ticket mentions section - one mention format (<key>: <short title>), the keyed <KEY>-<num> and #<num> forms, and the adapters-supply-what-they-have rule; the harness holds the law and the selftests assert the display data per adapter (selftests live outside the payload). Net-new 9 payload lines in tracker.md.",
    "date": "2026-11-24"
+  },
+  {
+   "wave": "parity-P2",
+   "issue": 114,
+   "delta_lines": 310,
+   "files": [
+    "uxr-plugin/lib/adapter_gitlab.py",
+    "uxr-plugin/references/tracker-gitlab.md",
+    "uxr-plugin/CHANGELOG.md",
+    "uxr-plugin/references/tracker.md",
+    "uxr-plugin/references/trackers-other.md",
+    "uxr-plugin/lib/adapters.py",
+    "uxr-plugin/lib/config.py",
+    "uxr-plugin/config/org.example.yaml",
+    "uxr-plugin/commands/uxr-onboard.md",
+    "uxr-plugin/references/onboarding.md",
+    "uxr-plugin/README.md"
+   ],
+   "reason": "Backend parity wave P2 (issue 114): the GitLab Issues adapter ships and the gitlab kind joins the shipped kinds. Net-new 310 of 23,243 payload lines (1.3 percent), inside the 10 percent cap of about 2,324 lines: the adapter module at the exact Jira shape (207), its doc reference file holding the glab CLI parameters (81), the changelog entry (6), the tracker.md GitLab operations column and pointer (+2), the trackers-other.md mapping column and pointer (+2), the registry entry and TRACKER_KINDS (+6 net with the config entry at +5, the onboard and onboarding kind lists at +1 net). Commands, goldens, and all pin counts are unchanged; tests live outside the payload.",
+   "date": "2026-11-24"
+  },
+  {
+   "wave": "parity-P2-display",
+   "issue": 52,
+   "delta_lines": 9,
+   "files": [
+    "uxr-plugin/references/tracker.md"
+   ],
+   "reason": "Issue 52 display law (parity waves fold): tracker.md gains the Ticket mentions section - one mention format (<key>: <short title>), the keyed <KEY>-<num> and #<num> forms, and the adapters-supply-what-they-have rule; the harness holds the law and the selftests assert the display data per adapter (selftests live outside the payload). Net-new 9 payload lines in tracker.md.",
+   "date": "2026-11-24"
   }
   ],
   "golden_path_growth": null

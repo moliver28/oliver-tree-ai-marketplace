@@ -25,7 +25,7 @@ with two deterministic commands before the walkthrough starts:
 ## Adapter selection
 
 The plugin is general: it works with issue systems (jira, linear, github,
-asana, or an operator-named system) and with knowledge-base systems, which
+gitlab, asana, or an operator-named system) and with knowledge-base systems, which
 may be the same system at a different area.
 
 - The issue system sets `tracker.kind` and the `tracker.*` connection

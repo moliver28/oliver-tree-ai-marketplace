@@ -97,6 +97,12 @@ ADAPTER_DEFAULTS: dict[str, dict[str, Any]] = {
         "area": "issues",
         "capabilities": {"pull": True, "push": True, "spec_transform": True},
     },
+    "gitlab": {
+        "module": "lib/adapter_gitlab.py",
+        "doc": "references/tracker-gitlab.md",
+        "area": "issues",
+        "capabilities": {"pull": True, "push": True, "spec_transform": True},
+    },
     "asana": {
         "module": "",
         "doc": "references/trackers-other.md",
