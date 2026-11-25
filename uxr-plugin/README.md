@@ -67,6 +67,9 @@ Fill the values by hand from the contract comments (there is no wizard); verify 
 | `/uxr-trace KEY` | Provenance: sources read, outputs written, per journal + transcripts |
 | `/uxr-stats` | Usage stats from journal + analytics (offline) |
 | `/uxr-feedback` | File plugin feedback as a GitHub issue after explicit `go` |
+| `/uxr-doctor` | Harness health check, optional-module pruning, install repair |
+
+Optional modules: `python3 scripts/plugin_doctor.py profile apply scripting` (or `mcp`) prunes that module from an installed copy and records it in `.profile.json`; the repo tree never shrinks, and any plugin update or `plugin_doctor.py fix` restores the full copy. `plugin_doctor.py` (no arguments) health-checks the harness.
 
 All are plugin-namespaced in practice (`/uxr-plugin:uxr-new`) since Claude Code namespaces plugin commands under the plugin name.
 

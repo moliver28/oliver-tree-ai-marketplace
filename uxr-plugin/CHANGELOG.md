@@ -11,6 +11,7 @@ All notable changes to uxr-plugin. One `## X.Y.Z` heading per release, newest fi
 - `deck_helpers` and `report_helpers` `load_plugin_config` collapse onto `lib.util.load_config`; the `spec_blocks` `_utcnow` util copy folds into the shared `utcnow` home.
 - The adapters selftest imports `lib.spec_blocks` explicitly; it no longer relies on the jira module leaking it through the bind.
 - The plugin `.gitignore` gains `graphify-out/` so a local code-graph cache never lands in a commit.
+- New install doctor: `scripts/plugin_doctor.py` health-checks the harness (scripts compile, hook wiring resolves, front matter and cross-references parse, schemas load, profile state consistent), prunes optional modules (`mcp`, `scripting`) from an installed copy behind a repo-clone guard, and repairs a broken install from the marketplace source; `/uxr-doctor` is the command entry; smoke check 2 accepts pruned installs via the recorded `.profile.json` counts; a new selftest covers the doctor.
 
 ## [0.8.0] - 2026-11-24
 
