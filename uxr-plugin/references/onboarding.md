@@ -25,8 +25,10 @@ with two deterministic commands before the walkthrough starts:
 ## Adapter selection
 
 The plugin is general: it works with issue systems (jira, linear, github,
-gitlab, asana, or an operator-named system) and with knowledge-base systems, which
-may be the same system at a different area.
+gitlab, notion, asana, or an operator-named system) and with
+knowledge-base systems, which may be the same system at a different area
+(the shipped example demonstrates the pair: Notion is the built issues
+entry `notion` and the declared KB entry `notion-kb`).
 
 - The issue system sets `tracker.kind` and the `tracker.*` connection
   keys. Its adapter entry follows the shipped `adapters` section in

@@ -537,10 +537,18 @@ adapters:
     doc: "references/trackers-other.md"
     area: issues
     capabilities: {pull: true, push: true, spec_transform: true}
+  notion:
+    module: "lib/adapter_notion.py"
+    doc: "references/tracker-notion.md"
+    area: issues
+    capabilities: {pull: true, push: true, spec_transform: true}
   # Knowledge-base kinds (issue 114): declared now, first KB adapter lands
   # through onboarding. Read-only default: pull on, push off. The doc
   # pointer names the onboarding reference that holds the KB semantics.
-  notion:
+  # Notion is both: the built issues entry above and the declared KB entry
+  # here (same system, different areas = two entries; the KB entry of a
+  # system that is also the issue system is <kind>-kb).
+  notion-kb:
     module: ""
     doc: "references/onboarding.md"
     area: kb

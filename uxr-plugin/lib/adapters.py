@@ -110,6 +110,12 @@ ADAPTER_DEFAULTS: dict[str, dict[str, Any]] = {
         "capabilities": {"pull": True, "push": True, "spec_transform": True},
     },
     "notion": {
+        "module": "lib/adapter_notion.py",
+        "doc": "references/tracker-notion.md",
+        "area": "issues",
+        "capabilities": {"pull": True, "push": True, "spec_transform": True},
+    },
+    "notion-kb": {
         "module": "",
         "doc": "references/onboarding.md",
         "area": "kb",

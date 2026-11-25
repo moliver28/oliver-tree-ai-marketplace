@@ -2,13 +2,14 @@
 
 Commands never call a tracker directly: they use the generic operations
 table, reading the column for the configured `tracker.kind` (`jira`,
-`linear`, `github`, `gitlab`, or `asana`). Every per-organization value comes from
+`linear`, `github`, `gitlab`, `notion`, or `asana`). Every per-organization value comes from
 `config/org.yaml` through `lib/config.py`; `lib/field_map.py` resolves a
 field shorthand (`method=Survey`) into the payload and implements the
 routing helpers. Linear and Asana detail lives in
 `references/trackers-other.md`; GitHub Issues detail lives in
 `references/tracker-github.md`; GitLab Issues detail lives in
-`references/tracker-gitlab.md`. Read the file for `tracker.kind` when it is not `jira`.
+`references/tracker-gitlab.md`; Notion detail lives in
+`references/tracker-notion.md`. Read the file for `tracker.kind` when it is not `jira`.
 
 ## Session rules (every command)
 
@@ -22,19 +23,19 @@ routing helpers. Linear and Asana detail lives in
 
 One row per operation; use the column for the configured tracker.
 
-| Operation | Jira (Atlassian MCP) | Linear (GraphQL) | GitHub Issues (`gh` CLI) | GitLab Issues (`glab` CLI) | Asana (REST) |
-|---|---|---|---|---|---|
-| `current_user()` | `atlassianUserInfo` | `viewer` query | `gh api user` | `glab api user` | `GET /users/me` |
-| `find_user(name)` | `lookupJiraAccountId` | `userLookup` / users search | `gh api search/users` | `glab api users` (username query) | typeahead `GET /workspaces/{gid}/users` |
-| `get_item(key, fields, format)` | `getJiraIssue` (`responseContentFormat`: markdown or adf) | `issue` query | `gh issue view --json` | `glab issue view --repo <ns/project>` (API for structured reads) | `GET /tasks/{gid}` |
-| `search(filter)` | `searchJiraIssuesUsingJql` | `issues` filtered query | `gh search issues` | `glab issue list --search` | `GET /workspaces/{gid}/tasks/search` |
-| `create_item(type, title, body, fields)` | `createJiraIssue` (`contentFormat: "adf"`) | `issueCreate` mutation | `gh issue create` plus Projects fields | `glab issue create --title --description --label` | `POST /tasks` |
-| `update_item(key, fields, body)` | `editJiraIssue` (replaces the full description) | `issueUpdate` mutation | `gh issue edit` | `glab issue update` (replaces the full description) | `PUT /tasks/{gid}` |
-| `list_state_changes(key)` | `listJiraIssueTransitions` (MCP v2; v1 name `getTransitionsForJiraIssue`) | team `workflowStates` query | Projects Status field options (`gh project field-list`) or labels | labels (scoped labels fit phases); `state` is `opened`/`closed` | project sections |
-| `set_state(key, state)` | `transitionJiraIssue` with the transition `id` | `issueUpdate` with `stateId` | Projects field update (`gh project item-edit`) or label add/remove | `glab issue update --add-label`, or `glab issue close` / `glab issue reopen` | `POST /sections/{section_gid}/addTask` |
-| `add_comment(key, markdown)` | `addOrEditJiraIssueComment` (MCP v2; v1 name `addCommentToJiraIssue`, body parameter `commentBody`) | `commentCreate` mutation (body) | `gh issue comment --body` | `glab issue note --message` | `POST /tasks/{gid}/stories` |
-| `item_url(key)` | `<tracker.base_url>/browse/<KEY>` | issue `url` field | issue `url` from `gh issue view --json url` | issue `web_url` from the API/JSON read | task `permalink_url` |
-| `normalize_key(arg)` | `42` to `<tracker.bare_number_prefix>-42` | `42` to `<team key>-42` | `42` to `#42` in the repo from `tracker.workspace_id` | `42` to `#42` in the project from `tracker.workspace_id` | gid passes through |
+| Operation | Jira (Atlassian MCP) | Linear (GraphQL) | GitHub Issues (`gh` CLI) | GitLab Issues (`glab` CLI) | Notion (database pages) | Asana (REST) |
+|---|---|---|---|---|---|---|
+| | `current_user()` | `atlassianUserInfo` | `viewer` query | `gh api user` | `glab api user` | `API-get-self` / `GET /users/me` | `GET /users/me` |
+| | `find_user(name)` | `lookupJiraAccountId` | `userLookup` / users search | `gh api search/users` | `glab api users` (username query) | `API-get-users` / `GET /users` | typeahead `GET /workspaces/{gid}/users` |
+| | `get_item(key, fields, format)` | `getJiraIssue` (`responseContentFormat`: markdown or adf) | `issue` query | `gh issue view --json` | `glab issue view --repo <ns/project>` (API for structured reads) | `API-retrieve-page` / `GET /pages/{id}` | `GET /tasks/{gid}` |
+| | `search(filter)` | `searchJiraIssuesUsingJql` | `issues` filtered query | `gh search issues` | `glab issue list --search` | `API-post-database-query` / `POST /databases/{id}/query` | `GET /workspaces/{gid}/tasks/search` |
+| | `create_item(type, title, body, fields)` | `createJiraIssue` (`contentFormat: "adf"`) | `issueCreate` mutation | `gh issue create` plus Projects fields | `glab issue create --title --description --label` | `API-post-page` / `POST /pages` into the database | `POST /tasks` |
+| | `update_item(key, fields, body)` | `editJiraIssue` (replaces the full description) | `issueUpdate` mutation | `gh issue edit` | `glab issue update` (replaces the full description) | `API-patch-page` / `PATCH /pages/{id}` (properties; content via blocks) | `PUT /tasks/{gid}` |
+| | `list_state_changes(key)` | `listJiraIssueTransitions` (MCP v2; v1 name `getTransitionsForJiraIssue`) | team `workflowStates` query | Projects Status field options (`gh project field-list`) or labels | labels (scoped labels fit phases); `state` is `opened`/`closed` | the Status property options in the database schema read (`GET /databases/{id}`) | project sections |
+| | `set_state(key, state)` | `transitionJiraIssue` with the transition `id` | `issueUpdate` with `stateId` | Projects field update (`gh project item-edit`) or label add/remove | `glab issue update --add-label`, or `glab issue close` / `glab issue reopen` | `API-patch-page` with the Status option id from the same session | `POST /sections/{section_gid}/addTask` |
+| | `add_comment(key, markdown)` | `addOrEditJiraIssueComment` (MCP v2; v1 name `addCommentToJiraIssue`, body parameter `commentBody`) | `commentCreate` mutation (body) | `gh issue comment --body` | `glab issue note --message` | `API-create-comment` / `POST /comments` | `POST /tasks/{gid}/stories` |
+| | `item_url(key)` | `<tracker.base_url>/browse/<KEY>` | issue `url` field | issue `url` from `gh issue view --json url` | issue `web_url` from the API/JSON read | the page `url` field | task `permalink_url` |
+| | `normalize_key(arg)` | `42` to `<tracker.bare_number_prefix>-42` | `42` to `<team key>-42` | `42` to `#42` in the repo from `tracker.workspace_id` | `42` to `#42` in the project from `tracker.workspace_id` | the key passes through; pages carry no number | gid passes through |
 
 `normalize_key` accepts anything matching `tracker.ticket_regex` unchanged;
 a bare number gets the `tracker.bare_number_prefix`. A key outside the

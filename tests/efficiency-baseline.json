@@ -507,6 +507,25 @@
    ],
    "reason": "Issue 52 display law (parity waves fold): tracker.md gains the Ticket mentions section - one mention format (<key>: <short title>), the keyed <KEY>-<num> and #<num> forms, and the adapters-supply-what-they-have rule; the harness holds the law and the selftests assert the display data per adapter (selftests live outside the payload). Net-new 9 payload lines in tracker.md.",
    "date": "2026-11-24"
+  },
+  {
+   "wave": "parity-P3",
+   "issue": 114,
+   "delta_lines": 328,
+   "files": [
+    "uxr-plugin/lib/adapter_notion.py",
+    "uxr-plugin/references/tracker-notion.md",
+    "uxr-plugin/CHANGELOG.md",
+    "uxr-plugin/references/tracker.md",
+    "uxr-plugin/references/trackers-other.md",
+    "uxr-plugin/lib/adapters.py",
+    "uxr-plugin/config/org.example.yaml",
+    "uxr-plugin/commands/uxr-onboard.md",
+    "uxr-plugin/references/onboarding.md",
+    "uxr-plugin/README.md"
+   ],
+   "reason": "Backend parity wave P3 (issue 114): the Notion adapter ships as the fourth built backend and the notion-kb declared entry keeps the KB area. Net-new 328 of 23,243 payload lines (1.4 percent), inside the 10 percent cap of about 2,324 lines: the adapter module at the exact Jira shape (200), its doc reference file holding the Notion MCP/API parameters (92), the changelog entry (6), the tracker.md Notion column plus the issue-52 Ticket mentions law (+10 net), the config notion flip and notion-kb entry (+8 net), the registry entry and notion-kb mirror (+6 net), trackers-other pointer (+2 net), onboard and onboarding kind lists (+2 net each). Commands, goldens, and all pin counts are unchanged; tests live outside the payload.",
+   "date": "2026-11-24"
   }
   ],
   "golden_path_growth": null
