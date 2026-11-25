@@ -81,7 +81,7 @@ from scripts.recruit_funnel import (  # noqa: E402  (the shared recruit law)
     scrub as _scrub,
     _EMAIL_RE,
 )
-from lib.util import force_utf8_stdio as _force_utf8_stdio  # noqa: E402  (shared plumbing)
+from lib import cli as _cli  # noqa: E402  (shared plumbing)
 
 EXIT_OK = 0
 EXIT_SEND_FAIL = 1
@@ -119,7 +119,7 @@ ENV_FALLBACKS: dict[str, str] = {
 }
 
 
-class _Usage(Exception):
+class _Usage(_cli.UsageError):
     """Usage or unreadable-input error; the caller prints it and exits 2."""
 
 
@@ -723,38 +723,11 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    _force_utf8_stdio()
-    args = list(sys.argv[1:] if argv is None else argv)
-    if args and args[0] in ("-h", "--help"):
-        print(__doc__.strip())
-        return EXIT_OK
-
-    flags: dict[str, str] = {}
-    index = 0
-    flag_names = {"--participants": "participants", "--template": "template", "--today": "today"}
-    switches = {"--send": "send", "--show-contacts": "show_contacts"}
-    while index < len(args):
-        token = args[index]
-        if token in flag_names:
-            if index + 1 >= len(args):
-                print(f"recruit_send: {token} needs a value", file=sys.stderr)
-                return EXIT_USAGE
-            flags[flag_names[token]] = args[index + 1]
-            index += 2
-            continue
-        if token in switches:
-            flags[switches[token]] = "1"
-            index += 1
-            continue
-        print(f"recruit_send: unknown argument {token!r}", file=sys.stderr)
-        return EXIT_USAGE
-    try:
-        code, output = run(flags)
-    except _Usage as exc:
-        print(f"recruit_send: {exc}", file=sys.stderr)
-        return EXIT_USAGE
-    sys.stdout.write(output)
-    return code
+    return _cli.run_main(
+        argv, prog="recruit_send", doc=__doc__, run=run,
+        flag_names={"--participants": "participants", "--template": "template", "--today": "today"},
+        switches={"--send": "send", "--show-contacts": "show_contacts"},
+    )
 
 
 if __name__ == "__main__":

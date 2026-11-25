@@ -60,6 +60,7 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
+from lib import cli as _cli  # noqa: E402  (shared plumbing)
 from lib.util import force_utf8_stdio as _force_utf8_stdio, parse_list as _parse_list  # noqa: E402  (shared plumbing)
 
 EXIT_OK = 0
@@ -98,7 +99,7 @@ class _FailClosed(Exception):
     """A suppression tab cannot be read: stop, never source (issue 10 rule 4)."""
 
 
-class _Usage(Exception):
+class _Usage(_cli.UsageError):
     pass
 
 
@@ -403,6 +404,20 @@ def run(args: dict[str, str]) -> tuple[int, str]:
     return EXIT_OK, json.dumps(result, ensure_ascii=False, indent=2)
 
 
+_SOURCE_FLAGS = {
+    "--contacts": "contacts",
+    "--dnc": "dnc",
+    "--deals": "deals",
+    "--accounts": "accounts",
+    "--check-emails": "check_emails",
+    "--filter": "filter",
+    "--industry": "industry",
+    "--job-level": "job_level",
+    "--segment": "segment",
+    "--stale-days": "stale_days",
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     _force_utf8_stdio()
     args = list(sys.argv[1:] if argv is None else argv)
@@ -410,35 +425,10 @@ def main(argv: list[str] | None = None) -> int:
         print(__doc__.strip())
         return EXIT_OK
 
-    flags: dict[str, str] = {}
-    index = 0
-    flag_names = {
-        "--contacts": "contacts",
-        "--dnc": "dnc",
-        "--deals": "deals",
-        "--accounts": "accounts",
-        "--check-emails": "check_emails",
-        "--filter": "filter",
-        "--industry": "industry",
-        "--job-level": "job_level",
-        "--segment": "segment",
-        "--stale-days": "stale_days",
-    }
-    while index < len(args):
-        token = args[index]
-        if token in flag_names:
-            if index + 1 >= len(args):
-                print(f"source_contacts: {token} needs a value", file=sys.stderr)
-                return EXIT_USAGE
-            flags[flag_names[token]] = args[index + 1]
-            index += 2
-            continue
-        print(f"source_contacts: unknown argument {token!r}", file=sys.stderr)
-        return EXIT_USAGE
-
     try:
+        flags = _cli.parse_flags(args, _SOURCE_FLAGS)
         code, output = run(flags)
-    except _Usage as exc:
+    except (_Usage, _cli.UsageError) as exc:
         print(f"source_contacts: {exc}", file=sys.stderr)
         return EXIT_USAGE
     except _FailClosed as exc:

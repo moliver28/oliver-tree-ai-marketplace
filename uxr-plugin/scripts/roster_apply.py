@@ -63,7 +63,7 @@ if str(PLUGIN_ROOT) not in sys.path:
 
 from lib import config as _config  # noqa: E402
 from lib import spec_blocks as _spec  # noqa: E402
-from lib.util import force_utf8_stdio as _force_utf8_stdio  # noqa: E402  (shared plumbing)
+from lib import cli as _cli  # noqa: E402  (shared plumbing)
 from lib import util as _util  # noqa: E402
 
 EXIT_OK = 0
@@ -96,7 +96,7 @@ STATUS_RANK: dict[str, int] = {
 }
 
 
-class _Usage(Exception):
+class _Usage(_cli.UsageError):
     pass
 
 
@@ -379,46 +379,20 @@ MCP_SURFACE = {
 
 
 def main(argv: list[str] | None = None) -> int:
-    _force_utf8_stdio()
-    args = list(sys.argv[1:] if argv is None else argv)
-    if args and args[0] == "--print-mcp-surface":
-        print(json.dumps(MCP_SURFACE))
-        return EXIT_OK
-    if args and args[0] in ("-h", "--help"):
-        print(__doc__.strip())
-        return EXIT_OK
-
-    flags: dict[str, str] = {}
-    dry_run = False
-    index = 0
-    while index < len(args):
-        token = args[index]
-        if token == "--dry-run":
-            dry_run = True
-            index += 1
-            continue
-        if token in ("--spec", "--ops", "--out"):
-            if index + 1 >= len(args):
-                print(f"roster_apply: {token} needs a value", file=sys.stderr)
-                return EXIT_USAGE
-            flags[token.lstrip("-").replace("-", "_")] = args[index + 1]
-            index += 2
-            continue
-        print(f"roster_apply: unknown argument {token!r}", file=sys.stderr)
-        return EXIT_USAGE
-
-    try:
-        code, output = run(
+    return _cli.run_main(
+        argv,
+        prog="roster_apply",
+        doc=__doc__,
+        mcp_surface=MCP_SURFACE,
+        run=lambda flags: run(
             flags.get("spec", ""),
             flags.get("ops", ""),
             flags.get("out", ""),
-            dry_run=dry_run,
-        )
-    except _Usage as exc:
-        print(f"roster_apply: {exc}", file=sys.stderr)
-        return EXIT_USAGE
-    sys.stdout.write(output)
-    return code
+            dry_run=flags.get("dry_run") == "1",
+        ),
+        flag_names={"--spec": "spec", "--ops": "ops", "--out": "out"},
+        switches={"--dry-run": "dry_run"},
+    )
 
 
 # ---------------------------------------------------------------------------
