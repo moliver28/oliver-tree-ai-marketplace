@@ -97,7 +97,7 @@ Input: a workspace path or Drive folder link for a finished study.
 - Preview before create; the only create call follows the phase 8 approval word.
 - Per-candidate "yes" for local-to-Drive matches; never change a Drive permission.
 - Validation failure = zero writes (no tracker calls, no spec file).
-- HCD gate before phase 7; the only substitute is a one-line decline (`Declined hcd-researcher review: <one line why>`); `p0` re-invokes after the fix.
+- HCD gate before phase 7; the only substitute is a one-line decline (`Declined hcd-researcher review: <one line why>`); `p0` always re-invokes after the fix.
 - A synthetic persona needs a user yes before use.
 
 ## Voice

@@ -30,7 +30,7 @@ Grounding: registered sources in `references/sources/` (this command: R-01 recru
 
 ## Setup (every run)
 
-1. Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - follow it. Note `recruit.*` (statuses, window_days, session_minutes, nudge_after_days, sheets, wave_tab_headers, booking_url_regex), `recruitment.*` (pipeline, suppression_list, meeting_service), `calendar.*`, `org.internal_domains`, `org.notetaker_email`. Pipeline check - `python "${CLAUDE_PLUGIN_ROOT}/scripts/recruit_funnel.py" --pipeline-check` - once per run; unknown stage name exits 2: report the error line, stop.
+1. Render the canonical block - `python "${CLAUDE_PLUGIN_ROOT}/lib/prompts.py" render config-setup` - follow it. Note `recruit.*` (statuses, window_days, session_minutes, nudge_after_days, sheets, wave_tab_headers, booking_url_regex), `recruitment.*` (pipeline, suppression_list, meeting_service), `calendar.*`, `org.internal_domains`, `org.notetaker_email`. Pipeline check - `python "${CLAUDE_PLUGIN_ROOT}/scripts/recruit_funnel.py" --pipeline-check` - once per run; an unknown stage name or an unreadable configured suppression list exits 2: report the error line, stop.
 2. Workspace: `scaffold_workspace.py lookup-workspace --ticket <KEY> --readme <research_root>/README.md`.
 3. Ticket: summary, status, start date, target end date. Roster from spec `<state_dir>/specs/<KEY>.spec.json` - never parse from ticket body; missing spec: `backfill_spec.py` first, read-only.
 4. Window start: later of today and start date. Window end: earlier of target date and today plus `--window` days. End not after start: print "The study window is closed; pass `--window=<N>` to extend it." and stop.
