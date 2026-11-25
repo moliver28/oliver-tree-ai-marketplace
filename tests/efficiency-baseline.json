@@ -579,6 +579,19 @@
     ],
     "reason": "Calculator default swapped to the GitLab handbook priority calculator and the support mode shipped (MO ruling 2026-11-24, #114): the six handbook criteria with their verbatim 1-5 scale wording and the five verbatim bands (unweighted mean, sum / 6) replace the shipped impact*3 + confidence*2 + urgency default (that formula stays reachable as a priority.formula override; weights or formula switch to the weighted-sum mode at the shipped 1-to-3 scale law); the deterministic runtime ask (--ask: a numbered prompt printing the criterion handbook scale wording, one bounded re-ask, answers recorded via --record as one JSON line, prompts on stderr so --json stays parseable); the --support mode (six per-project judgments through the same ask, summed against 16 - the ruling divisor; the listed maxima sum to 17 and the all-max judgment lands above 100 percent, disclosed - and the MO-renamed labels UXR to Lead / UXR to Support / UXR to Review, the handbook metal names never shipped); preset-mode rules normalize onto 1 to 5 and a mapping naming a non-criterion input is a usage error. The prior 3-field normalization table is generalized to a scale parameter; no adapter module touched (registry law kept). Net +616 of the shipped payload (prioritize.py only; the tests/ selftest lives outside the payload).",
     "date": "2026-11-24"
+   },
+   {
+    "wave": "P4",
+    "issue": 114,
+    "delta_lines": 64,
+    "files": [
+     "uxr-plugin/config/org.example.yaml",
+     "uxr-plugin/references/onboarding.md",
+     "uxr-plugin/commands/uxr-onboard.md",
+     "uxr-plugin/CHANGELOG.md"
+    ],
+    "reason": "The same ruling swept through the shipped text (#114): the config example documents the handbook preset with the citation comment and the criterion-only mapping shape (the non-criterion example line removed - it would now be a usage error); references/onboarding.md retells the preset, the verbatim bands, the per-backend criterion mapping (most-urgent-first value order), the runtime ask law, the support mode with the three renamed labels and the divisor disclosure, and the weighted-sum override mode; the onboard command asks per criterion, refuses non-criterion names, and its walkthrough calculator step runs the preset with --ask and offers the support disclosure; the 0.8.0 CHANGELOG bullets describe the shipped default as ruled (same release, no version bump). Net +64 of the shipped payload.",
+    "date": "2026-11-24"
    }
   ],
   "golden_path_growth": null

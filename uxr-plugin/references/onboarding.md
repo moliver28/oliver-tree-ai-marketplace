@@ -53,62 +53,103 @@ off (KB pull carries plain text). A `push: false` entry is read-only by
 default, and any consumer that attempts a write must refuse it
 deterministically before the write is attempted.
 
-## The prioritization calculator (issue 114)
+## The prioritization calculator (issue 114; MO ruling 2026-11-24)
 
-The calculator scores one research request against the organization's
-named inputs. The built-in default needs zero configuration and always
-works:
+The calculator's zero-configuration default is the GitLab handbook
+priority calculator. Scale wording and bands are cited from:
+https://handbook.gitlab.com/handbook/upstream-studios/experience-research/research-prioritization/
 
-    score = impact*3 + confidence*2 + urgency*1
+Six criteria - impact, users, dependency, timeline, alternatives,
+alignment - each scored 1 to 5, 1 = most urgent, per the handbook scale
+wording (`scripts/prioritize.py inputs` prints the wording; the runtime
+ask prints it too). The aggregation is the unweighted average (sum / 6),
+and the average maps onto the bands verbatim:
 
-Each input is answered 1 to 3 (low to high) for the request. Two config
-keys override it:
+    mean <= 1.5   P1 Must Do
+    mean <= 2.4   P2 Should Do
+    mean <= 3.5   P3 Nice to Do
+    mean <= 4.5   P4 Backlog
+    mean > 4.5    Will Not Do
 
-- `priority.weights`: `{<input name>: <weight>}`. The input names are the
-  operator's own field names; an input without a weight carries weight 1.
-- `priority.formula`: a formula string that replaces the built-in
-  formula when set. Empty means the built-in formula.
+Both calculators only generate recommendations; the researcher and the
+stakeholders agree on the final level (handbook law).
 
-Both keys ship empty in `config/org.example.yaml`. The walkthrough scores
-one real request with the saved or built-in weights and shows the
-arithmetic term by term; the operator may take one weight override and
-re-score.
+### The per-backend criterion mapping (issue 114 section 2)
 
-### The per-backend input mapping (issue 114 section 2)
+`prioritization.fields` maps each criterion to the tracker's field per
+tracker kind (the adapter registry selector). Onboarding records it in
+the calculator question: one line per mapped criterion, as
 
-`prioritization.fields` holds the calculator's inputs per tracker kind
-(the adapter registry selector). Onboarding records it in the calculator
-question: one line per input, as
-
-    <input>: <tracker field id or label prefix>: <low> | <medium> | <high>
+    <criterion>: <tracker field id or label prefix>: <most urgent> | ... | <least urgent>
 
 The first slot is the tracker-side source (`id`): a Jira custom field id,
 a GitHub or GitLab label name or prefix, or a Notion property name. The
-second slot is the ordinal value list, low to high; a rule written as
-`number <low> <high>` bounds a numeric rule instead. The recorded entry
-is `{id, kind, values}` (select rule) or `{id, kind: number, low, high}`.
-A line without the value-order tail gets exactly one follow-up ask for
-that input's order; an empty answer drops the input, and the command
-never invents a value.
+second slot is the ordinal value list, most urgent first; a rule written
+as `number <low> <high>` bounds a numeric rule instead. The recorded
+entry is `{id, kind, values}` (select rule) or
+`{id, kind: number, low, high}`. A line without the value-order tail
+gets exactly one follow-up ask for that criterion's order; an empty
+answer drops the mapping, and the command never invents a value. A line
+naming an input outside the six criteria is refused in one line (the
+weighted-sum override is where other inputs live).
 
-The deterministic scorer (`scripts/prioritize.py`) normalizes every input
-onto one comparable scale, the integers 1 to 3, and sums the weighted
-terms. The normalization law per rule kind:
+The deterministic scorer (`scripts/prioritize.py`) normalizes every
+mapped value onto the preset scale, the integers 1 to 5 (1 = most
+urgent). The normalization law per rule kind:
 
 - `select`: the value matches one entry of `values` (without case). One
   entry scores 1; otherwise the position maps proportionally:
-  `round(1 + 2 * position / (n - 1))`. Three ordered entries map 1, 2, 3.
-- `labels`: the tracker's label set for the field arrives as one
+  `round(1 + 4 * position / (n - 1))`.
+- `labels`: the tracker's label set for the criterion arrives as one
   comma-separated list. A label matching a `values` entry scores at its
   position; the highest match wins; no match is a value error.
-- `number`: with `low` and `high` the value maps linearly onto 1 to 3;
-  without them the value rounds and clamps onto 1 to 3.
-- no rule: the input arrives pre-normalized; it must be 1, 2, or 3.
+- `number`: with `low` and `high` the value maps linearly onto 1 to 5;
+  without them the value rounds and clamps onto 1 to 5.
+- no rule: the criterion is answered 1 to 5 directly at scoring time.
 
-An unknown input name is a usage error (exit 2), never a guess. If a
-backend cannot supply one of the inputs, the onboarding summary names it;
-the calculator scores the inputs the backend supplies and never invents
-machinery for the rest.
+An unknown input name is a usage error (exit 2), never a guess.
+
+### The runtime ask (issue 114; MO ruling 2026-11-24)
+
+A missing tracker field is asked at runtime (`--ask`): one deterministic
+numbered prompt 1 to 5 printing that criterion's handbook scale
+wording; the answer is recorded and used. The ask is zero-LLM and works
+the same under the walkthrough's calculator step. An out-of-range
+answer gets one bounded re-ask, then a value error (exit 3); an ended
+ask is a value error, never a guess. The prompts print on stderr, so
+`--json` output stays parseable. `--record <path>` writes the
+deterministic result record (the asked answers and the score) as one
+JSON line.
+
+### The support-level mode (issue 114; MO ruling 2026-11-24)
+
+`scripts/prioritize.py score --support` is the handbook's support-level
+calculator as a mode of the same script: six per-project judgments, not
+tracker fields, collected through the same runtime ask when not
+supplied - Type (foundational 3 / problem validation 2 / solution
+validation 1), Ownership (yes 3 / somewhat 2 / no 1), Design Support
+(study led by UXR 3 / requesting team has designers 2 / no designers
+1), Complexity (yes 2 / no 1 / unknown 0), Skill Development (yes 3 /
+somewhat 2 / no 1), Confidence (high 3 / medium 2 / low 1). The sum
+divides by 16 (the ruling's divisor; the listed maxima sum to 17, so
+the all-max judgment lands above 100 percent) and the percentage names
+the level with the MO-renamed labels verbatim - the handbook's former
+metal names never ship:
+
+- above 80 percent: `UXR to Lead` - the researcher drives the study end
+  to end.
+- 51 to 80 percent: `UXR to Support` - the researcher takes specified
+  tasks within the study.
+- 50 percent and below: `UXR to Review` - the researcher is consulted
+  and reviews the team's work.
+
+### The weighted-sum override mode
+
+`priority.weights` or `priority.formula` switches the calculator to the
+weighted-sum mode (the custom-formula path; the earlier default
+`impact*3 + confidence*2 + urgency*1` stays reachable there). Inputs
+normalize onto the integers 1 to 3 by the same rule kinds, and the
+score is the weighted sum.
 
 ## The walkthrough completion record (issue 114 section 3)
 

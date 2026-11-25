@@ -314,37 +314,47 @@ defaults:
 # -----------------------------------------------------------------------------
 priority:
   # Weights for the prioritization calculator, keyed by the operator's own
-  # input names (the custom fields onboarding records). An input without a
-  # weight carries weight 1. Empty = the built-in weights documented in
-  # references/onboarding.md (impact 3, confidence 2, urgency 1).
+  # input names. Setting any weight switches the calculator from the
+  # built-in handbook preset to the weighted-sum mode (inputs answered
+  # 1 to 3; an input without a weight carries weight 1). Empty (the
+  # shipped state) = the handbook preset runs.
   weights: {}
-  # Formula string that replaces the built-in calculator formula when set.
-  # Empty = the built-in formula (score = impact*3 + confidence*2 +
-  # urgency*1, each input answered 1 to 3).
+  # Formula string that switches the calculator to the weighted-sum mode
+  # when set (terms as <input> or <input>*<weight> in a + separated sum;
+  # the earlier default impact*3 + confidence*2 + urgency*1 stays
+  # reachable this way). Empty = the handbook preset runs.
   formula: ""
 
 # -----------------------------------------------------------------------------
-# prioritization: the calculator's per-backend input mapping (issue 114)
+# prioritization: maps each handbook criterion to the tracker's field
+# (issue 114; default preset ruled by MO 2026-11-24)
 # -----------------------------------------------------------------------------
 prioritization:
+  # The calculator's zero-configuration default is the GitLab handbook
+  # priority calculator:
+  # https://handbook.gitlab.com/handbook/upstream-studios/experience-research/research-prioritization/
+  # Six criteria (impact, users, dependency, timeline, alternatives,
+  # alignment), each scored 1 to 5 (1 = most urgent), aggregated as the
+  # unweighted average and banded verbatim (<=1.5 P1 Must Do; <=2.4 P2
+  # Should Do; <=3.5 P3 Nice to Do; <=4.5 P4 Backlog; >4.5 Will Not Do).
   # Saved by onboarding (/uxr-onboard). One entry per tracker kind (the
-  # adapter registry selector); inside it, one entry per calculator input
-  # the operator's tracker supplies, shaped:
-  #   <input>: { id: "", kind: select|number|labels, values: [], low: , high: }
+  # adapter registry selector); inside it, one entry per mapped
+  # criterion, shaped:
+  #   <criterion>: { id: "", kind: select|number|labels, values: [], low: , high: }
   # `id` is the tracker-side source (a Jira custom field id, a GitHub or
   # GitLab label name or prefix, a Notion property name). `values` is the
-  # ordinal value list, low to high, for select and labels rules. `low` and
-  # `high` bound a number rule. The deterministic normalizer in
-  # scripts/prioritize.py maps every input onto 1 to 3; the documented law
-  # lives in references/onboarding.md. Empty per kind (the shipped state):
-  # the calculator runs on the built-in inputs, so a zero-configuration
-  # install always scores. Example shape:
+  # ordinal value list, most urgent first, for select and labels rules.
+  # `low` and `high` bound a number rule. The normalizer in
+  # scripts/prioritize.py maps every mapped value onto 1 to 5 in the
+  # preset; the documented law lives in references/onboarding.md. An
+  # unmapped criterion is answered 1 to 5 at scoring time, or asked at
+  # runtime with --ask. Empty per kind (the shipped state): the
+  # calculator runs on the handbook criteria. Example shape:
   #   fields:
   #     jira:
-  #       impact: {id: "customfield_10130", kind: select, values: [Low, Medium, High]}
-  #       reach: {id: "customfield_10140", kind: number, low: 1, high: 10}
+  #       impact: {id: "customfield_10130", kind: select, values: [Critical, High, Moderate, Low, Minimal]}
   #     github:
-  #       impact: {id: "impact/", kind: labels, values: ["impact/low", "impact/high"]}
+  #       impact: {id: "impact/", kind: labels, values: ["impact/1", "impact/2", "impact/3", "impact/4", "impact/5"]}
   fields: {}
 
 # -----------------------------------------------------------------------------
