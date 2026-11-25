@@ -6,7 +6,7 @@ tracker calls and gates. ``filter`` prints the group JSON; ``check``
 prints ``<words> <True|False>``; ``draft-auto`` prints the draft;
 ``rewrite`` is silent. Subcommands: ``filter --state <dir> --days
 <D1,D2|A..B> [--ticket <KEY>]`` / ``check --file <draft> --footer <text>``
-/ ``draft-auto --state ... --ticket <KEY> --date <D> [--footer]`` /
+/ ``draft-auto --state ... --ticket <KEY> --date <D> [--footer] [--out <file>]`` /
 ``rewrite --state ... --posted <K1,K2> --readonly <sid,sid>``. Exit: 0 ok, 2 usage.
 """
 
@@ -168,8 +168,17 @@ def main(argv: list[str] | None = None) -> int:
         if not rows:
             print(f"No unposted UX research work for {days[-1] if days else ''}.")
             return 0
-        print(draft_auto(rows, ticket, _value_of(args, "--date") or (days[-1] if days else ""),
-                         _value_of(args, "--footer")))
+        draft = draft_auto(rows, ticket, _value_of(args, "--date") or (days[-1] if days else ""),
+                         _value_of(args, "--footer"))
+        out = _value_of(args, "--out")
+        if out:
+            path = Path(out).expanduser()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(draft + "\n", encoding="utf-8", newline="")
+            print(draft)
+            print(check_draft(path.read_text(encoding="utf-8"), _value_of(args, "--footer")))
+            return 0
+        print(draft)
         return 0
     if sub == "rewrite":
         rewrite_journal(state, days, csv_set(_value_of(args, "--posted")),

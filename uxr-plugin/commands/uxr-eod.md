@@ -60,9 +60,8 @@ Grounding: no registered sources serve this command (record-keeping; search is a
    an existing comment whose first line is `[ux-eod <date>]` for the
    target date.
 8. Draft ONE comment per active ticket, mechanically: run
-   `python "${CLAUDE_PLUGIN_ROOT}/scripts/eod_journal.py" draft-auto --state <state_dir> --days <days> --ticket <KEY> --date <date> --footer "<comments.footer with {display_name} replaced>"`
-   (display name from the cached `current_user()`), then verify it:
-   `python "${CLAUDE_PLUGIN_ROOT}/scripts/eod_journal.py" check --file <draft file> --footer "<footer>"`.
+   `python "${CLAUDE_PLUGIN_ROOT}/scripts/eod_journal.py" draft-auto --state <state_dir> --days <days> --ticket <KEY> --date <date> --footer "<comments.footer with {display_name} replaced>" --out <draft file>`
+   (display name from the cached `current_user()`), the spawn writes <draft file>, prints the draft, then prints the check line.
    The check prints `<words> <True|False>`; a draft over 300 words or
    with `False` is regenerated from the template, never shown broken.
    With `--polish` (never with `--auto`): rewrite the verified draft

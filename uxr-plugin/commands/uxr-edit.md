@@ -164,11 +164,10 @@ Special rules:
     follows its own warning rule.)
 
 11. **Refresh the workspace overview.** Run
-    `python "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold_workspace.py" lookup-workspace --ticket <KEY> --readme <research_root>/README.md`.
+    `python "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold_workspace.py" lookup-workspace --ticket <KEY> --readme <research_root>/README.md --then-render-overview --spec <spec path>`.
     When it prints `WORKSPACE_NOT_FOUND`, print one line
     `No local workspace for <KEY>; skipping the overview refresh.` and
-    continue. Otherwise run
-    `python "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold_workspace.py" render-overview --ticket <KEY> --readme <research_root>/README.md --spec <spec path>`.
+    continue.
 
 12. **Suggest the next phase.** Run
     `python "${CLAUDE_PLUGIN_ROOT}/lib/phase_gates.py" suggest --status "<live status from step 7a>" --spec <spec path> --fields <fields file>`

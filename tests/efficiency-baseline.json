@@ -738,6 +738,23 @@
      "tests/uxr_selftests/render_script_docx.py"
     ],
     "reason": "Latency wave (MO efficiency program 2026-11-25, W4 divergent survey rows 2/7/8/9/10/17): lazy network and format-library imports - analytics_flush network stack only on the consent-on flush path (SessionStart chain 164->127 ms measured), deck_render pptx only on the render path (lint/usage path 337->52 ms), render_script_docx docx only on render/verify (usage 228->51 ms), smtplib only inside recruit_send _smtp_deliver, review_gate researcher_state only on Stop/SubagentStop; file_lock moved from hooks/provenance to lib/util with re-export (kills the scripts->hooks import direction). All stdout/stderr/exit byte proofs identical pre/post; 3 gates green. Wrapper lines cost +51 payload (33334 -> 33385)."
+   },
+   {
+    "wave": "w4-spawn-fusions",
+    "issue": 0,
+    "delta_lines": 53,
+    "files": [
+     "uxr-plugin/lib/checklist_gate.py",
+     "uxr-plugin/scripts/eod_journal.py",
+     "uxr-plugin/scripts/scaffold_workspace.py",
+     "uxr-plugin/references/debrief_helpers.py",
+     "uxr-plugin/references/report_helpers.py",
+     "uxr-plugin/commands/uxr-report.md",
+     "uxr-plugin/commands/uxr-debrief.md",
+     "uxr-plugin/commands/uxr-eod.md",
+     "uxr-plugin/commands/uxr-edit.md"
+    ],
+    "reason": "Same-moment spawn fusions (MO efficiency program 2026-11-25, W4 survey rows 3/4/5/6, MO-approved): checklist_gate check accepts repeatable --type (report runs both gate types in one spawn, -99 ms); report-filename --check-citations fuses the phase-5 pair (-56 ms); debrief assemble-summary/render-recap --gate run their write-time gates in-process (one spawn per pair, -50 ms x2); eod draft-auto --out writes the draft file and gates it in-process (-69 ms, the model's intermediate write disappears); scaffold lookup-workspace --then-render-overview absorbs the found/not-found branch (-122 ms on the found path); report verdicts now read from the evidence-weight output (md dedupe, -56 ms). Byte-proof rig: fused stdout/stderr equal the concatenated pre runs on all 6 cases (fixtures in scan_tools/w4exec/fusfix), existing single-run paths stable, not-found negative stable, written files byte-identical. Wrapper lines cost +53 payload."
    }
   ],
   "golden_path_growth": null

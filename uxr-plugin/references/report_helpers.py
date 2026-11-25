@@ -1133,6 +1133,22 @@ def cmd_report_filename(args: dict[str, str]) -> int:
     except ValueError as exc:
         print(f"report_helpers: {exc}", file=sys.stderr)
         return EXIT_USAGE
+    draft_value = args.get("--check-citations") or ""
+    if draft_value:
+        sources_value = args.get("--sources-dir") or ""
+        if not sources_value:
+            print("report_helpers: --check-citations needs --sources-dir", file=sys.stderr)
+            return EXIT_USAGE
+        try:
+            text = Path(draft_value).expanduser().read_text(encoding="utf-8")
+        except OSError as exc:
+            print(f"report_helpers: cannot read draft: {exc}", file=sys.stderr)
+            return EXIT_FAIL
+        sources_dir = Path(sources_value).expanduser()
+        if not sources_dir.is_dir():
+            print(f"report_helpers: sources dir not found: {sources_dir}", file=sys.stderr)
+            return EXIT_FAIL
+        print(json.dumps(check_citations(text, sources_dir), indent=2, ensure_ascii=False))
     return EXIT_OK
 
 
