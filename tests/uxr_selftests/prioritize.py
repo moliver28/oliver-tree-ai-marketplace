@@ -404,8 +404,8 @@ def _selftest() -> int:
                  "alternatives": "3", "alignment": "3"},
                 asked={"impact": "3"})["terms"][0]["normalized"] == 3, None)
 
-    # 7. Support mode: the handbook criteria and points, sum / 16, the
-    #    MO-renamed labels (never the metal names).
+    # 7. Support mode: the handbook criteria and points, sum / 17 (the
+    #    total possible), the MO-renamed labels (never the metal names).
     check("support total possible is 17 (divisor correction 2026-11-24)",
           SUPPORT_TOTAL == 17, repr(SUPPORT_TOTAL))
     check("total possible equals the summed maxima (3+3+3+2+3+3)",
