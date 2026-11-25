@@ -1,0 +1,112 @@
+{
+  "suite": "grounding",
+  "version": 1,
+  "description": "Grounding-adherence acceptance test (build item 13): four golden-path cases, one per carrier surface of item 11, plus one negative case protecting the 'search is a tool, not a ritual' half of the law. Each golden-path case carries the three assertions (a) grounded items cite registry entries via the gate citation check, (b) registry-first order in the transcript, (c) no invented method law (trace-or-gap). Case G4 additionally asserts zero plugin command or skill invocations in a bare workspace turn.",
+  "how_to_run": "Operator-run only; never a wired gate. ONE eval dispatch at a time (the account concurrency limit). Run the runner prepare step, dispatch each printed prompt to one agent in the named harness, save each reply to runs/<name>/outputs/case-<id>.txt, save the session transcript to runs/<name>/outputs/case-<id>.transcript.txt, then run score and record. The score step re-runs the gate citation check (lib/checklist_gate.py citations) against the case workspace, parses the transcript's tool-call order, and applies the containment rule over the served entry leaf lines plus the two exact gap wordings.",
+  "gap_wordings": [
+    "no checklist ships for <method> yet",
+    "insufficient external evidence"
+  ],
+  "cases": [
+    {
+      "id": "G1-skill-interview-script",
+      "surface": "skills/interview-script (Setup pointer line + law preamble)",
+      "fixture": {
+        "workspace": "A uxr workspace scaffolded from the shipped template.",
+        "ticket": {
+          "key": "PROJ-601",
+          "title": "Agents unsure what a planted construct means",
+          "research_questions": [
+            "How do power users describe the planted construct 'trust drift' in their own words?"
+          ],
+          "goal": "Decide whether trust drift deserves a feature response."
+        },
+        "planted_unfamiliar_construct": "trust drift (no registry-free definition; the concept pass and A1.9 trigger should route through registered sources)"
+      },
+      "steps": [
+        "Run the interview-script flow on the fixture ticket inside the eval workspace.",
+        "Let the loop reach the optional concept pass and the conditional search trigger.",
+        "Continue through reader dispatch, writer, checker, and save."
+      ],
+      "assertions": [
+        "(a) lib/checklist_gate.py citations exits 0 on the eval workspace, and the saved script's grounding note names registry entry ids or URLs.",
+        "(b) the transcript shows a references/sources/ read or an entry-page fetch preceding every external WebSearch/WebFetch call.",
+        "(c) every method-law line in the rules-applied record contains leaf text from a served entry or one of the exact gap wordings."
+      ]
+    },
+    {
+      "id": "G2-command-uxr-new",
+      "surface": "commands/uxr-new (Inputs pointer line + law preamble)",
+      "fixture": {
+        "workspace": "A scratch research root; no workspace scaffolded yet.",
+        "topic": "Weekly report adoption among team leads",
+        "method_field": "undecided (the A0 always-on trigger)"
+      },
+      "steps": [
+        "Run uxr-new with the fixture topic; the spec's method field stays undecided.",
+        "Let the command run method selection (A0) end to end."
+      ],
+      "assertions": [
+        "(a) method-selection.md classification and pick cite R-01, and lib/checklist_gate.py citations exits 0 end-to-end.",
+        "(b) the R-01 page fetch precedes the pick and every other external search in the transcript.",
+        "(c) method-fit statements trace to R-01 leaf text or the named-gap line."
+      ]
+    },
+    {
+      "id": "G3-agent-hcd-researcher",
+      "surface": "agents/hcd-researcher review (lens 3 clause)",
+      "fixture": {
+        "base": "the tests/evals/hcd-researcher report-suite base artifact",
+        "seeded_errors": [
+          "one planted outside claim a registry entry covers (a SUS scoring claim; R-20 covers it)",
+          "one planted outside claim no registry entry covers"
+        ]
+      },
+      "steps": [
+        "Dispatch the hcd-researcher review on the seeded report draft.",
+        "Let the reviewer check the outside claims with its web tools."
+      ],
+      "assertions": [
+        "(a) findings cite registry entries for the covered claim.",
+        "(b) the reviewer's checks run registry-first (transcript order).",
+        "(c) the uncovered claim is flagged with the exact wording 'insufficient external evidence' - no invented law."
+      ]
+    },
+    {
+      "id": "G4-bare-workspace-turn",
+      "surface": "workspace CLAUDE.md law paragraph + harness preamble ONLY (no command, no skill invoked)",
+      "fixture": {
+        "workspace": "A uxr workspace scaffolded from the shipped template.",
+        "prompt": "one plain turn asking a method question: 'should we survey or interview to learn why leads stop using the weekly report?'"
+      },
+      "steps": [
+        "Start a session in the eval workspace; send the plain method question.",
+        "Record the answer and the session transcript."
+      ],
+      "assertions": [
+        "(a) the answer carries a source line citing a registry entry.",
+        "(b) a registry read precedes any external search in the transcript.",
+        "(c) trace-or-gap holds for every method-law line."
+      ],
+      "case_level": "the transcript records ZERO plugin command or skill invocations - 'whenever in a uxr workspace' is proven, not just command surfaces"
+    },
+    {
+      "id": "G5-negative-record-keeping",
+      "surface": "negative - pure record-keeping turn (tracker or journal mechanics command)",
+      "fixture": {
+        "workspace": "A uxr workspace with a study ticket and journal entries.",
+        "task": "routine state update via a mechanics command (uxr-eod summary of existing workspace state)"
+      },
+      "steps": [
+        "Run the mechanics command on the existing workspace state.",
+        "Record the output and the session transcript."
+      ],
+      "assertions": [
+        "(a) the output makes no outside-knowledge claim needing a source.",
+        "(b) inverted order assertion: ZERO external web calls and zero registry fetches in the transcript.",
+        "(c) every recorded statement traces to workspace artifact paths."
+      ],
+      "protects": "the inference budget: a harness that always searches fails here"
+    }
+  ]
+}

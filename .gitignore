@@ -5,3 +5,5 @@ __pycache__/
 # Local tool caches, never repo content
 .token-optimizer/
 .mimosa/
+
+tests/evals/grounding/runs/

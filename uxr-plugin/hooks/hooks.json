@@ -43,6 +43,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "WebSearch|WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/hooks/web_nudge.py\" || python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/web_nudge.py\" || exit 0",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "UserPromptExpansion": [

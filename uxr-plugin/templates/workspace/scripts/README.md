@@ -1,6 +1,6 @@
 # Scripts
 
-Discussion guides, survey instruments, and one-off analysis scripts for
+Interview scripts, survey instruments, and one-off analysis scripts for
 this study.
 
 - The interview script command saves `interview-script-<KEY>.md` here

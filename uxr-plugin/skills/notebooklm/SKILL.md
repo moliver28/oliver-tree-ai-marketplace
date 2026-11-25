@@ -8,6 +8,8 @@ in one notebook with saved analysis prompts. This skill only drives the
 signed-in desktop browser; it never touches the API and never handles
 credentials.
 
+Grounding: no registered sources serve this skill (record-keeping; search is a tool, not a ritual). Index: `references/research-sources.md`.
+
 ## Hard rules
 
 1. **Sign-in is a stop.** If the browser lands on a sign-in or

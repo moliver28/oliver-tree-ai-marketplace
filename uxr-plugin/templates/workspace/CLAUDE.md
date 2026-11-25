@@ -6,6 +6,8 @@ Claude Code instructions for this study workspace.
 - Ticket: {{TICKET_KEY}} (status: {{STATUS}})
 - UXR: {{UXR_NAME}}
 
+Grounding law: never invent an answer. When a step needs knowledge from outside this workspace, pick the matching entry from the condition index in references/research-sources.md and read that entry's file under references/sources/ (one file per entry). Fetch the entry's bookmarked page first (page-first lookup); run an exploratory query only when no registered page covers the need, and register the page you found as a candidate so the next lookup is targeted. Cite the source with the claim: one URL per outside fact, two authoritative sources when a claim rests only on outside evidence. Discovery recipe: read the condition index whole while the file is within its budget; past that size, skip the read and grep the store (`grep -rl <term> references/sources/`). When a step works only on workspace artifacts — spec fields, transcripts, notes, recorded state — no search runs: search is a tool, not a ritual.
+
 Working rules:
 
 1. Participant data never enters git. Do not commit or quote raw
@@ -27,3 +29,8 @@ Working rules:
    Hypotheses, Assumptions, Research questions, Resources, and JTBD &
    Personas sections are owned by the spec: update them through
    `edit`, never by hand here.
+8. This workspace is a uxr-workspace: commit to `main`; never create
+   branches and never open pull requests here. Push to the configured
+   remote only when `workspace.remote_push` is true (default false);
+   otherwise keep the commits local. The value is having version
+   control, not a branch flow.

@@ -10,6 +10,8 @@ edits a file, and never invents a trace.
 
 ## Inputs
 
+Grounding: no registered sources serve this command (record-keeping; search is a tool, not a ritual). Index: `references/research-sources.md`.
+
 `$ARGUMENTS` takes exactly one of:
 
 1. `<KEY>`: the trail for one ticket (a bare number like `42` is

@@ -18,8 +18,14 @@ module fixes all three:
 
 Anything that goes wrong is reported in ``reason`` and never raises.
 
+``sync-references --workspace <dir>`` copies the plugin-to-workspace sync
+set (``SYNC_SET``: the three checklist files and the writing-rules
+registry) into the workspace: absent files copy, identical files stay
+unchanged, differing files stay as recorded local overrides.
+
 Usage::
 
+    python hooks/workspace_sync.py sync-references --workspace <dir>
 """
 
 from __future__ import annotations
@@ -34,6 +40,54 @@ if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
 GIT_TIMEOUT = 30
+
+#: The plugin-to-workspace sync set (issue 53, design decision 2): the
+#: canonical content files every study workspace carries. Plugin canonical
+#: wins on create; a workspace edit is a recorded local override, never
+#: clobbered by a later sync. The set appends; it never renumbers or drops.
+SYNC_SET: tuple[str, ...] = (
+    "references/checklists/method-selection.md",
+    "references/checklists/qual-interviews.md",
+    "references/checklists/quant-surveys.md",
+    "references/writing-rules.md",
+)
+
+
+def sync_references(workspace, plugin_root=None) -> dict:
+    """Copy the sync set from the plugin into the workspace; record overrides.
+
+    Plugin-to-workspace only. A file absent from the workspace is copied.
+    A workspace file identical to the plugin canonical copy is left alone.
+    A workspace file that differs is a recorded local override: the
+    workspace copy stays and the path lands in the summary's ``overrides``
+    list. Never raises; never deletes; never writes outside the workspace.
+    """
+    summary = {"synced": [], "overrides": [], "unchanged": [], "reason": ""}
+    try:
+        root = Path(plugin_root) if plugin_root is not None else PLUGIN_ROOT
+        workspace = Path(workspace)
+        if not workspace.is_dir():
+            summary["reason"] = "workspace missing"
+            return summary
+        for rel in SYNC_SET:
+            source = root / rel
+            target = workspace / rel
+            if not source.is_file():
+                continue
+            payload = source.read_bytes()
+            if target.is_file():
+                if target.read_bytes() == payload:
+                    summary["unchanged"].append(rel)
+                else:
+                    summary["overrides"].append(rel)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(payload)
+            summary["synced"].append(rel)
+        return summary
+    except Exception as exc:
+        summary["reason"] = str(exc)[:200]
+        return summary
 
 
 def _git(*args: str, cwd=None) -> tuple[int, str, str]:
@@ -103,6 +157,19 @@ def sync_workspace(workspace, config, ended_at: str | None = None) -> dict:
 
 
 def main(argv=None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
+    if len(args) == 3 and args[0] == "sync-references" and args[1] == "--workspace":
+        result = sync_references(args[2])
+        for rel in result["synced"]:
+            print(f"synced: {rel}")
+        for rel in result["overrides"]:
+            print(f"local override kept: {rel}")
+        print(
+            f"sync-references: {len(result['synced'])} synced, "
+            f"{len(result['overrides'])} local overrides, "
+            f"{len(result['unchanged'])} unchanged"
+        )
+        return 0
     print(__doc__.strip().splitlines()[0])  # terse CLI pointer; full doc in this file
     return 0
 

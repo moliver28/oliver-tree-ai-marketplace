@@ -14,12 +14,19 @@ recovered spec has no ``_meta``; the next edit must set
 unrecoverable is simply left out, and a body with nothing recoverable
 prints ``{}``.
 
-Exit codes: 0 always (recovery is best effort; empty recovery is a valid
-result the user reviews).
+Exit codes for the recovery path: 0 always (recovery is best effort; empty
+recovery is a valid result the user reviews). ``save-spec`` exits 2 on an
+unreadable draft, 4 when the validator rejects the draft (issue 60: a spec
+saved by the ``new`` build block carries the verbatim ask), 3 when the
+write fails, 0 on success. ``assert-ask`` (issue 60) exits 0 with ``ask
+OK`` or the ``ask missing (pre-ask spec)`` line, and 5 on a real gap.
 
 Usage::
 
     python scripts/backfill_spec.py < live-body.md > recovered.spec.json
+    python scripts/backfill_spec.py save-spec --key <KEY> --file <draft.json> [--command new]
+    python scripts/backfill_spec.py assert-ask --file <spec.json>
+    python scripts/backfill_spec.py check-readback --file <body.md>
 """
 
 from __future__ import annotations
@@ -45,7 +52,12 @@ def run(body_text: str) -> tuple[int, str, str]:
 
 def save_spec(key: str, draft_path: Path, command: str = "new") -> int:
     """Save a draft spec with the six ``_meta`` keys to
-    ``<state_dir>/specs/<KEY>.spec.json`` (the ``new`` build block, scripted)."""
+    ``<state_dir>/specs/<KEY>.spec.json`` (the ``new`` build block, scripted).
+
+    Issue 60: the draft is validated (with its ``_meta`` in place) before any
+    write, so a spec saved by the ``new`` build block cannot persist without
+    the verbatim ask. Exit 4 with the validator's error lines on failure.
+    """
     try:
         spec = json.loads(draft_path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
@@ -55,6 +67,11 @@ def save_spec(key: str, draft_path: Path, command: str = "new") -> int:
         print("backfill_spec: the draft is not a JSON object", file=sys.stderr)
         return 2
     spec["_meta"] = spec_blocks.make_meta(command)
+    ok, errors = spec_blocks.validate_spec(spec)
+    if not ok:
+        for error in errors:
+            print(f"  - {error}", file=sys.stderr)
+        return 4
     try:
         from lib.config import load_config
         path = spec_blocks.spec_path(key, load_config())
@@ -65,6 +82,33 @@ def save_spec(key: str, draft_path: Path, command: str = "new") -> int:
         return 3
     print(path)
     return 0
+
+
+def assert_ask(path: Path) -> int:
+    """The edit-time preservation check (issue 60).
+
+    ``ask OK`` when the verbatim ask is present and non-empty; the
+    ``ask missing (pre-ask spec)`` line for a legacy spec with no ask keys
+    at all (the gap is recorded, never blocked); exit 5 on a real gap (ask
+    keys present but the verbatim ask is empty).
+    """
+    try:
+        spec = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        print(f"backfill_spec: unreadable spec: {exc}", file=sys.stderr)
+        return 2
+    if not isinstance(spec, dict):
+        print("backfill_spec: the spec is not a JSON object", file=sys.stderr)
+        return 2
+    ask = spec.get("ask_verbatim")
+    if isinstance(ask, str) and ask.strip():
+        print("ask OK")
+        return 0
+    if not any(key in spec for key in ("ask_verbatim", "ask_source", "ask_uplevels")):
+        print("ask missing (pre-ask spec)")
+        return 0
+    print("ask_verbatim is empty (the original ask must be stored verbatim)")
+    return 5
 
 
 def check_readback(body_path: Path) -> int:
@@ -97,8 +141,13 @@ def main(argv: list[str] | None = None) -> int:
     if args and args[0] == "save-spec":
         key, draft = value_of("--key"), value_of("--file")
         if key and draft:
-            return save_spec(key, Path(draft).expanduser())
+            return save_spec(key, Path(draft).expanduser(), value_of("--command") or "new")
         print("usage: backfill_spec.py save-spec --key <KEY> --file <draft.json> [--command new]", file=sys.stderr)
+        return 2
+    if args and args[0] == "assert-ask":
+        if value_of("--file"):
+            return assert_ask(Path(value_of("--file")).expanduser())
+        print("usage: backfill_spec.py assert-ask --file <spec.json>", file=sys.stderr)
         return 2
     if args and args[0] == "check-readback":
         if value_of("--file"):

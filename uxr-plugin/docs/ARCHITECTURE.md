@@ -12,7 +12,7 @@ This plugin turns Claude Code into a research operations assistant for UX resear
 | **spec** | A JSON file that holds the ticket body content. The spec is the source of truth. The ticket body is a rendering of the spec. |
 | **body renderer** | Code that turns a spec into the tracker's rich-text format (Jira ADF, Markdown, Asana HTML). |
 | **field** | A structured tracker field (Pod, Research Method, dates, people, links). Fields do not live in the spec. |
-| **workspace** | A local folder for one study under the research root (default `~/Documents/Research/<slug>/`). |
+| **workspace** | A local folder for one study under the research root (universal default `~/uxr-workspaces/<slug>/`; `UXR_RESEARCH_DIRS` or `paths.research_root` overrides). |
 | **roster** | The list of recruits in the spec. Each row has a status from a fixed set. |
 | **phase** | A workflow status that has a readiness gate (Planned, Writing Script / Survey, Recruiting, and so on). |
 | **gate** | A point where the plugin stops and waits for the user. Every create, edit, post, send, and calendar move has a gate. |

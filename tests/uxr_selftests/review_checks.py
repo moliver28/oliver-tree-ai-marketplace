@@ -400,6 +400,143 @@ def _selftest() -> int:
         check("CLI check on a missing file exits 2", proc.returncode == EXIT_UNPARSEABLE,
               f"exit {proc.returncode}")
 
+    # 14. Survey mode (issue 53): the four survey checks on the skill's shape.
+    def survey_fixture() -> str:
+        return "\n".join([
+            "# Survey Instrument: Invoice Approvals",
+            "",
+            "Jira Ticket: PROJ-482",
+            "UXR: Alex Rivera",
+            "**Time budget**: 15 min",
+            "**Burden budget**: 6 questions",
+            "**Method**: Survey",
+            "**Date drafted**: 2026-11-22",
+            "**Drafted from**: ticket PROJ-482",
+            "",
+            "## Research Questions",
+            "",
+            "1. How do teams approve invoices today?",
+            "",
+            "## Routing Map",
+            "",
+            "- from Q3 [if they use an approval tool] to Q5",
+            "",
+            "## Survey",
+            "",
+            "### 1. Context (3 questions)",
+            "",
+            "1. Which best describes your role?",
+            "2. How many invoices does your team handle in a week?",
+            "3. [if they use an approval tool] Which tool do you use?",
+            "",
+            "### 2. Detail (3 questions)",
+            "",
+            "4. Walk me through the last approval you saw stall.",
+            "5. How long did the stall last?",
+            "6. What would have prevented the stall?",
+            "",
+            "## Alternatives",
+            "",
+            "- Q1: 3 alternatives tried; kept: the role card with five options",
+            "- Q2: 2 alternatives tried; kept: the weekly count wording",
+            "- Q4: 2 alternatives tried; kept: the walk-through wording",
+            "- Q6: 4 alternatives tried; kept: the prevention wording",
+            "",
+            "## Join and Segmentation Fields",
+            "",
+            "- Join: org_id from the CRM table; segmentation by team size band.",
+            "",
+            "## Research Question -> Survey Question Map",
+            "",
+            "| RQ | Question type | Survey Qs | Stakeholder Value |",
+            "|---|---|---|---|",
+            "| RQ1 | open + factual | 2, 4, 6 | Surfaces the stall causes |",
+            "",
+            "## Quality Check",
+            "",
+            "- Checker: review_checks.py survey exit 0 on this draft.",
+            "",
+        ])
+
+    findings = check_survey_text(survey_fixture())
+    check("survey mode: the canonical instrument is clean",
+          _exit_code(findings) == EXIT_CLEAN and not findings,
+          repr([f.render() for f in findings])[:200])
+
+    shifted = survey_fixture().replace("### 1. Context (3 questions)",
+                                       "### 1. Context (4 questions)")
+    findings = check_survey_text(shifted)
+    check("survey mode: a section count mismatch blocks",
+          _exit_code(findings) == EXIT_BLOCK
+          and any(f.check == "burden-count" for f in findings),
+          repr([f.render() for f in findings])[:200])
+
+    dead = survey_fixture().replace("- from Q3 [if they use an approval tool] to Q5",
+                                    "- from Q3 [if they use an approval tool] to Q9")
+    findings = check_survey_text(dead)
+    names = {f.check for f in findings}
+    check("survey mode: a routing dead end blocks",
+          _exit_code(findings) == EXIT_BLOCK and "routing-parse" in names,
+          repr([f.render() for f in findings])[:200])
+
+    unmapped = survey_fixture().replace("- from Q3 [if they use an approval tool] to Q5\n", "")
+    findings = check_survey_text(unmapped)
+    check("survey mode: a conditional question with no routing row blocks",
+          any(f.check == "routing-parse" and "unmapped skip path" in f.detail
+              for f in findings),
+          repr([f.render() for f in findings])[:200])
+
+    under = survey_fixture().replace("- Q4: 2 alternatives tried; kept: the walk-through wording\n", "")
+    findings = check_survey_text(under)
+    check("survey mode: a core question with no alternatives record blocks",
+          any(f.check == "alternatives" and "no alternatives record for Q4" in f.detail
+              for f in findings),
+          repr([f.render() for f in findings])[:200])
+
+    over = survey_fixture().replace("- Q1: 3 alternatives tried", "- Q1: 6 alternatives tried")
+    findings = check_survey_text(over)
+    check("survey mode: more than five alternatives blocks",
+          any(f.check == "alternatives" and "records 6 alternatives" in f.detail
+              for f in findings),
+          repr([f.render() for f in findings])[:200])
+
+    uncovered = survey_fixture().replace("| RQ1 | open + factual | 2, 4, 6 | Surfaces the stall causes |",
+                                         "| RQ1 | open + factual | none yet | Surfaces the stall causes |")
+    findings = check_survey_text(uncovered)
+    check("survey mode: an uncovered RQ map row warns",
+          _exit_code(findings) == EXIT_WARN and any(f.check == "coverage" for f in findings),
+          repr([f.render() for f in findings])[:200])
+
+    bare = "# Survey\n\n## Survey\n\n### 1. A (1 questions)\n\n1. Hi?\n"
+    findings = check_survey_text(bare)
+    check("survey mode: a missing burden line and map exit 2",
+          _exit_code(findings) == EXIT_UNPARSEABLE,
+          repr([f.detail for f in findings])[:200])
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "survey-instrument-PROJ-482.md"
+        path.write_text(survey_fixture(), encoding="utf-8")
+        proc = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve()), "survey", str(path)],
+            capture_output=True, text=True, timeout=30,
+        )
+        check("CLI survey on the canonical instrument exits 0",
+              proc.returncode == EXIT_CLEAN and "review_checks.py survey" in proc.stdout,
+              proc.stdout[-300:])
+        proc = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve()), "survey"],
+            capture_output=True, text=True, timeout=30,
+        )
+        check("CLI survey without a path exits 2", proc.returncode == EXIT_UNPARSEABLE,
+              f"exit {proc.returncode}")
+
+    # 15. The check mode still owns the fixture: interview output unchanged.
+    findings = check_text(_fixture(), cfg=cfg, quant_items=quant)
+    check("check mode on the interview fixture stays clean",
+          _exit_code(findings) == EXIT_CLEAN
+          and all(f.severity != "block" for f in findings),
+          repr([f.render() for f in findings])[:200])
+
     print(f"review_checks.py selftest")
     if failures:
         print(f"selftest FAILED ({len(failures)} check(s))")

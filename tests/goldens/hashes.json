@@ -47,7 +47,7 @@
   "tests/goldens/uc-1-install-onboarding.md": "28f7927a5cfc832b2b52d5d00f0f349929b282f7557d504c662110c7a9cde4d0",
   "tests/goldens/uc-2-project-setup-init.md": "cf2d6670f88ee6c327378b0aa4ad39f7fdc39010cbb2a1c059a1229f17abeeda",
   "tests/goldens/uc-3-ticket-understanding.md": "33f27b732a13804cac4a6c47f338b6729b5acd13baa8631da2d420d65095cc1c",
-  "tests/goldens/uc-4-recruitment.md": "bfe38e262d13e24aee345bb08414a773df05d08e5e8f4a9934d2bfe49e23fc96",
+  "tests/goldens/uc-4-recruitment.md": "adc16df09c08195ab9bf4e69bc04c678b8135f3cef6d6e4e173ca202441caff6",
   "tests/goldens/uc-5-checklist-move.md": "e5c61f45030fc10c2381af3fef467320155aaf12f3966466c14c349d75f69d28",
   "tests/goldens/uc-6-analysis-debrief-report.md": "64feb31a458fe9f74179dfe4d05d443faaaeeb31d4b12fdef0797359c3d261f2",
   "tests/goldens/uc-7-sync-push.md": "1f6efa4091274aef7528f4ae4ee46c997af7904fbb434f818770e75e538701aa",

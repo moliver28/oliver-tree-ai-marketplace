@@ -18,6 +18,8 @@ command spends zero model calls.
 
 ## Inputs
 
+Grounding: no registered sources serve this command (record-keeping; search is a tool, not a ritual). Index: `references/research-sources.md`.
+
 `$ARGUMENTS` may hold any of:
 
 1. `--dry-run`: show the drafts, post nothing, leave `processed`

@@ -213,6 +213,30 @@ def results_filled(spec: dict) -> bool:
     return _filled_not_placeholder(spec.get("results"), spec_blocks.PLACEHOLDERS["results"])
 
 
+@_predicate
+def ask_verbatim_present(spec: dict) -> bool:
+    """The verbatim original ask is present and non-empty (the issue 60 ask keys).
+
+    Standing-mandate predicate (issue 53): reachable only through checklist
+    items (``lib/checklist_gate.py``), never through the reference
+    requirements table, so no pinned gate output changes.
+    """
+    ask = spec.get("ask_verbatim")
+    return isinstance(ask, str) and bool(ask.strip())
+
+
+@_predicate
+def ask_source_present(spec: dict) -> bool:
+    """The ask source is present and non-empty (the issue 60 ask keys).
+
+    Standing-mandate predicate (issue 53): reachable only through checklist
+    items (``lib/checklist_gate.py``), never through the reference
+    requirements table, so no pinned gate output changes.
+    """
+    source = spec.get("ask_source")
+    return isinstance(source, str) and bool(source.strip())
+
+
 # ---------------------------------------------------------------------------
 # status matching
 # ---------------------------------------------------------------------------

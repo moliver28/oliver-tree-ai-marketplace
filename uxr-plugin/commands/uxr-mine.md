@@ -9,6 +9,8 @@ rows of `references/tracker.md`); the render is a script. It never calls
 `create_item`, `update_item`, `set_state`, or `add_comment`, and it writes no
 file outside the one temp JSON.
 
+Grounding: no registered sources serve this command (record-keeping; search is a tool, not a ritual). Index: `references/research-sources.md`.
+
 Input: `$ARGUMENTS`. The word `all` alone (case-insensitive) includes closed
 statuses. Anything else, including no input, means the default open-only view.
 

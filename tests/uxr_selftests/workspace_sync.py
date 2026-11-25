@@ -4,6 +4,8 @@ bind("hooks.workspace_sync", globals())
 def _selftest() -> int:
     """Cover opt-in gating, the staged scope (workspace only, never the
     sibling file or the repo root), and that no push ever runs."""
+    import contextlib  # selftest-only import
+    import io  # selftest-only import
     import tempfile
 
     failures = []
@@ -77,6 +79,38 @@ def _selftest() -> int:
 
         # 6. The hook entry prints nothing on unknown args (script form).
         check("the module never pushes automatically", True, "")
+
+        # 7. sync-references (issue 53): plugin-to-workspace copy, recorded
+        #    overrides; a synthetic plugin root keeps the real payload out.
+        fake_root = tmp / "plugin-root"
+        for rel in SYNC_SET:
+            source = fake_root / rel
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text("canonical %s\n" % rel, encoding="utf-8")
+        ref_ws = repo / "studies" / "sync-ref-study"
+        ref_ws.mkdir(parents=True)
+        result = sync_references(ref_ws, plugin_root=fake_root)
+        check("all sync-set files copy into the workspace",
+              sorted(result["synced"]) == sorted(SYNC_SET) and not result["overrides"],
+              repr(result))
+        result = sync_references(ref_ws, plugin_root=fake_root)
+        check("a second run copies nothing and reports unchanged",
+              result["synced"] == [] and len(result["unchanged"]) == len(SYNC_SET),
+              repr(result))
+        (ref_ws / SYNC_SET[0]).write_text("locally edited\n", encoding="utf-8")
+        result = sync_references(ref_ws, plugin_root=fake_root)
+        check("a differing workspace file stays as a recorded local override",
+              result["overrides"] == [SYNC_SET[0]] and result["synced"] == []
+              and (ref_ws / SYNC_SET[0]).read_text(encoding="utf-8") == "locally edited\n",
+              repr(result))
+        result = sync_references(tmp / "absent-workspace", plugin_root=fake_root)
+        check("a missing workspace is reported, not raised",
+              result["synced"] == [] and "missing" in result["reason"], repr(result))
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            code = main(["sync-references", "--workspace", str(ref_ws)])
+        check("the CLI reports the override and exits 0",
+              code == 0 and "local override kept" in buffer.getvalue(), buffer.getvalue()[-120:])
 
     if failures:
         print("selftest FAILED (%d check(s))" % len(failures))
