@@ -41,7 +41,6 @@ from __future__ import annotations
 import json
 import os
 import re
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +48,11 @@ try:
     from . import config as _config  # package context: import lib.spec_blocks
 except ImportError:  # direct execution: python lib/spec_blocks.py
     import config as _config  # type: ignore
+
+try:
+    from .util import utcnow as _utcnow
+except ImportError:  # flat: python lib/spec_blocks.py
+    from util import utcnow as _utcnow  # type: ignore
 
 ConfigError = _config.ConfigError
 
@@ -216,10 +220,6 @@ def _cfg(config: Any, section: str, key: str, default: Any = "") -> Any:
     value = child.get(key, default)
     return default if value is None else value
 
-
-def _utcnow() -> str:
-    """ISO 8601 UTC time with a ``Z`` suffix, second precision."""
-    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def status_set(config: dict | None = None) -> frozenset[str]:

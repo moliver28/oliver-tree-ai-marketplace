@@ -95,6 +95,8 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
+from lib import util  # noqa: E402  (shared plumbing)
+
 EXIT_OK = 0
 EXIT_FAIL = 1
 EXIT_USAGE = 2
@@ -189,13 +191,8 @@ PRELIMINARY_RE = re.compile(re.escape(SINGLE_SOURCE_NOTE), re.IGNORECASE)
 
 
 def load_plugin_config() -> dict | None:
-    """Load the plugin config through lib.config; None when unavailable."""
-    try:
-        from lib.config import load_config
-
-        return load_config()
-    except Exception:
-        return None
+    """Load the plugin config through lib.util.load_config; None when unavailable."""
+    return util.load_config()
 
 
 def personas_file_from_config(config: dict | None) -> Path:

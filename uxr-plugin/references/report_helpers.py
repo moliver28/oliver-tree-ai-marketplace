@@ -194,13 +194,8 @@ MONTH_SUFFIX_RE = re.compile(r"(\d{4}-\d{2})\s*$")
 
 
 def load_plugin_config() -> dict | None:
-    """Load the plugin config through lib.config; None when unavailable."""
-    try:
-        from lib.config import load_config
-
-        return load_config()
-    except Exception:
-        return None
+    """Load the plugin config through lib.util.load_config; None when unavailable."""
+    return util.load_config()
 
 
 def _config_section(config: dict | None, name: str) -> dict:
