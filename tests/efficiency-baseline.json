@@ -693,6 +693,31 @@
      "uxr-plugin/commands/uxr-debrief.md"
     ],
     "reason": "Rephrase wave (MO efficiency program 2026-11-25): uxr-new 3004->2796 and uxr-debrief 2969->2803 body tokens (-376 cl100k body-only), zero law loss; all 24 invocation strings byte-identical modulo line-wrap, safety sections verbatim, one orchestrator-restored zero-writes parenthetical; payload 33585 -> 33509 lines (-76)."
+   },
+   {
+    "wave": "w2-dispatcher-slice-1",
+    "issue": 0,
+    "delta_lines": -16,
+    "files": [
+     "uxr-plugin/lib/cli.py",
+     "uxr-plugin/scripts/build_body.py",
+     "uxr-plugin/scripts/parse_shorthand.py",
+     "uxr-plugin/scripts/recruit_funnel.py",
+     "uxr-plugin/scripts/recruit_send.py",
+     "uxr-plugin/scripts/roster_apply.py",
+     "uxr-plugin/scripts/source_contacts.py"
+    ],
+    "reason": "Shared CLI dispatcher first slice (MO efficiency program 2026-11-25): new lib/cli.py (+95) absorbs main() boilerplate in six flag-style scripts (-111); net -16 lines, payload 33509 -> 33493; all six no-args usage outputs and exit codes byte-identical pre/post (re-proven on the clone post-apply), 16 module selftests green."
+   },
+   {
+    "wave": "w3-rewrite-recruit-report",
+    "issue": 0,
+    "delta_lines": -159,
+    "files": [
+     "uxr-plugin/commands/uxr-recruit.md",
+     "uxr-plugin/commands/uxr-report.md"
+    ],
+    "reason": "Rephrase wave (MO efficiency program 2026-11-25): uxr-recruit 4817->4169 and uxr-report 4289->3905 body tokens (-1032 cl100k body-only), zero law loss; 19 invocation strings identical, safety sections verbatim, yaml fence byte-identical, orchestrator restored 3 heading law parentheticals (status-gates object, deterministic zero-model-calls, default chat visual); payload 33493 -> 33334 lines (-159)."
    }
   ],
   "golden_path_growth": null
