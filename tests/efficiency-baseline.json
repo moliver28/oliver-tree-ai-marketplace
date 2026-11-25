@@ -659,7 +659,7 @@
    {
     "wave": "uxr-install-doctor",
     "issue": 0,
-    "delta_lines": 247,
+    "delta_lines": 400,
     "files": [
      "uxr-plugin/scripts/plugin_doctor.py",
      "uxr-plugin/commands/uxr-doctor.md",
@@ -667,7 +667,7 @@
      "uxr-plugin/README.md",
      "uxr-plugin/CHANGELOG.md"
     ],
-    "reason": "Install + doctor program (MO directive 2026-11-25): plugin_doctor.py validates the harness, prunes optional modules (mcp, scripting) from an installed copy (reversable; repo tree never shrinks), and repairs a broken install from the marketplace source; commands/uxr-doctor.md is the user entry; smoke check 2 reconstructs pre-prune counts from .profile.json so pruned installs meet the floors a full install met. The growth buys a per-user cut: a core install ships ~2,100 fewer lines."
+    "reason": "Install + doctor program (MO directive 2026-11-25): plugin_doctor.py validates the harness, prunes optional modules (mcp, scripting) from an installed copy (reversable; repo tree never shrinks), and repairs a broken install from the marketplace source; commands/uxr-doctor.md is the user entry; smoke check 2 reconstructs pre-prune counts from .profile.json so pruned installs meet the floors a full install met. The growth buys a per-user cut: a core install ships ~2,100 fewer lines. Delta corrected 2026-11-25: the gate total moved 33,308 to 33,708 across this wave's two commits (the recorded 247 covered only the doctor commit's five payload files, not the net)."
    }
   ],
   "golden_path_growth": null
