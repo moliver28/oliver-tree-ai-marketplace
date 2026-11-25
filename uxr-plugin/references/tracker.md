@@ -5,8 +5,10 @@ table, reading the column for the configured `tracker.kind` (`jira`,
 `linear`, `github`, or `asana`). Every per-organization value comes from
 `config/org.yaml` through `lib/config.py`; `lib/field_map.py` resolves a
 field shorthand (`method=Survey`) into the payload and implements the
-routing helpers. Linear/GitHub/Asana detail lives in
-`references/trackers-other.md` — read it when `tracker.kind` is not `jira`.
+routing helpers. Linear and Asana detail lives in
+`references/trackers-other.md`; GitHub Issues detail lives in
+`references/tracker-github.md`. Read the file for `tracker.kind` when it
+is not `jira`.
 
 ## Session rules (every command)
 
@@ -37,6 +39,14 @@ One row per operation; use the column for the configured tracker.
 `normalize_key` accepts anything matching `tracker.ticket_regex` unchanged;
 a bare number gets the `tracker.bare_number_prefix`. A key outside the
 study project is refused, never searched.
+
+## Ticket mentions (issue 52)
+
+Every ticket mention shows the number and the short title in one format:
+`(<key>: <short title>)`. The keyed form is `<KEY>-<num>` (Jira) or
+`#<num>` (GitHub Issues, GitLab Issues); a tracker whose items carry no
+number shows the key alone (Notion). The adapter's normalized key
+supplies the key and the number; the item read supplies the short title.
 
 ## Jira parameters (reference tracker)
 

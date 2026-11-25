@@ -2,11 +2,16 @@
 
 All notable changes to uxr-plugin. One `## X.Y.Z` heading per release, newest first.
 
+## [0.8.0] - 2026-11-24
+
+### Added
+
+- The GitHub Issues adapter (issue 114 parity wave P1): `lib/adapter_github.py` implements the four adapter operations for `tracker.kind == "github"` at the exact `adapter_jira.py` shape - `connect` over the same five `tracker.*` keys, `pull` as the `normalize_key` rule of the `tracker.md` GitHub Issues column in code (a bare number composes `#<n>` in the repo from `tracker.workspace_id`; no prefix key is needed), `push` through `lib/field_map` and `scripts/build_body` with the unchanged exit-code contract (0 ok, 3 refused with zero writes, 2/4 errors), and `spec_transform` delegating to `lib/spec_blocks.build_document` byte-identically. All four stay deterministic, network-free, and tool-call-free; the commands hold the `gh` CLI calls. The registry entry flips from declared-not-built to built in `ADAPTER_DEFAULTS` and `config/org.example.yaml`, and its `doc` pointer names the new reference `references/tracker-github.md` (the per-operation `gh` parameters, `verify-live` marks until the first live pass). `references/trackers-other.md` keeps Linear/Asana parameters plus the field-kind mapping table for every non-Jira tracker. The adapters selftest grows the GitHub assertions at Jira's level (45 checks) and joins the `tests/test_parity.py` SELFTESTS, so the parity gate exercises the adapter contract.
+
 ## [0.7.0] - 2026-11-24
 
 ### Added
 
-- Optional stdio MCP server (`mcp-server/server.py`): newline-delimited JSON-RPC 2.0 over stdio, all diagnostics on stderr, stdlib only, no network, no `lib/` imports (shells out only). Dual protocol era (verified against modelcontextprotocol.io, 2026-11-24): the current stable `2026-07-28` per-request era (stateless requests carrying `_meta` `io.modelcontextprotocol/protocolVersion` + `clientCapabilities`; `server/discover`; unsupported versions rejected with `-32022` + `data.supported`; `resultType: "complete"` results) and the initialize-handshake era for today's stdio harnesses (protocol `2025-06-18`, with `2025-11-25` negotiation and fallback). Curated surface: ten tools, one per shipped script. Tool schemas and argv are DERIVED at runtime from each script's own declarative `MCP_SURFACE` table (the scripts also self-report it via `--print-mcp-surface`); stdout returned verbatim with `PYTHONIOENCODING=utf-8` pinned; 60-second cap; no shell. `references/*.md` + `prompts/*/fragments/*.md` as `text/markdown` resources under `uxr://` (names validated against `^[A-Za-z0-9_-]+$`), and `commands/*.md` as prompts. No publish or send tool (drafts never send).
 - `scripts/gen_mcp_docs.py`: regenerates the README MCP tool table from the same derived registry, so docs cannot drift from code (`--check` fails on drift; wired into a selftest).
 - `mcp-server/serve.py`: serves the stdio server behind a stdlib HTTP bridge with REQUIRED auth (constant-time compares, 401 without a valid token, no localhost bypass; static token auto-generated into the gitignored `state/` folder, printed for registration, never logged; loopback-only bind) and an optional cloudflared quick tunnel, printing the public URL, the token, and the Gemini Connected Apps registration steps; without cloudflared it prints the per-OS install command and exits cleanly. Live Gemini testing rejected static bearer auth, so the bridge embeds a minimal OAuth 2.1 provider (RFC 8414 discovery, RFC 7591 dynamic registration, auto-approved `/authorize` for the single local operator, authorization_code + rotating refresh_token grants, PKCE S256, short-lived opaque in-memory tokens) and accepts either an OAuth access token or the static bearer token; unauthenticated requests carry the `WWW-Authenticate: Bearer resource_metadata=...` pointer that starts Gemini's OAuth dance.
 - Install command (`mcp-server/install.py`): `install|uninstall|status --harness auto|zcode|codex|claude-code|hermes` with `--force` and `--dry-run`. Writes only the `uxr` entry (zcode `mcp.servers.uxr`, codex `[mcp_servers.uxr]`, claude-code user-scope `mcpServers.uxr`), preserves the file's newline style and every other key, backs up to `<config>.uxr-backup` before the first write, and is idempotent (second run exits 0 as a no-op). `status` runs a real initialize handshake against the configured server (exit 0 healthy, 1 missing, 2 broken handshake, 3 unsupported harness, 4 config error). hermes raises a clear not-wired-yet message after grounding left its config location unconfirmed for this runtime.
@@ -16,6 +21,7 @@ All notable changes to uxr-plugin. One `## X.Y.Z` heading per release, newest fi
 ### Changed
 
 - Version triple to 0.7.0 (manifest, README, marketplace entry); README gains the MCP server section (per-harness config table, generated tool table, serve mode, law-8 update path) and the universal `~/uxr-workspaces` default; `config/org.example.yaml` and docs/ARCHITECTURE.md name the same default.
+
 ## [0.6.0] - 2026-11-22
 
 ### Added
