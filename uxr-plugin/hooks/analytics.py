@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 """Analytics event listener: one consent-gated counter per interaction.
 
-Wired for four events (see hooks/hooks.json); other events are classified
-too when they arrive:
+Wired for three events (UserPromptSubmit; Stop and SubagentStop via
+dispatch.py; see hooks/hooks.json); other events are classified too when
+they arrive:
 
-- UserPromptExpansion, and UserPromptSubmit (the turn-start event
-  runtimes without the expansion event do support, e.g. ZCode 0.17.1):
-  a prompt that expands a slash command records ``command_invoked`` with
-  the normalized command name. Claude Code fires both events for one
-  command (Submit before the expansion, Expansion at it), so the same
-  session counting the same command twice inside a short window is one
-  invocation: a small dedup marker in the state dir keeps the count at
-  one. Legitimate re-invocations outside the window count again.
+- UserPromptSubmit (the prompt event every supported runtime fires; the
+  plugin wires no expansion-side event): a prompt that expands a slash
+  command records ``command_invoked`` with the normalized command name,
+  once per invocation.
 - SubagentStop: a dispatch of a plugin agent (every agent under agents/
   is allowlisted; the allowlist is discovered from the directory, so a
   new agent file never needs a code change) records ``agent_dispatched``.
@@ -39,7 +36,6 @@ import contextlib
 import json
 import os
 import sys
-from datetime import datetime, timedelta
 from pathlib import Path
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
@@ -54,23 +50,8 @@ TAIL_BYTES = 262144
 #: Command directory override (tests point this at a fixture dir).
 COMMANDS_DIR = None
 
-#: Prompt events that may expand a plugin command.
-PROMPT_EVENTS = ("UserPromptExpansion", "UserPromptSubmit")
-
 #: Event payload fields that may name the dispatched agent.
 AGENT_FIELDS = ("agent_type", "agent_name", "agent", "subagent_type")
-
-#: One slash command counted twice for one session inside this window is
-#: the same invocation seen through UserPromptSubmit and (Claude Code)
-#: UserPromptExpansion; outside the window it counts again.
-COMMAND_DEDUP_WINDOW_SECONDS = 60
-
-#: The dedup marker file, inside the state dir. Keys are salted session
-#: ids plus the command, so the file never holds a raw session id.
-COMMAND_DEDUP_FILENAME = "command-dedup.json"
-
-#: Upper bound on kept dedup entries (oldest dropped on write).
-COMMAND_DEDUP_MAX_ENTRIES = 200
 
 
 def plugin_agents(agents_dir=None) -> list[str]:
@@ -147,92 +128,6 @@ def is_tool_failure(event: dict) -> tuple[bool, str]:
     return bool(text and '"is_error": true' in text.lower()), text
 
 
-def _dedup_path(state_dir, config=None, environ=None):
-    """The command dedup marker file, or None when there is no state dir."""
-    try:
-        state = Path(state_dir) if state_dir is not None \
-            else analytics_common.resolve_state_dir(config, environ=environ)
-    except Exception:
-        return None
-    return state / COMMAND_DEDUP_FILENAME if state is not None else None
-
-
-def _parse_stamp(value) -> datetime | None:
-    """Parse a stored ISO stamp (or pass a datetime through); None on failure."""
-    if isinstance(value, datetime):
-        return value
-    try:
-        return datetime.fromisoformat(str(value))
-    except (TypeError, ValueError):
-        return None
-
-
-def _dedup_key(salt: str, session_id: str, command: str) -> str:
-    """One dedup key: salted session id (never raw) plus the command."""
-    return "%s|%s" % (analytics_common.pseudonymous_id(salt, str(session_id or "")),
-                      command)
-
-
-def command_counted(command: str, session_id: str, config=None, state_dir=None,
-                    environ=None, home=None, now=None) -> bool:
-    """True when this session already counted this command in the window.
-
-    Consent off counts as counted: nothing would be recorded anyway, and
-    the state dir stays untouched. Any state error counts as not counted
-    (fail open): a rare duplicate beats a lost count.
-    """
-    try:
-        if not analytics_common.analytics_enabled(config, environ=environ, home=home):
-            return True
-        path = _dedup_path(state_dir, config=config, environ=environ)
-        if path is None or not path.is_file():
-            return False
-        entries = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(entries, dict):
-            return False
-        salt = analytics_common.load_or_create_salt(path.parent)
-        stamp = entries.get(_dedup_key(salt, session_id, command))
-        moment, seen = _parse_stamp(now), _parse_stamp(stamp)
-        if moment is None or seen is None:
-            return False
-        return (moment - seen).total_seconds() < COMMAND_DEDUP_WINDOW_SECONDS
-    except Exception:
-        return False
-
-
-def mark_command_counted(command: str, session_id: str, config=None, state_dir=None,
-                         environ=None, home=None, now=None) -> None:
-    """Best effort: remember that this session counted this command just now."""
-    try:
-        path = _dedup_path(state_dir, config=config, environ=environ)
-        if path is None:
-            return
-        salt = analytics_common.load_or_create_salt(path.parent)
-        if not salt:
-            return
-        entries = {}
-        if path.is_file():
-            try:
-                loaded = json.loads(path.read_text(encoding="utf-8"))
-                if isinstance(loaded, dict):
-                    entries = loaded
-            except ValueError:
-                entries = {}
-        moment = _parse_stamp(now) or datetime.now().astimezone()
-        entries[_dedup_key(salt, session_id, command)] = moment.isoformat(timespec="seconds")
-        cutoff = moment - timedelta(seconds=COMMAND_DEDUP_WINDOW_SECONDS)
-        kept = {key: stamp for key, stamp in entries.items()
-                if isinstance(_parse_stamp(stamp), datetime)
-                and _parse_stamp(stamp) >= cutoff}
-        if len(kept) > COMMAND_DEDUP_MAX_ENTRIES:
-            kept = dict(sorted(kept.items(), key=lambda item: str(item[1]))
-                        [-COMMAND_DEDUP_MAX_ENTRIES:])
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(kept, ensure_ascii=False), encoding="utf-8")
-    except Exception:
-        return
-
-
 def handle_event(event, config=None, state_dir=None, environ=None, home=None,
                  now=None) -> str:
     """Classify one hook event and record its counter; always empty string."""
@@ -241,23 +136,16 @@ def handle_event(event, config=None, state_dir=None, environ=None, home=None,
             return ""
         session_id = str(event.get("session_id") or "")
         name = event.get("hook_event_name")
-        if name in PROMPT_EVENTS:
+        if name == "UserPromptSubmit":
             expansion = str(event.get("expansion_type") or "").strip().lower()
             if expansion and expansion != "slash_command":
                 return ""
             command = normalize_command(str(event.get("prompt") or ""))
             if command:
-                if command_counted(command, session_id, config=config,
-                                   state_dir=state_dir, environ=environ,
-                                   home=home, now=now):
-                    return ""
-                if analytics_common.record_event(
-                        "command_invoked", {"command": command},
-                        session_id=session_id, config=config, state_dir=state_dir,
-                        environ=environ, home=home, now=now):
-                    mark_command_counted(command, session_id, config=config,
-                                         state_dir=state_dir, environ=environ,
-                                         home=home, now=now)
+                analytics_common.record_event(
+                    "command_invoked", {"command": command},
+                    session_id=session_id, config=config, state_dir=state_dir,
+                    environ=environ, home=home, now=now)
             return ""
         if name == "Stop":
             # Wired for the ZCode turn end; nothing to count there.

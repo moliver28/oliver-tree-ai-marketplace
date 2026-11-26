@@ -148,7 +148,6 @@ python "${CLAUDE_PLUGIN_ROOT}/hooks/<name>.py" || python3 "${CLAUDE_PLUGIN_ROOT}
 | SessionEnd | - | `session_logger.py` (timeout 15) | 09 |
 | SubagentStop | - | `review_gate.py`, `analytics.py` | 06, 09 |
 | PreToolUse | `Write\|Edit` | `review_gate.py` | 06 |
-| UserPromptExpansion | - | `analytics.py` | 09 |
 | Stop | - | `session_logger.py`, `review_gate.py`, `provenance.py`, `analytics.py` | 06, 09 |
 | UserPromptSubmit | - | `analytics.py` | 09 |
 
@@ -156,9 +155,9 @@ Hook contract: read the event JSON from stdin, catch every exception, exit 0 on 
 
 ## Runtime compatibility
 
-`hooks/hooks.json` carries the Claude Code event set plus additive entries for the events the ZCode runtime supports (verified against the runtime current at each release); every hook accepts either event name, and nothing Claude Code uses was removed.
+`hooks/hooks.json` carries the Claude Code event set plus additive entries for the events the ZCode runtime supports (verified against the runtime current at each release); every hook accepts either event name. The expansion-side analytics listener (`UserPromptExpansion`) was removed as redundant: Claude Code fires `UserPromptSubmit` first for one command, and it already records the command, so the second listener recorded nothing unique.
 
-On current ZCode runtimes the following hook UX works: the session journal upserts its row on `Stop` (one row per session, updated in place, the analytics summary emitted once), the HCD review gate writes its review marker from the `Stop` transcript scan and still reminds on `PreToolUse` (a Stop fire never overwrites a marker a SubagentStop wrote on Claude Code), and analytics records slash commands on `UserPromptSubmit` plus the `SessionStart` flush (where Claude Code fires both `UserPromptSubmit` and `UserPromptExpansion` for one command, a short same-session dedup window keeps the count at one).
+On current ZCode runtimes the following hook UX works: the session journal upserts its row on `Stop` (one row per session, updated in place, the analytics summary emitted once), the HCD review gate writes its review marker from the `Stop` transcript scan and still reminds on `PreToolUse` (a Stop fire never overwrites a marker a SubagentStop wrote on Claude Code), and analytics records slash commands on `UserPromptSubmit` plus the `SessionStart` flush (each invocation counts once; the plugin wires no expansion-side listener).
 
 Still Claude Code-only: the true `SessionEnd` final write of the workspace manifests (per-turn `Stop` fires keep the journal row current without them) and the `SubagentStop` agent-dispatch counter, which has no ZCode event. Acceptable: `Stop` fires each turn, so the journal stays current without `SessionEnd`. Commands, skills, agents, scripts, and all deterministic behavior are runtime-independent. Re-check support after runtime updates (`zcode plugins install` prints unsupported-event diagnostics per plugin).
 

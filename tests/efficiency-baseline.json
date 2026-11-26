@@ -801,6 +801,19 @@
      "uxr-plugin/.gitignore"
     ],
     "reason": "config JSON snapshot beside the user file: sha256 key over both source files' bytes (any edit regenerates), JSON-roundtrip guard (dates/sets/non-string keys keep the yaml path, served dict never differs), atomic tmp+replace write, written only when a distinct user file exists (selftests pass the example as the user layer and stay on the yaml path); yaml import goes lazy in config.py (_read_mapping, _print_config). Measured in-process load_config call: yaml path 27-51 ms vs snapshot hit 1.2-2.0 ms (configs asserted equal x5); snapshot-hit spawn wall 64.2 ms warm n=7; analytics prompt-event spawn 133-139 ms pre rows 14+21 -> 55.0 ms explicit-off (row 21) and 66.4 ms consent-by-config (snapshot). +101/-6 LOC (config.py +70/-6, selftest case 7 +29, gitignore +2) earn ~-30-80 ms per config-paying spawn across ~20 spawns/command run; gates green staging (verify+parity) and clone (all 3); zero pin moves; selftest case 7 pins snapshot==yaml equality, regen after user-file edit, and invalid-yaml-still-raises"
+   },
+   {
+    "wave": "w4-row1-drop-expansion-listener",
+    "issue": 0,
+    "delta_lines": 37,
+    "deletions": 158,
+    "files": [
+     "uxr-plugin/hooks/hooks.json",
+     "uxr-plugin/hooks/analytics.py",
+     "uxr-plugin/README.md",
+     "tests/uxr_selftests/analytics.py"
+    ],
+    "reason": "row 1 full drop (MO-approved): hooks.json loses the UserPromptExpansion analytics entry; UserPromptSubmit fires first on every supported runtime and already records the command, so the expansion-side listener recorded nothing unique (W4 dedupe evidence: it found the dedupe marker and recorded nothing, for every command). Dead dedupe machinery removed (PROMPT_EVENTS, 3 COMMAND_DEDUP_* constants, 5 helper functions, branch simplify): each command invocation now counts exactly once, re-invocations count again (accuracy fix, no user-visible change), and no salt+marker file I/O remains on the Submit path. Measured: the dropped spawns cost 55.0 ms explicit-off / 66.4 ms consent-by-config (measure_post.py n=7) per command turn and no longer fire; post-drop Submit spawn wall 47.7-55.7 ms n=5 consent-off (consent fast path unchanged - the dedupe sat behind the consent gate). README table+prose updated (served docs stay truthful); selftest pins rewritten (re-invocation counts again, different session counts, double-fire check removed). Payload -124 net. +37/-158 LOC (analytics.py +13/-125, hooks.json -11, README +2/-3, selftest +11/-19); gates green staging (verify+parity) and clone (all 3); zero pin moves"
    }
   ],
   "golden_path_growth": null
