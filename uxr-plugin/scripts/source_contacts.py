@@ -401,7 +401,7 @@ def run(args: dict[str, str]) -> tuple[int, str]:
             filters=filters,
             stale_days=stale_days,
         )
-    return EXIT_OK, json.dumps(result, ensure_ascii=False, indent=2)
+    return EXIT_OK, json.dumps(result, ensure_ascii=False)
 
 
 _SOURCE_FLAGS = {

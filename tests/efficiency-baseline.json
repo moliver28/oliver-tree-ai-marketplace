@@ -755,6 +755,29 @@
      "uxr-plugin/commands/uxr-edit.md"
     ],
     "reason": "Same-moment spawn fusions (MO efficiency program 2026-11-25, W4 survey rows 3/4/5/6, MO-approved): checklist_gate check accepts repeatable --type (report runs both gate types in one spawn, -99 ms); report-filename --check-citations fuses the phase-5 pair (-56 ms); debrief assemble-summary/render-recap --gate run their write-time gates in-process (one spawn per pair, -50 ms x2); eod draft-auto --out writes the draft file and gates it in-process (-69 ms, the model's intermediate write disappears); scaffold lookup-workspace --then-render-overview absorbs the found/not-found branch (-122 ms on the found path); report verdicts now read from the evidence-weight output (md dedupe, -56 ms). Byte-proof rig: fused stdout/stderr equal the concatenated pre runs on all 6 cases (fixtures in scan_tools/w4exec/fusfix), existing single-run paths stable, not-found negative stable, written files byte-identical. Wrapper lines cost +53 payload."
+   },
+   {
+    "wave": "w4-row15-compact-stdout-json",
+    "issue": 0,
+    "delta_lines": 0,
+    "files": [
+     "uxr-plugin/lib/checklist_gate.py",
+     "uxr-plugin/lib/field_map.py",
+     "uxr-plugin/lib/phase_gates.py",
+     "uxr-plugin/references/debrief_helpers.py",
+     "uxr-plugin/references/deck_helpers.py",
+     "uxr-plugin/references/report_helpers.py",
+     "uxr-plugin/scripts/build_body.py",
+     "uxr-plugin/scripts/calendar_prep.py",
+     "uxr-plugin/scripts/eod_journal.py",
+     "uxr-plugin/scripts/evidence_sweep.py",
+     "uxr-plugin/scripts/roster_apply.py",
+     "uxr-plugin/scripts/source_contacts.py",
+     "uxr-plugin/scripts/trace_prompts.py",
+     "uxr-plugin/scripts/uxr_stats.py",
+     "uxr-plugin/scripts/validate_cheatsheet.py"
+    ],
+    "reason": "Token-efficiency row 15 (MO efficiency program 2026-11-25, MO-approved): stdout JSON printers drop indent=2 (35 print sites, 15 files). Script stdout lands in the model context compact; parsed JSON is identical (the 16 module selftests parse stdout JSON, they do not compare bytes). File-writer JSON keeps indent=2 (state files, payload documents stay human-debuggable). Payload unchanged: 33436 -> 33436. Source LOC -2 (33 insertions, 35 deletions; standalone indent=2 lines dropped). Zero pin moves; all three gates green on the staging tree and on the clone."
    }
   ],
   "golden_path_growth": null

@@ -345,7 +345,7 @@ def run(
     if isinstance(meta, dict):
         meta["last_edited_at"] = _spec.make_meta("roster_apply")["last_edited_at"]
     body_text = (
-        body + "\n" if isinstance(body, str) else json.dumps(body, ensure_ascii=False, indent=2) + "\n"
+        body + "\n" if isinstance(body, str) else json.dumps(body, ensure_ascii=False) + "\n"
     )
     Path(spec_path_value).expanduser().write_text(
         json.dumps(new_spec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

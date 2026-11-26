@@ -43,7 +43,7 @@ def _dump(body: dict | str) -> str:
     """Serialize the body for stdout: text as-is, ADF as pretty JSON."""
     if isinstance(body, str):
         return body + "\n"
-    return json.dumps(body, ensure_ascii=False, indent=2) + "\n"
+    return json.dumps(body, ensure_ascii=False) + "\n"
 
 
 def run(spec_text: str, config: dict | None = None) -> tuple[int, str, str]:

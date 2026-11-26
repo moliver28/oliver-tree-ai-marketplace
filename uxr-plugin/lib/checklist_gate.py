@@ -338,7 +338,7 @@ def _cli_citations(rest: list[str]) -> int:
     workspace = Path(workspace_arg).expanduser()
     result = check_citations(workspace)
     if as_json:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        print(json.dumps(result, ensure_ascii=False))
     else:
         for warning in result["warnings"]:
             print(f"warning: {warning} not in references/sources/")
@@ -443,7 +443,7 @@ def _cli_pauses(rest: list[str]) -> int:
     pauses = pause_plan(items, autonomy)
     if as_json:
         print(json.dumps({"type": type_name, "autonomy": autonomy, "pauses": pauses},
-                         ensure_ascii=False, indent=2))
+                         ensure_ascii=False))
     else:
         for pause in pauses:
             if pause["kind"] == "boundary":
@@ -505,7 +505,7 @@ def _cli_check(rest: list[str]) -> int:
             print(f"no checklist for type {type_name}")
             continue
         if as_json:
-            print(json.dumps(result, ensure_ascii=False, indent=2))
+            print(json.dumps(result, ensure_ascii=False))
         else:
             for entry in result["missing"]:
                 print(f"missing: {entry['item']} (evidence: {entry['evidence']})")

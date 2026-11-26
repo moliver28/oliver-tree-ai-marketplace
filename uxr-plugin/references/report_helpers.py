@@ -1099,7 +1099,7 @@ def cmd_verdict(args: dict[str, str]) -> int:
         str(label): verdict_from_tallies(counts if isinstance(counts, dict) else {}, kind, threshold)
         for label, counts in data.items()
     }
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    print(json.dumps(result, ensure_ascii=False))
     return EXIT_OK
 
 
@@ -1148,7 +1148,7 @@ def cmd_report_filename(args: dict[str, str]) -> int:
         if not sources_dir.is_dir():
             print(f"report_helpers: sources dir not found: {sources_dir}", file=sys.stderr)
             return EXIT_FAIL
-        print(json.dumps(check_citations(text, sources_dir), indent=2, ensure_ascii=False))
+        print(json.dumps(check_citations(text, sources_dir), ensure_ascii=False))
     return EXIT_OK
 
 
@@ -1179,7 +1179,7 @@ def cmd_evidence_weight(args: dict[str, str]) -> int:
             f"run debrief on the missing sessions",
             file=sys.stderr,
         )
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    print(json.dumps(result, ensure_ascii=False))
     return EXIT_OK
 
 
@@ -1193,7 +1193,7 @@ def cmd_word_count_sections(args: dict[str, str]) -> int:
     except OSError as exc:
         print(f"report_helpers: cannot read draft: {exc}", file=sys.stderr)
         return EXIT_FAIL
-    print(json.dumps(word_count_sections(text), indent=2, ensure_ascii=False))
+    print(json.dumps(word_count_sections(text), ensure_ascii=False))
     return EXIT_OK
 
 
@@ -1215,7 +1215,7 @@ def cmd_check_citations(args: dict[str, str]) -> int:
     if not sources_dir.is_dir():
         print(f"report_helpers: sources dir not found: {sources_dir}", file=sys.stderr)
         return EXIT_FAIL
-    print(json.dumps(check_citations(text, sources_dir), indent=2, ensure_ascii=False))
+    print(json.dumps(check_citations(text, sources_dir), ensure_ascii=False))
     return EXIT_OK
 
 
@@ -1228,7 +1228,7 @@ def cmd_codebook_codes(args: dict[str, str]) -> int:
     if not codes_file.is_file():
         print(f"report_helpers: codes file not found: {codes_file}", file=sys.stderr)
         return EXIT_FAIL
-    print(json.dumps(codebook_codes(codes_file), indent=2, ensure_ascii=False))
+    print(json.dumps(codebook_codes(codes_file), ensure_ascii=False))
     return EXIT_OK
 
 
@@ -1249,7 +1249,7 @@ def cmd_classify_themes(args: dict[str, str]) -> int:
             return EXIT_FAIL
     rows = classify_themes(codes_file, themes_file)
     if args.get("--json"):
-        print(json.dumps(rows, indent=2, ensure_ascii=False))
+        print(json.dumps(rows, ensure_ascii=False))
     else:
         print(format_bias_check(rows))
     return EXIT_OK
@@ -1280,7 +1280,7 @@ def cmd_cross_study(args: dict[str, str]) -> int:
                 prior_texts.append(path.read_text(encoding="utf-8"))
             except OSError:
                 continue
-    print(json.dumps(cross_study(current_text, prior_texts), indent=2, ensure_ascii=False))
+    print(json.dumps(cross_study(current_text, prior_texts), ensure_ascii=False))
     return EXIT_OK
 
 
@@ -1345,7 +1345,7 @@ def cmd_arr_parse(args: dict[str, str]) -> int:
     except OSError as exc:
         print(f"report_helpers: cannot read reply: {exc}", file=sys.stderr)
         return EXIT_FAIL
-    print(json.dumps(parse_arr_reply(text), indent=2, ensure_ascii=False))
+    print(json.dumps(parse_arr_reply(text), ensure_ascii=False))
     return EXIT_OK
 
 

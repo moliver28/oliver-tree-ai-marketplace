@@ -446,7 +446,7 @@ def cmd_pick_transcript(args: dict[str, str]) -> int:
     if not candidates:
         print("debrief_helpers: no candidates given", file=sys.stderr)
         return EXIT_FAIL
-    print(json.dumps(pick_transcript(candidates), indent=2, ensure_ascii=False))
+    print(json.dumps(pick_transcript(candidates), ensure_ascii=False))
     return EXIT_OK
 
 
@@ -755,7 +755,7 @@ def cmd_upload_plan(args: dict[str, str]) -> int:
     if not overview.is_file():
         print(f"debrief_helpers: {overview} does not exist", file=sys.stderr)
         return EXIT_FAIL
-    print(json.dumps(upload_plan(workspace, args.get("--slug") or ""), indent=2, ensure_ascii=False))
+    print(json.dumps(upload_plan(workspace, args.get("--slug") or ""), ensure_ascii=False))
     return EXIT_OK
 
 

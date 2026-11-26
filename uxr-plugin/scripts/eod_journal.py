@@ -156,7 +156,7 @@ def main(argv: list[str] | None = None) -> int:
         return {part.strip() for part in value.split(",") if part.strip()}
 
     if sub == "filter":
-        print(json.dumps(filter_rows(_read_rows(state, days, _value_of(args, "--ticket"))), indent=2))
+        print(json.dumps(filter_rows(_read_rows(state, days, _value_of(args, "--ticket")))))
         return 0
     if sub == "check":
         print(check_draft(Path(_value_of(args, "--file")).expanduser().read_text(encoding="utf-8"),
