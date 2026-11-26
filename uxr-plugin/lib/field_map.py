@@ -484,7 +484,7 @@ def _cli_resolve(rest: list[str]) -> int:
     except ConfigError as exc:
         print(f"config error: {exc}", file=sys.stderr)
         return 2
-    print(json.dumps(payload, indent=2, ensure_ascii=False))
+    print(json.dumps(payload, ensure_ascii=False))
     return 0
 
 

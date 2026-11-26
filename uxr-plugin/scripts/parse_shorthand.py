@@ -44,7 +44,7 @@ if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
 from lib import spec_blocks  # noqa: E402
-from lib.util import force_utf8_stdio as _force_utf8_stdio  # noqa: E402  (shared plumbing)
+from lib import cli as _cli  # noqa: E402  (shared plumbing)
 
 OPERATORS = ("+=", "~=", "-=")
 
@@ -91,18 +91,7 @@ MCP_SURFACE = {
 
 
 def main(argv: list[str] | None = None) -> int:
-    _force_utf8_stdio()
-    args = list(sys.argv[1:] if argv is None else argv)
-    if args and args[0] == "--print-mcp-surface":
-        print(json.dumps(MCP_SURFACE))
-        return 0
-    if args and args[0] in ("-h", "--help"):
-        print(__doc__.strip())
-        return 0
-    code, stdout, stderr = run(sys.stdin.read())
-    sys.stdout.write(stdout)
-    sys.stderr.write(stderr)
-    return code
+    return _cli.run_stdin(argv, doc=__doc__, mcp_surface=MCP_SURFACE, run=run)
 
 
 # ---------------------------------------------------------------------------

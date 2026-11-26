@@ -79,10 +79,9 @@ def append_line(journal: Path | None, line: dict) -> bool:
     if journal is None or not isinstance(line, dict) or not line:
         return False
     try:
-        hooks_dir = PLUGIN_ROOT / "hooks"
-        if str(hooks_dir) not in sys.path:
-            sys.path.insert(0, str(hooks_dir))
-        from provenance import file_lock  # noqa: E402  (hooks/ sibling, lazy like eod_journal)
+        if str(PLUGIN_ROOT) not in sys.path:
+            sys.path.insert(0, str(PLUGIN_ROOT))
+        from lib.util import file_lock  # noqa: E402  (moved from hooks/provenance)
     except Exception:
         return False
     try:

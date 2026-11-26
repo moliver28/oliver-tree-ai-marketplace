@@ -60,14 +60,14 @@ def _selftest() -> int:
 
         # 3. Consent off: nothing recorded.
         check("consent off records nothing",
-              handle_event({"hook_event_name": "UserPromptExpansion",
+              handle_event({"hook_event_name": "UserPromptSubmit",
                             "prompt": "/uxr-eod", "session_id": "s1"},
                            config=disabled, state_dir=state, environ={}, home=HOME) == ""
               and not rows())
 
         # 4. command_invoked from a slash-command expansion.
-        check("slash-command expansion records command_invoked",
-              handle_event({"hook_event_name": "UserPromptExpansion",
+        check("a slash-command prompt records command_invoked",
+              handle_event({"hook_event_name": "UserPromptSubmit",
                             "expansion_type": "slash_command",
                             "prompt": "/uxr-plugin:uxr-eod", "session_id": "s1"},
                            config=enabled, state_dir=state, environ={}, home=HOME) == ""
@@ -79,7 +79,7 @@ def _selftest() -> int:
               and all(row.get("session_id") == analytics_common.pseudonymous_id(salt, "s1")
                       for row in rows()))
         check("a plain prompt expansion records nothing",
-              handle_event({"hook_event_name": "UserPromptExpansion",
+              handle_event({"hook_event_name": "UserPromptSubmit",
                             "prompt": "what is on my plate", "session_id": "s1"},
                            config=enabled, state_dir=state, environ={}, home=HOME) == ""
               and len(rows()) == 1)
@@ -138,9 +138,9 @@ def _selftest() -> int:
               and handle_event({}, config=enabled, state_dir=state, environ={}, home=HOME) == ""
               and len(rows()) == 5)
 
-        # 8. UserPromptSubmit counts like UserPromptExpansion, and the
-        # Claude Code double fire (Submit before the expansion, Expansion
-        # at it) stays one command_invoked inside the dedup window.
+        # 8. UserPromptSubmit records each invocation once:
+        # a re-invocation counts again: there is no dedup window, no
+        # expansion-side event, so a command cannot double-fire.
         base = "2026-11-09T10:30:00-05:00"
         submit = {"hook_event_name": "UserPromptSubmit",
                   "prompt": "/uxr-trace", "session_id": "s9"}
@@ -150,27 +150,19 @@ def _selftest() -> int:
               and any(row.get("event") == "command_invoked"
                       and row.get("command") == "/uxr-trace" for row in rows())
               and len(rows()) == 6, repr(rows()))
-        check("the Submit then Expansion double fire counts once",
-              handle_event(dict(submit, hook_event_name="UserPromptExpansion",
-                                expansion_type="slash_command"),
-                           config=enabled, state_dir=state,
-                           environ={}, home=HOME, now=base) == ""
-              and len([row for row in rows()
-                       if row.get("command") == "/uxr-trace"]) == 1,
-              repr(rows()))
-        check("the same command counts again outside the window",
+        check("a re-invocation inside 60 s counts again",
               handle_event(dict(submit, prompt="/uxr-trace --json"),
                            config=enabled, state_dir=state,
                            environ={}, home=HOME,
-                           now="2026-11-09T10:32:00-05:00") == ""
+                           now="2026-11-09T10:30:30-05:00") == ""
               and len([row for row in rows()
                        if row.get("command") == "/uxr-trace"]) == 2,
               repr(rows()))
-        check("a different session is not deduped away",
+        check("a different session counts the same way",
               handle_event(dict(submit, session_id="s10"),
                            config=enabled, state_dir=state,
                            environ={}, home=HOME,
-                           now="2026-11-09T10:32:30-05:00") == ""
+                           now="2026-11-09T10:31:00-05:00") == ""
               and len([row for row in rows()
                        if row.get("command") == "/uxr-trace"]) == 3,
               repr(rows()))

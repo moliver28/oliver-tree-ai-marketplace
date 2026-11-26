@@ -5,8 +5,7 @@ argument-hint: "[<KEY> | --file=<path> | --source=<type> | --project | --timelin
 
 Trace what a research session actually read and wrote, from the
 provenance the SessionEnd hook records in each workspace's `.sessions/`
-folder. Read-only: it never calls a tracker operation that writes, never
-edits a file, and never invents a trace.
+folder.
 
 ## Inputs
 
@@ -21,8 +20,7 @@ Grounding: no registered sources serve this command (record-keeping; search is a
 3. `--source=<type>`: every session that read a source of that type
    (`drive`, `tracker`, `wiki`, `chat`, `feedback`, `notebook`, `mail`,
    `calendar`, `web`, `local_file`).
-4. `--project`: the workspace overview (the default when no argument is
-   given and the cwd is inside a workspace).
+4. `--project`: the workspace overview.
 5. `--timeline`: sessions in chronological order.
 6. `--links`: every source and output URL.
 7. `--prompts`: the user prompts behind the key

@@ -8,6 +8,7 @@ bind("lib.adapter_jira", globals())
 import lib.adapter_github as github  # bound under its name: bare names stay jira's
 import lib.adapter_gitlab as gitlab  # bound under its name: bare names stay jira's
 import lib.adapter_notion as notion_adapter  # bound under its name: bare names stay jira's
+import lib.spec_blocks as _spec_blocks  # explicit: the thin jira module no longer leaks it
 #: fixtures live at repo level in a checkout; absent in an installed plugin
 FIXTURES_DIR = (PLUGIN_ROOT if (PLUGIN_ROOT / "tests").is_dir() else PLUGIN_ROOT.parent) / "tests" / "fixtures"
 #: the shipped example contract only; a configured config/org.yaml cannot reach this module

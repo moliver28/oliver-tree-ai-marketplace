@@ -11,9 +11,11 @@ strings are unchanged. stdlib only; paths via ``Path`` methods.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -178,3 +180,45 @@ def read_json_arg(
         return json.loads(text)
     except ValueError as exc:
         raise JsonReadError("invalid", path, exc) from exc
+
+
+@contextlib.contextmanager
+def file_lock(path, timeout: float = 5.0, stale_after: float = 10.0):
+    """Best-effort exclusive lock file; yields ``True`` when acquired.
+
+    A lock older than ``stale_after`` seconds is treated as crashed and
+    removed. On timeout the caller proceeds unlocked (hooks fail open);
+    writes stay atomic through temporary-file replacement either way.
+    """
+    lock_path = Path(path)
+    with contextlib.suppress(OSError):
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + timeout
+    fd: int | None = None
+    while True:
+        try:
+            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        except FileExistsError:
+            try:
+                if time.time() - lock_path.stat().st_mtime > stale_after:
+                    lock_path.unlink(missing_ok=True)
+                    continue
+            except OSError:
+                pass
+            if time.monotonic() > deadline:
+                break
+            time.sleep(0.05)
+        except OSError:
+            break
+    try:
+        if fd is not None:
+            with contextlib.suppress(OSError):
+                os.write(fd, str(os.getpid()).encode())
+        yield fd is not None
+    finally:
+        if fd is not None:
+            with contextlib.suppress(OSError):
+                os.close(fd)
+            with contextlib.suppress(OSError):
+                lock_path.unlink(missing_ok=True)

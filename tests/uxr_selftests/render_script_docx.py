@@ -48,6 +48,7 @@ def _selftest() -> int:
     import subprocess
     import tempfile
 
+    _load_docx()
     if not HAVE_DOCX:
         with tempfile.TemporaryDirectory() as tmp:
             src = Path(tmp) / "script.md"

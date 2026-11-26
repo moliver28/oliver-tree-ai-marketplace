@@ -48,15 +48,32 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-try:
-    from docx import Document  # type: ignore[import-not-found]
-    from docx.shared import Pt, RGBColor  # type: ignore[import-not-found]
+HAVE_DOCX: bool | None = None
+DOCX_IMPORT_ERROR: Exception | None = None
+Document = Pt = RGBColor = None  # bound by _load_docx()
 
-    HAVE_DOCX = True
-    DOCX_IMPORT_ERROR: Exception | None = None
-except ImportError as exc:  # pragma: no cover - exercised on hosts without it
-    HAVE_DOCX = False
-    DOCX_IMPORT_ERROR = exc
+
+def _load_docx() -> None:
+    """Import python-docx on first use.
+
+    The old module-level import made every usage and parse-error path
+    pay the python-docx import debt even though those paths never
+    render. HAVE_DOCX stays None until the first _load_docx() call.
+    """
+    global HAVE_DOCX, DOCX_IMPORT_ERROR
+    if HAVE_DOCX is not None:
+        return
+    try:
+        from docx import Document as _Document  # type: ignore[import-not-found]
+        from docx.shared import Pt as _Pt, RGBColor as _RGBColor  # type: ignore[import-not-found]
+
+        globals()["Document"] = _Document
+        globals()["Pt"] = _Pt
+        globals()["RGBColor"] = _RGBColor
+        HAVE_DOCX = True
+    except ImportError as exc:  # pragma: no cover - exercised on hosts without it
+        HAVE_DOCX = False
+        DOCX_IMPORT_ERROR = exc
 
 EXIT_OK = 0
 EXIT_MISMATCH = 1
@@ -361,6 +378,7 @@ def verify_document(doc) -> tuple[bool, list[str]]:
 
 
 def _require_docx() -> int:
+    _load_docx()
     if HAVE_DOCX:
         return EXIT_OK
     print(INSTALL_HINT, file=sys.stderr)

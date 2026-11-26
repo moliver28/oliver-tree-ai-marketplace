@@ -119,13 +119,12 @@ Alternatives rows: one bullet per core question, shaped
 
 ### 5. Question rules
 
-Apply the registry ids, not restatements: R-S1 (neutral wording, balanced
-scales), R-S2 (order), R-S3 (burden and alternatives), R-S4 (routing),
-R-S5 (join and segmentation), R-S6 (coverage); X-S1 (no double-barreled or
-double-negative items), X-S2 (bounded list lengths, bounded scales); R-H1
-(participant respect), R-H2 (method fit); R-A1 and R-A2 on any claim the
-instrument text makes (checklist items B3.1, and B3.5 to B3.7 for the
-response process, sensitive items, and satisficing guards).
+Apply the registry ids: R-S1 (neutral wording, balanced scales); X-S1
+(no double-barreled or double-negative items), X-S2 (bounded list
+lengths, bounded scales); R-H1 (participant respect), R-H2 (method fit);
+R-A1 and R-A2 on any claim the instrument text makes (checklist items
+B3.1, and B3.5 to B3.7 for the response process, sensitive items, and
+satisficing guards).
 
 Coverage law: every research question is covered by at least one survey
 question; the map records it (rule R-S6; checklist item B3.12).
@@ -161,8 +160,7 @@ question coverage count. Do not paste the instrument into chat.
 Ticket status (only after the loop succeeded) follows the interview
 script's law: move the ticket to the first match in
 `workflow.script_status_candidates`; with no match, or on any tracker
-error, skip the move and say so in one line. Never move before the loop
-succeeded.
+error, skip the move and say so in one line.
 
 Optional publish follows the interview script's law: build the
 team-format buffer, run
@@ -170,11 +168,3 @@ team-format buffer, run
 upload the `.docx` into the matching study folder in Drive, and print the
 doc URL. Never share the doc and never change its permissions. Published
 docs contain no Quality Check text.
-
-## Hard rules recap
-
-- No tracker write until the checker passes.
-- The burden budget line and the section counts never disagree.
-- Every skip path has a routing row; every routing row lands on a real
-  question.
-- Every research question keeps at least one survey question.

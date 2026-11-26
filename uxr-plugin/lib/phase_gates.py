@@ -557,7 +557,6 @@ def _cli_check(rest: list[str]) -> int:
                 ],
             },
             ensure_ascii=False,
-            indent=2,
         )
     )
     return 0 if ok else 1

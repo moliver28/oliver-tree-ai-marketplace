@@ -446,7 +446,7 @@ def cmd_pick_transcript(args: dict[str, str]) -> int:
     if not candidates:
         print("debrief_helpers: no candidates given", file=sys.stderr)
         return EXIT_FAIL
-    print(json.dumps(pick_transcript(candidates), indent=2, ensure_ascii=False))
+    print(json.dumps(pick_transcript(candidates), ensure_ascii=False))
     return EXIT_OK
 
 
@@ -486,18 +486,13 @@ def check_recap(text: str, expected_date: str = "", footer: str = "") -> list[st
     return failures
 
 
-def cmd_check_recap(args: dict[str, str]) -> int:
-    file_value = args.get("--file") or ""
-    if not file_value:
-        print("debrief_helpers: check-recap needs --file <draft.md>", file=sys.stderr)
-        return EXIT_USAGE
-    draft_path = Path(file_value).expanduser()
+def _check_recap_path(draft_path: Path, expected_date: str, footer: str) -> int:
     try:
         text = draft_path.read_text(encoding="utf-8")
     except OSError as exc:
         print(f"debrief_helpers: cannot read draft: {exc}", file=sys.stderr)
         return EXIT_FAIL
-    failures = check_recap(text, args.get("--date") or "", args.get("--footer") or "")
+    failures = check_recap(text, expected_date, footer)
     if failures:
         for line in failures:
             print(line)
@@ -506,6 +501,15 @@ def cmd_check_recap(args: dict[str, str]) -> int:
     words = len(text.strip().split())
     print(f"recap ok: {words} words, heading and sections present, no bare codes")
     return EXIT_OK
+
+
+def cmd_check_recap(args: dict[str, str]) -> int:
+    file_value = args.get("--file") or ""
+    if not file_value:
+        print("debrief_helpers: check-recap needs --file <draft.md>", file=sys.stderr)
+        return EXIT_USAGE
+    return _check_recap_path(Path(file_value).expanduser(),
+                             args.get("--date") or "", args.get("--footer") or "")
 
 
 # ---------------------------------------------------------------------------
@@ -554,12 +558,7 @@ def check_summary_stances(text: str) -> list[str]:
     return warnings
 
 
-def cmd_check_summary(args: dict[str, str]) -> int:
-    file_value = args.get("--file") or ""
-    if not file_value:
-        print("debrief_helpers: check-summary needs --file <summary.md>", file=sys.stderr)
-        return EXIT_USAGE
-    summary_path = Path(file_value).expanduser()
+def _check_summary_path(summary_path: Path) -> int:
     try:
         text = summary_path.read_text(encoding="utf-8")
     except OSError as exc:
@@ -576,6 +575,14 @@ def cmd_check_summary(args: dict[str, str]) -> int:
         return EXIT_FAIL
     print("summary ok: alignment block stances within the contract")
     return EXIT_OK
+
+
+def cmd_check_summary(args: dict[str, str]) -> int:
+    file_value = args.get("--file") or ""
+    if not file_value:
+        print("debrief_helpers: check-summary needs --file <summary.md>", file=sys.stderr)
+        return EXIT_USAGE
+    return _check_summary_path(Path(file_value).expanduser())
 
 
 # ---------------------------------------------------------------------------
@@ -634,10 +641,13 @@ def _write_payload_doc(args: dict[str, str], required: tuple[str, ...], usage: s
 
 
 def cmd_assemble_summary(args: dict[str, str]) -> int:
-    return _write_payload_doc(
+    code = _write_payload_doc(
         args, ("--file", "--payload"),
         "assemble-summary needs --file <summary.md> --payload <json>",
         lambda payload, _args: assemble_summary_text(payload))
+    if code == EXIT_OK and args.get("--gate"):
+        return _check_summary_path(Path(args.get("--file") or "").expanduser())
+    return code
 
 
 def _prose_clause(topics: list[str]) -> str:
@@ -675,10 +685,14 @@ def render_recap_text(payload: dict, expected_date: str, footer: str) -> str:
 
 
 def cmd_render_recap(args: dict[str, str]) -> int:
-    return _write_payload_doc(
+    code = _write_payload_doc(
         args, ("--file", "--payload", "--date"),
         "render-recap needs --file <draft.md> --payload <json> --date <YYYY-MM-DD> [--footer <md>]",
         lambda payload, a: render_recap_text(payload, a.get("--date") or "", a.get("--footer") or ""))
+    if code == EXIT_OK and args.get("--gate"):
+        return _check_recap_path(Path(args.get("--file") or "").expanduser(),
+                                 args.get("--date") or "", args.get("--footer") or "")
+    return code
 
 
 # ---------------------------------------------------------------------------
@@ -741,7 +755,7 @@ def cmd_upload_plan(args: dict[str, str]) -> int:
     if not overview.is_file():
         print(f"debrief_helpers: {overview} does not exist", file=sys.stderr)
         return EXIT_FAIL
-    print(json.dumps(upload_plan(workspace, args.get("--slug") or ""), indent=2, ensure_ascii=False))
+    print(json.dumps(upload_plan(workspace, args.get("--slug") or ""), ensure_ascii=False))
     return EXIT_OK
 
 
@@ -773,6 +787,8 @@ def main(argv: list[str] | None = None) -> int:
         if token.startswith("--") and "=" in token:
             flag, value = token.split("=", 1)
             parsed[flag] = value
+        elif token == "--gate":
+            parsed[token] = "1"
         elif token.startswith("--"):
             if index + 1 >= len(args):
                 print(f"debrief_helpers: {token} needs a value", file=sys.stderr)

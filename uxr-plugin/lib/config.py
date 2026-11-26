@@ -45,8 +45,6 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 EXAMPLE_FILE = PLUGIN_ROOT / "config" / "org.example.yaml"
 USER_FILE = PLUGIN_ROOT / "config" / "org.yaml"
@@ -177,6 +175,7 @@ class ConfigError(Exception):
 
 def _read_mapping(path: Path, what: str) -> dict[str, Any]:
     """Load a YAML file and return it as a dict, with clear errors."""
+    import yaml  # lazy: the JSON snapshot path never pays this import
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except yaml.YAMLError as exc:
@@ -307,6 +306,53 @@ def init_ignore_set(config: Mapping[str, Any]) -> tuple[str, ...]:
     return tuple(str(entry) for entry in entries if str(entry).strip())
 
 
+def _snapshot_path(user_path: Path) -> Path:
+    """The JSON snapshot beside the user file: ``<stem>.snapshot.json``."""
+    return user_path.with_name(user_path.stem + ".snapshot.json")
+
+
+def _snapshot_key(example_bytes: bytes, user_bytes: bytes) -> str:
+    """sha256 over both source files' bytes; absence counts as empty."""
+    import hashlib  # lazy: keeps the module import yaml-free and lean
+    digest = hashlib.sha256()
+    digest.update(example_bytes)
+    digest.update(b"\x00")
+    digest.update(user_bytes)
+    return digest.hexdigest()
+
+
+def _read_snapshot(path: Path, key: str) -> dict | None:
+    """The snapshot config when it exists, parses, and matches ``key``."""
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(raw, dict) or raw.get("key") != key:
+        return None
+    config = raw.get("config")
+    return config if isinstance(config, dict) else None
+
+
+def _write_snapshot(path: Path, key: str, config: dict) -> None:
+    """Write the snapshot atomically; best effort, never fails the load.
+
+    Skips silently when the merged mapping is not JSON-roundtrip-identical
+    (YAML dates, sets, non-string keys), so the yaml path stays the source
+    of truth and the served dict never differs from a yaml-only load.
+    """
+    try:
+        data = json.loads(json.dumps(config, ensure_ascii=False))
+        if data != config:
+            return
+        tmp = path.with_name(path.stem + ".tmp")
+        tmp.write_text(json.dumps(
+            {"v": 1, "key": key, "config": data}, ensure_ascii=False),
+            encoding="utf-8")
+        tmp.replace(path)
+    except (OSError, TypeError, ValueError):
+        return
+
+
 def load_config(
     environ: Mapping[str, str] | None = None,
     example_file: str | os.PathLike[str] | None = None,
@@ -318,6 +364,12 @@ def load_config(
     wins). See the module docstring for the override syntax and expansion
     rules. Raises :class:`ConfigError` on a missing required key, invalid
     YAML, or an invalid enum value.
+
+    A JSON snapshot beside the user file serves repeat loads without the
+    yaml import and parse; its key hashes both source files, so any edit
+    regenerates it on the next load. Written only when a distinct user file
+    exists (the selftests pass the example as the user layer and stay on
+    the yaml path), and only when the mapping round-trips through JSON.
     """
     example_path = Path(example_file) if example_file else EXAMPLE_FILE
     user_path = Path(user_file) if user_file else USER_FILE
@@ -326,10 +378,21 @@ def load_config(
             f"config example file not found: {example_path} "
             "(the plugin ships config/org.example.yaml as the key contract)"
         )
-    config = _read_mapping(example_path, "config example file")
-    if user_path.is_file():
-        config = _deep_merge(config, _read_mapping(user_path, "config user file"))
-    config = _apply_env_overrides(config, os.environ if environ is None else environ)
+    example_bytes = example_path.read_bytes()
+    user_bytes = user_path.read_bytes() if user_path.is_file() else b""
+    use_snapshot = bool(user_bytes) and user_path != example_path
+    key = _snapshot_key(example_bytes, user_bytes)
+    snap_path = _snapshot_path(user_path)
+    config = _read_snapshot(snap_path, key) if use_snapshot else None
+    if config is None:
+        config = _read_mapping(example_path, "config example file")
+        if user_path.is_file():
+            config = _deep_merge(
+                config, _read_mapping(user_path, "config user file"))
+        if use_snapshot:
+            _write_snapshot(snap_path, key, config)
+    config = _apply_env_overrides(
+        config, os.environ if environ is None else environ)
     _validate(config)
     return _expand_paths(config)
 
@@ -341,6 +404,7 @@ def _print_config() -> int:
     except ConfigError as exc:
         print(f"config error: {exc}", file=sys.stderr)
         return 2
+    import yaml  # lazy: debug dump only
     yaml.safe_dump(config, sys.stdout, sort_keys=False, allow_unicode=True)
     return 0
 

@@ -69,7 +69,7 @@ if str(PLUGIN_ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT / "scripts"))
 
 from scripts import source_contacts as _source  # noqa: E402
-from lib.util import force_utf8_stdio as _force_utf8_stdio  # noqa: E402  (shared plumbing)
+from lib import cli as _cli  # noqa: E402  (shared plumbing)
 from lib import util as _util  # noqa: E402
 
 EXIT_OK = 0
@@ -274,7 +274,7 @@ def _load_json(path_value: str, what: str) -> object:
         raise _Usage(f"{what} cannot be read ({exc.path}): {exc.exc}") from exc.exc
 
 
-class _Usage(Exception):
+class _Usage(_cli.UsageError):
     pass
 
 
@@ -1122,46 +1122,30 @@ MCP_SURFACE = {
 
 
 def main(argv: list[str] | None = None) -> int:
-    _force_utf8_stdio()
-    args = list(sys.argv[1:] if argv is None else argv)
-    if args and args[0] == "--print-mcp-surface":
-        print(json.dumps(MCP_SURFACE))
-        return EXIT_OK
-    if args and args[0] in ("-h", "--help"):
-        print(__doc__.strip())
-        return EXIT_OK
+    return _cli.run_main(
+        argv,
+        prog="recruit_funnel",
+        doc=__doc__,
+        mcp_surface=MCP_SURFACE,
+        run=_run_cli,
+        flag_names={
+            "--spec": "spec",
+            "--wave": "wave",
+            "--funnel-data": "funnel_data",
+            "--check-draft": "check_draft",
+            "--today": "today",
+        },
+        switches={
+            "--preflight": "preflight",
+            "--status": "status",
+            "--reminder": "reminder",
+            "--pipeline-check": "pipeline_check",
+        },
+    )
 
-    flags: dict[str, str] = {}
-    index = 0
-    flag_names = {
-        "--spec": "spec",
-        "--wave": "wave",
-        "--funnel-data": "funnel_data",
-        "--check-draft": "check_draft",
-        "--today": "today",
-    }
-    switches = {
-        "--preflight": "preflight",
-        "--status": "status",
-        "--reminder": "reminder",
-        "--pipeline-check": "pipeline_check",
-    }
-    while index < len(args):
-        token = args[index]
-        if token in flag_names:
-            if index + 1 >= len(args):
-                print(f"recruit_funnel: {token} needs a value", file=sys.stderr)
-                return EXIT_USAGE
-            flags[flag_names[token]] = args[index + 1]
-            index += 2
-            continue
-        if token in switches:
-            flags[switches[token]] = "1"
-            index += 1
-            continue
-        print(f"recruit_funnel: unknown argument {token!r}", file=sys.stderr)
-        return EXIT_USAGE
 
+def _run_cli(flags: dict[str, str]) -> tuple[int, str]:
+    """The ``main`` tail: the ``--pipeline-check`` config load, then run()."""
     config = None
     if flags.get("pipeline_check"):
         # The one CLI path that reads the org config (issue 50): the
@@ -1171,19 +1155,10 @@ def main(argv: list[str] | None = None) -> int:
 
             config = load_config()
         except Exception as exc:
-            print(
-                f"recruit_funnel: the org config cannot load for --pipeline-check: {exc}",
-                file=sys.stderr,
-            )
-            return EXIT_USAGE
-
-    try:
-        code, output = run(flags, config=config)
-    except _Usage as exc:
-        print(f"recruit_funnel: {exc}", file=sys.stderr)
-        return EXIT_USAGE
-    sys.stdout.write(output)
-    return code
+            raise _Usage(
+                f"the org config cannot load for --pipeline-check: {exc}"
+            ) from exc
+    return run(flags, config=config)
 
 
 # ---------------------------------------------------------------------------

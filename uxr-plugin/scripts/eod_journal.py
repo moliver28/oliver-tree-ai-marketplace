@@ -6,7 +6,7 @@ tracker calls and gates. ``filter`` prints the group JSON; ``check``
 prints ``<words> <True|False>``; ``draft-auto`` prints the draft;
 ``rewrite`` is silent. Subcommands: ``filter --state <dir> --days
 <D1,D2|A..B> [--ticket <KEY>]`` / ``check --file <draft> --footer <text>``
-/ ``draft-auto --state ... --ticket <KEY> --date <D> [--footer]`` /
+/ ``draft-auto --state ... --ticket <KEY> --date <D> [--footer] [--out <file>]`` /
 ``rewrite --state ... --posted <K1,K2> --readonly <sid,sid>``. Exit: 0 ok, 2 usage.
 """
 
@@ -107,8 +107,9 @@ def draft_auto(rows: list[dict], ticket: str, day: str, footer: str = "") -> str
 def rewrite_journal(state: Path, days: list[str], posted: set[str], readonly: set[str]) -> int:
     """Flip ``processed`` for every posted ticket's rows and every skipped
     read-only session, atomically, under the provenance file lock."""
-    sys.path.insert(0, str(PLUGIN_ROOT / "hooks"))
-    from provenance import file_lock  # noqa: E402
+    if str(PLUGIN_ROOT) not in sys.path:
+        sys.path.insert(0, str(PLUGIN_ROOT))
+    from lib.util import file_lock  # noqa: E402  (moved from hooks/provenance)
     changed = 0
     for day in days:
         path = state / ("work-log-%s.jsonl" % day)
@@ -155,7 +156,7 @@ def main(argv: list[str] | None = None) -> int:
         return {part.strip() for part in value.split(",") if part.strip()}
 
     if sub == "filter":
-        print(json.dumps(filter_rows(_read_rows(state, days, _value_of(args, "--ticket"))), indent=2))
+        print(json.dumps(filter_rows(_read_rows(state, days, _value_of(args, "--ticket")))))
         return 0
     if sub == "check":
         print(check_draft(Path(_value_of(args, "--file")).expanduser().read_text(encoding="utf-8"),
@@ -167,8 +168,17 @@ def main(argv: list[str] | None = None) -> int:
         if not rows:
             print(f"No unposted UX research work for {days[-1] if days else ''}.")
             return 0
-        print(draft_auto(rows, ticket, _value_of(args, "--date") or (days[-1] if days else ""),
-                         _value_of(args, "--footer")))
+        draft = draft_auto(rows, ticket, _value_of(args, "--date") or (days[-1] if days else ""),
+                         _value_of(args, "--footer"))
+        out = _value_of(args, "--out")
+        if out:
+            path = Path(out).expanduser()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(draft + "\n", encoding="utf-8", newline="")
+            print(draft)
+            print(check_draft(path.read_text(encoding="utf-8"), _value_of(args, "--footer")))
+            return 0
+        print(draft)
         return 0
     if sub == "rewrite":
         rewrite_journal(state, days, csv_set(_value_of(args, "--posted")),

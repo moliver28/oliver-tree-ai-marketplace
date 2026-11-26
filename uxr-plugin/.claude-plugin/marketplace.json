@@ -4,9 +4,9 @@
     {
       "name": "uxr-plugin",
       "source": "./",
-      "version": "0.6.0",
-      "description": "UX research operations assistant: tickets, specs, recruitment, interview scripts, reports, decks",
-      "category": "productivity"
+      "version": "0.8.1",
+      "description": "UX research operations for Claude Code: study tickets, specs, recruitment, interview scripts, reports, and decks. Use when the user says: 'recruit participants for my study', 'draft the interview script', 'write the research report'.",
+      "category": "research"
     }
   ]
 }

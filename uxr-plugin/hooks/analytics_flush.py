@@ -25,15 +25,9 @@ Usage::
 from __future__ import annotations
 
 import contextlib
-import http.client
-import ipaddress
 import json
-import socket
-import ssl
 import sys
 import time
-import urllib.parse
-import urllib.request
 from pathlib import Path
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
@@ -57,6 +51,9 @@ class _Rejected(Exception):
 def _endpoint_allowed(url: str) -> bool:
     """Syntax + IP-literal boundary check, no DNS (resolution happens once,
     in ``_open``, at connection time)."""
+    import ipaddress
+    import urllib.parse
+
     parts = urllib.parse.urlsplit(url)
     if parts.scheme != "https" or parts.username or parts.password or not parts.hostname:
         return False
@@ -75,6 +72,10 @@ def _validated_target(url: str):
     """``(host, ip, port, path)`` for an https endpoint that is not a
     loopback/link-local/private/metadata host, resolved once at validation
     time. Raises _Rejected otherwise."""
+    import ipaddress
+    import socket
+    import urllib.parse
+
     parts = urllib.parse.urlsplit(url)
     if parts.scheme != "https" or parts.username or parts.password or not parts.hostname:
         raise _Rejected("endpoint must be https with a plain hostname")
@@ -94,20 +95,28 @@ def _validated_target(url: str):
     return host, str(ip), port, path
 
 
-class _BoundHTTPSConnection(http.client.HTTPSConnection):
-    """Connects to the validated address, speaks TLS for the hostname
-    (SNI + certificate check intact), so a later DNS answer cannot redirect
-    the request (rebinding-safe). ``http.client`` performs no redirects."""
+def _bound_https_connection_class():
+    """Build the hardened connection class on first use (lazy network imports)."""
+    import http.client
+    import socket
+    import ssl
 
-    def __init__(self, host: str, ip: str, port: int, timeout: float):
-        super().__init__(host, port, timeout=timeout)
-        self._validated_ip = ip
+    class _BoundHTTPSConnection(http.client.HTTPSConnection):
+        """Connects to the validated address, speaks TLS for the hostname
+        (SNI + certificate check intact), so a later DNS answer cannot redirect
+        the request (rebinding-safe). ``http.client`` performs no redirects."""
 
-    def connect(self):
-        self.sock = socket.create_connection((self._validated_ip, self.port),
-                                             timeout=self.timeout)
-        self.sock = ssl.create_default_context().wrap_socket(
-            self.sock, server_hostname=self.host)
+        def __init__(self, host: str, ip: str, port: int, timeout: float):
+            super().__init__(host, port, timeout=timeout)
+            self._validated_ip = ip
+
+        def connect(self):
+            self.sock = socket.create_connection((self._validated_ip, self.port),
+                                                 timeout=self.timeout)
+            self.sock = ssl.create_default_context().wrap_socket(
+                self.sock, server_hostname=self.host)
+
+    return _BoundHTTPSConnection
 
 
 def _open(request, timeout):
@@ -115,7 +124,7 @@ def _open(request, timeout):
     tests can mock it."""
     host, ip, port, path = _validated_target(request.full_url)
     headers = {k: v for k, v in request.header_items() if k.lower() != "host"}
-    conn = _BoundHTTPSConnection(host, ip, port, timeout)
+    conn = _bound_https_connection_class()(host, ip, port, timeout)
     conn.request(request.get_method(), path, body=request.data, headers=headers)
     return conn.getresponse()
 
@@ -162,6 +171,8 @@ def flush(state_dir, endpoint: str, api_key: str = "", offsets: dict | None = No
         offsets = load_offsets(state_dir)
     saved = dict(offsets)
     send = open_fn if open_fn is not None else _open
+    import urllib.request  # lazy: consent-on flush path only
+
     deadline = time.monotonic() + budget
     try:
         buffers = sorted(state_dir.glob("events-*.jsonl"))

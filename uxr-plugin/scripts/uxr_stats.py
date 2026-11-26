@@ -199,7 +199,7 @@ def run(state_dir: Path, days: int | None, as_json: bool,
         "days": days,
     }
     if as_json:
-        return 0, json.dumps(rollup, ensure_ascii=False, indent=2, sort_keys=True)
+        return 0, json.dumps(rollup, ensure_ascii=False, sort_keys=True)
     return 0, render(rollup, days)
 
 
