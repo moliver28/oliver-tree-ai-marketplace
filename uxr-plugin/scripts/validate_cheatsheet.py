@@ -659,7 +659,7 @@ def main(argv: list[str] | None = None) -> int:
         }
         if remediate_flag:
             payload["fixed"] = fixed
-        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        print(json.dumps(payload, ensure_ascii=False))
     else:
         _print_lines(drifts, fixed, verbose)
     return EXIT_DRIFT if drifts else EXIT_OK

@@ -3,6 +3,7 @@ from _harness import bind
 bind("lib.config", globals())
 
 import tempfile  # selftest-only import (moved from lib/config.py)
+import yaml  # selftest-only import (lib/config.py now imports yaml lazily)
 
 def load_example_config(
     environ: Mapping[str, str] | None = None,
@@ -146,6 +147,34 @@ def _selftest() -> int:
         f"example-only start_window_days={example_only['defaults']['start_window_days']!r}, "
         f"pure-example start_window_days={pure['defaults']['start_window_days']!r}",
     )
+
+    # 7. The JSON snapshot serves the same config as the yaml path and
+    # regenerates when the user file changes (efficiency row 14).
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        ex = tmp / "org.example.yaml"
+        ex.write_text(EXAMPLE_FILE.read_text(encoding="utf-8"), encoding="utf-8")
+        user = tmp / "org.yaml"
+        user.write_text("defaults:\n  start_window_days: 42\n", encoding="utf-8")
+        first = load_config(environ={}, example_file=ex, user_file=user)
+        snap = user.with_name("org.snapshot.json")
+        check("snapshot written beside the user file", snap.is_file())
+        second = load_config(environ={}, example_file=ex, user_file=user)
+        check("snapshot load equals the yaml load", first == second)
+        user.write_text("defaults:\n  start_window_days: 43\n", encoding="utf-8")
+        third = load_config(environ={}, example_file=ex, user_file=user)
+        check(
+            "snapshot key refreshes after a user-file edit",
+            third["defaults"]["start_window_days"] == 43,
+            repr(third["defaults"]["start_window_days"]),
+        )
+        user.write_text("defaults: [unclosed", encoding="utf-8")
+        raised = False
+        try:
+            load_config(environ={}, example_file=ex, user_file=user)
+        except ConfigError:
+            raised = True
+        check("invalid user yaml still raises ConfigError", raised)
 
     if failures:
         print(f"selftest FAILED ({len(failures)} check(s))")

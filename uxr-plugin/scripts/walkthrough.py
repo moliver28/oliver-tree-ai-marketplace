@@ -118,10 +118,9 @@ def _save(path: Path, record: dict) -> bool:
     (one trailing newline, LF).
     """
     try:
-        hooks_dir = PLUGIN_ROOT / "hooks"
-        if str(hooks_dir) not in sys.path:
-            sys.path.insert(0, str(hooks_dir))
-        from provenance import file_lock  # noqa: E402  (hooks/ sibling, lazy)
+        if str(PLUGIN_ROOT) not in sys.path:
+            sys.path.insert(0, str(PLUGIN_ROOT))
+        from lib.util import file_lock  # noqa: E402  (moved from hooks/provenance)
     except Exception:
         file_lock = None
     ordered = {"format": RECORD_FORMAT, "features": {}}

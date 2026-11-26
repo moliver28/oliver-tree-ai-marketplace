@@ -7,8 +7,7 @@ Move a study ticket through its phases: one tracker transition, gated on a
 readiness check per target phase; finish checks warn when a move to Done
 leaves gaps behind. Ops from `references/tracker.md`: `get_item`,
 `list_state_changes`, `set_state`, `item_url`, `find_user`; never
-`create_item`, `update_item`, `add_comment`, and never writes the spec
-file.
+`create_item`, `update_item`, `add_comment`.
 
 ## Inputs
 
@@ -17,10 +16,8 @@ Grounding: no registered sources serve this command (record-keeping; search is a
 `$ARGUMENTS` takes one of three shapes:
 
 1. `<KEY>`: list the available moves and ask.
-2. `<KEY> <status name>`: match a shown move by name, case-insensitive,
-   ignoring whitespace differences, as a substring in either direction
-   (`writing script /survey` matches `Writing Script / Survey`). Ask when
-   the name matches more than one move.
+2. `<KEY> <status name>`: a move name, matched per step 5
+   (`writing script /survey` matches `Writing Script / Survey`).
 3. `<KEY> <number>`: the 1-based index into the list this run showed.
 
 ## Steps

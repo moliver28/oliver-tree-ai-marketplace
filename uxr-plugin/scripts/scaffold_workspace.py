@@ -763,6 +763,12 @@ def cmd_lookup(args: dict[str, str]) -> int:
         print("WORKSPACE_NOT_FOUND", file=sys.stderr)
         return EXIT_WARN
     print(str(workspace))
+    if args.get("--then-render-overview"):
+        spec_value = args.get("--spec") or ""
+        if not spec_value:
+            print("scaffold_workspace: --then-render-overview needs --spec", file=sys.stderr)
+            return EXIT_USAGE
+        return _render_overview_found(workspace, spec_value)
     return EXIT_OK
 
 
@@ -799,21 +805,7 @@ def render_overview_text(overview: str, spec: dict, config: dict | None) -> tupl
     return "\n".join(lines) + "\n", rewritten
 
 
-def cmd_render_overview(args: dict[str, str]) -> int:
-    ticket = args.get("--ticket") or ""
-    readme_value = args.get("--readme") or ""
-    spec_value = args.get("--spec") or ""
-    if not ticket or not readme_value or not spec_value:
-        print(
-            "scaffold_workspace: render-overview needs --ticket, --readme, and --spec",
-            file=sys.stderr,
-        )
-        return EXIT_USAGE
-    readme = Path(readme_value).expanduser()
-    workspace = find_workspace(ticket, readme)
-    if workspace is None:
-        print("WORKSPACE_NOT_FOUND", file=sys.stderr)
-        return EXIT_WARN
+def _render_overview_found(workspace: Path, spec_value: str) -> int:
     overview = workspace / "00-overview.md"
     if not overview.is_file():
         print(f"scaffold_workspace: no 00-overview.md in {workspace}", file=sys.stderr)
@@ -837,6 +829,24 @@ def cmd_render_overview(args: dict[str, str]) -> int:
     overview.write_text(new_text, encoding="utf-8")
     print(f"rewrote {', '.join(rewritten)} in {overview}")
     return EXIT_OK
+
+
+def cmd_render_overview(args: dict[str, str]) -> int:
+    ticket = args.get("--ticket") or ""
+    readme_value = args.get("--readme") or ""
+    spec_value = args.get("--spec") or ""
+    if not ticket or not readme_value or not spec_value:
+        print(
+            "scaffold_workspace: render-overview needs --ticket, --readme, and --spec",
+            file=sys.stderr,
+        )
+        return EXIT_USAGE
+    readme = Path(readme_value).expanduser()
+    workspace = find_workspace(ticket, readme)
+    if workspace is None:
+        print("WORKSPACE_NOT_FOUND", file=sys.stderr)
+        return EXIT_WARN
+    return _render_overview_found(workspace, spec_value)
 
 
 # ---------------------------------------------------------------------------

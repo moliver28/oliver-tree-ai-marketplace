@@ -441,121 +441,121 @@
     "reason": "Mail-merge test wave fix: the example file's documentation defaults (smtp_port 587, use_tls true) reached the config layer through load_config's example+user merge and shadowed the UXR_RECRUIT_* env fallbacks, so an env-only account connected to the example port instead of the env port. load_send_settings now resets any config value that still equals the bare example file before the env fill, and the source line reports only layers that actually supplied a value. Regression pin added to the selftest. Payload delta measured 33 lines (script +20, selftest +13), all inside the two named files.",
     "date": "2026-11-23"
    },
-  {
-   "wave": "parity-P1",
-   "issue": 114,
-   "delta_lines": 287,
-   "files": [
-    "uxr-plugin/lib/adapter_github.py",
-    "uxr-plugin/references/tracker-github.md",
-    "uxr-plugin/CHANGELOG.md",
-    "uxr-plugin/references/tracker.md",
-    "uxr-plugin/references/trackers-other.md",
-    "uxr-plugin/lib/adapters.py",
-    "uxr-plugin/config/org.example.yaml",
-    "uxr-plugin/README.md"
-   ],
-   "reason": "Backend parity wave P1 (issue 114): the GitHub Issues adapter ships. Net-new 287 of 23,243 payload lines (1.2 percent), inside the 10 percent cap of about 2,324 lines: the adapter module at the exact Jira shape (208), its doc reference file holding the gh CLI parameters (75), the changelog entry (6), the tracker.md pointer split (+2), the trackers-other.md scope change (-4). The registry, config, and README flips are net zero. Commands, goldens, and all pin counts are unchanged; tests live outside the payload.",
-   "date": "2026-11-24"
-  },
-  {
-   "wave": "parity-P1-doc",
-   "issue": 114,
-   "delta_lines": 1,
-   "files": [
-    "uxr-plugin/commands/uxr-onboard.md"
-   ],
-   "reason": "Backend parity wave P1 follow-up (issue 114): the onboard command's connection-values pointer names references/tracker-github.md for github, which moved there from trackers-other.md in the P1 commit. Net-new 1 payload line; no behavior change.",
-   "date": "2026-11-24"
-  },
-  {
-   "wave": "parity-P1-display",
-   "issue": 52,
-   "delta_lines": 9,
-   "files": [
-    "uxr-plugin/references/tracker.md"
-   ],
-   "reason": "Issue 52 display law (parity waves fold): tracker.md gains the Ticket mentions section - one mention format (<key>: <short title>), the keyed <KEY>-<num> and #<num> forms, and the adapters-supply-what-they-have rule; the harness holds the law and the selftests assert the display data per adapter (selftests live outside the payload). Net-new 9 payload lines in tracker.md.",
-   "date": "2026-11-24"
-  },
-  {
-   "wave": "parity-P2",
-   "issue": 114,
-   "delta_lines": 310,
-   "files": [
-    "uxr-plugin/lib/adapter_gitlab.py",
-    "uxr-plugin/references/tracker-gitlab.md",
-    "uxr-plugin/CHANGELOG.md",
-    "uxr-plugin/references/tracker.md",
-    "uxr-plugin/references/trackers-other.md",
-    "uxr-plugin/lib/adapters.py",
-    "uxr-plugin/lib/config.py",
-    "uxr-plugin/config/org.example.yaml",
-    "uxr-plugin/commands/uxr-onboard.md",
-    "uxr-plugin/references/onboarding.md",
-    "uxr-plugin/README.md"
-   ],
-   "reason": "Backend parity wave P2 (issue 114): the GitLab Issues adapter ships and the gitlab kind joins the shipped kinds. Net-new 310 of 23,243 payload lines (1.3 percent), inside the 10 percent cap of about 2,324 lines: the adapter module at the exact Jira shape (207), its doc reference file holding the glab CLI parameters (81), the changelog entry (6), the tracker.md GitLab operations column and pointer (+2), the trackers-other.md mapping column and pointer (+2), the registry entry and TRACKER_KINDS (+6 net with the config entry at +5, the onboard and onboarding kind lists at +1 net). Commands, goldens, and all pin counts are unchanged; tests live outside the payload.",
-   "date": "2026-11-24"
-  },
-  {
-   "wave": "parity-P2-display",
-   "issue": 52,
-   "delta_lines": 9,
-   "files": [
-    "uxr-plugin/references/tracker.md"
-   ],
-   "reason": "Issue 52 display law (parity waves fold): tracker.md gains the Ticket mentions section - one mention format (<key>: <short title>), the keyed <KEY>-<num> and #<num> forms, and the adapters-supply-what-they-have rule; the harness holds the law and the selftests assert the display data per adapter (selftests live outside the payload). Net-new 9 payload lines in tracker.md.",
-   "date": "2026-11-24"
-  },
-  {
-   "wave": "parity-P3",
-   "issue": 114,
-   "delta_lines": 328,
-   "files": [
-    "uxr-plugin/lib/adapter_notion.py",
-    "uxr-plugin/references/tracker-notion.md",
-    "uxr-plugin/CHANGELOG.md",
-    "uxr-plugin/references/tracker.md",
-    "uxr-plugin/references/trackers-other.md",
-    "uxr-plugin/lib/adapters.py",
-    "uxr-plugin/config/org.example.yaml",
-    "uxr-plugin/commands/uxr-onboard.md",
-    "uxr-plugin/references/onboarding.md",
-    "uxr-plugin/README.md"
-   ],
-   "reason": "Backend parity wave P3 (issue 114): the Notion adapter ships as the fourth built backend and the notion-kb declared entry keeps the KB area. Net-new 328 of 23,243 payload lines (1.4 percent), inside the 10 percent cap of about 2,324 lines: the adapter module at the exact Jira shape (200), its doc reference file holding the Notion MCP/API parameters (92), the changelog entry (6), the tracker.md Notion column plus the issue-52 Ticket mentions law (+10 net), the config notion flip and notion-kb entry (+8 net), the registry entry and notion-kb mirror (+6 net), trackers-other pointer (+2 net), onboard and onboarding kind lists (+2 net each). Commands, goldens, and all pin counts are unchanged; tests live outside the payload.",
-   "date": "2026-11-24"
-  },
-    {
-     "wave": "P4",
-     "issue": 114,
-     "delta_lines": 615,
-     "files": [
-      "uxr-plugin/scripts/prioritize.py",
-      "uxr-plugin/config/org.example.yaml",
-      "uxr-plugin/lib/config.py",
-      "uxr-plugin/lib/adapters.py",
-      "uxr-plugin/references/onboarding.md",
-      "uxr-plugin/references/tracker.md",
-      "uxr-plugin/references/trackers-other.md"
-     ],
-     "reason": "Prioritization calculator (#114 section 2, wave P4): the deterministic scorer scripts/prioritize.py (input resolution in the documented order formula > weights > per-backend mapping > built-in default so zero-config installs score; the normalization law per rule kind onto 1 to 3; exit 0/2/3 contract; zero LLM on the calculation path), the prioritization.fields per-backend mapping key in the config contract with its commented shape and example, the declared-not-built gitlab registry entry (TRACKER_KINDS, ADAPTER_DEFAULTS, the shipped adapters section) so the four-backend parity law reaches GitLab before its adapter PR merges, and the mapping law plus per-backend conventions documented in onboarding.md, tracker.md, and trackers-other.md. Counted by the recorded convention: 615 net-new payload lines of the shipped tree (about 2.3 percent), inside the 10 percent cap. Commands untouched; the checker module (tests/uxr_selftests/prioritize.py) is repo-level, outside the payload, and joined the parity SELFTESTS.",
-     "date": "2026-11-24"
-    },
-    {
-     "wave": "P4",
-     "issue": 114,
-     "delta_lines": 325,
-     "files": [
-      "uxr-plugin/scripts/walkthrough.py",
-      "uxr-plugin/commands/uxr-onboard.md",
-      "uxr-plugin/references/onboarding.md",
-      "uxr-plugin/README.md"
-     ],
-     "reason": "Forced interactive walkthrough (#114 section 3, wave P4): the deterministic completion record scripts/walkthrough.py (one entry per used feature, check exits 0 only when all four of create/move/calculator/sync carry a record, provenance file lock, fail-closed on an unresolvable state dir or an unreadable record, clear for a fresh run), the walkthrough step in the onboard command extended in place (record command after each used feature, the script gate before the completion line, declined steps stay unrecorded and keep the gate open), the per-backend calculator-inputs ask in the interview (prioritization.fields saved exactly as the operator names them, one follow-up ask for a missing order tail, never invents a field), the completion-record law section in onboarding.md, and one additive /uxr-onboard row in the README command table. Counted by the recorded convention: 325 net-new payload lines (about 1.2 percent), inside the 10 percent cap. The walkthrough step existed as prose since W3; this commit makes its gate a script check instead of attestation. The checker module (tests/uxr_selftests/walkthrough.py) is repo-level, outside the payload, and joined the parity SELFTESTS.",
-     "date": "2026-11-24"
-    },
+   {
+    "wave": "parity-P1",
+    "issue": 114,
+    "delta_lines": 287,
+    "files": [
+     "uxr-plugin/lib/adapter_github.py",
+     "uxr-plugin/references/tracker-github.md",
+     "uxr-plugin/CHANGELOG.md",
+     "uxr-plugin/references/tracker.md",
+     "uxr-plugin/references/trackers-other.md",
+     "uxr-plugin/lib/adapters.py",
+     "uxr-plugin/config/org.example.yaml",
+     "uxr-plugin/README.md"
+    ],
+    "reason": "Backend parity wave P1 (issue 114): the GitHub Issues adapter ships. Net-new 287 of 23,243 payload lines (1.2 percent), inside the 10 percent cap of about 2,324 lines: the adapter module at the exact Jira shape (208), its doc reference file holding the gh CLI parameters (75), the changelog entry (6), the tracker.md pointer split (+2), the trackers-other.md scope change (-4). The registry, config, and README flips are net zero. Commands, goldens, and all pin counts are unchanged; tests live outside the payload.",
+    "date": "2026-11-24"
+   },
+   {
+    "wave": "parity-P1-doc",
+    "issue": 114,
+    "delta_lines": 1,
+    "files": [
+     "uxr-plugin/commands/uxr-onboard.md"
+    ],
+    "reason": "Backend parity wave P1 follow-up (issue 114): the onboard command's connection-values pointer names references/tracker-github.md for github, which moved there from trackers-other.md in the P1 commit. Net-new 1 payload line; no behavior change.",
+    "date": "2026-11-24"
+   },
+   {
+    "wave": "parity-P1-display",
+    "issue": 52,
+    "delta_lines": 9,
+    "files": [
+     "uxr-plugin/references/tracker.md"
+    ],
+    "reason": "Issue 52 display law (parity waves fold): tracker.md gains the Ticket mentions section - one mention format (<key>: <short title>), the keyed <KEY>-<num> and #<num> forms, and the adapters-supply-what-they-have rule; the harness holds the law and the selftests assert the display data per adapter (selftests live outside the payload). Net-new 9 payload lines in tracker.md.",
+    "date": "2026-11-24"
+   },
+   {
+    "wave": "parity-P2",
+    "issue": 114,
+    "delta_lines": 310,
+    "files": [
+     "uxr-plugin/lib/adapter_gitlab.py",
+     "uxr-plugin/references/tracker-gitlab.md",
+     "uxr-plugin/CHANGELOG.md",
+     "uxr-plugin/references/tracker.md",
+     "uxr-plugin/references/trackers-other.md",
+     "uxr-plugin/lib/adapters.py",
+     "uxr-plugin/lib/config.py",
+     "uxr-plugin/config/org.example.yaml",
+     "uxr-plugin/commands/uxr-onboard.md",
+     "uxr-plugin/references/onboarding.md",
+     "uxr-plugin/README.md"
+    ],
+    "reason": "Backend parity wave P2 (issue 114): the GitLab Issues adapter ships and the gitlab kind joins the shipped kinds. Net-new 310 of 23,243 payload lines (1.3 percent), inside the 10 percent cap of about 2,324 lines: the adapter module at the exact Jira shape (207), its doc reference file holding the glab CLI parameters (81), the changelog entry (6), the tracker.md GitLab operations column and pointer (+2), the trackers-other.md mapping column and pointer (+2), the registry entry and TRACKER_KINDS (+6 net with the config entry at +5, the onboard and onboarding kind lists at +1 net). Commands, goldens, and all pin counts are unchanged; tests live outside the payload.",
+    "date": "2026-11-24"
+   },
+   {
+    "wave": "parity-P2-display",
+    "issue": 52,
+    "delta_lines": 9,
+    "files": [
+     "uxr-plugin/references/tracker.md"
+    ],
+    "reason": "Issue 52 display law (parity waves fold): tracker.md gains the Ticket mentions section - one mention format (<key>: <short title>), the keyed <KEY>-<num> and #<num> forms, and the adapters-supply-what-they-have rule; the harness holds the law and the selftests assert the display data per adapter (selftests live outside the payload). Net-new 9 payload lines in tracker.md.",
+    "date": "2026-11-24"
+   },
+   {
+    "wave": "parity-P3",
+    "issue": 114,
+    "delta_lines": 328,
+    "files": [
+     "uxr-plugin/lib/adapter_notion.py",
+     "uxr-plugin/references/tracker-notion.md",
+     "uxr-plugin/CHANGELOG.md",
+     "uxr-plugin/references/tracker.md",
+     "uxr-plugin/references/trackers-other.md",
+     "uxr-plugin/lib/adapters.py",
+     "uxr-plugin/config/org.example.yaml",
+     "uxr-plugin/commands/uxr-onboard.md",
+     "uxr-plugin/references/onboarding.md",
+     "uxr-plugin/README.md"
+    ],
+    "reason": "Backend parity wave P3 (issue 114): the Notion adapter ships as the fourth built backend and the notion-kb declared entry keeps the KB area. Net-new 328 of 23,243 payload lines (1.4 percent), inside the 10 percent cap of about 2,324 lines: the adapter module at the exact Jira shape (200), its doc reference file holding the Notion MCP/API parameters (92), the changelog entry (6), the tracker.md Notion column plus the issue-52 Ticket mentions law (+10 net), the config notion flip and notion-kb entry (+8 net), the registry entry and notion-kb mirror (+6 net), trackers-other pointer (+2 net), onboard and onboarding kind lists (+2 net each). Commands, goldens, and all pin counts are unchanged; tests live outside the payload.",
+    "date": "2026-11-24"
+   },
+   {
+    "wave": "P4",
+    "issue": 114,
+    "delta_lines": 615,
+    "files": [
+     "uxr-plugin/scripts/prioritize.py",
+     "uxr-plugin/config/org.example.yaml",
+     "uxr-plugin/lib/config.py",
+     "uxr-plugin/lib/adapters.py",
+     "uxr-plugin/references/onboarding.md",
+     "uxr-plugin/references/tracker.md",
+     "uxr-plugin/references/trackers-other.md"
+    ],
+    "reason": "Prioritization calculator (#114 section 2, wave P4): the deterministic scorer scripts/prioritize.py (input resolution in the documented order formula > weights > per-backend mapping > built-in default so zero-config installs score; the normalization law per rule kind onto 1 to 3; exit 0/2/3 contract; zero LLM on the calculation path), the prioritization.fields per-backend mapping key in the config contract with its commented shape and example, the declared-not-built gitlab registry entry (TRACKER_KINDS, ADAPTER_DEFAULTS, the shipped adapters section) so the four-backend parity law reaches GitLab before its adapter PR merges, and the mapping law plus per-backend conventions documented in onboarding.md, tracker.md, and trackers-other.md. Counted by the recorded convention: 615 net-new payload lines of the shipped tree (about 2.3 percent), inside the 10 percent cap. Commands untouched; the checker module (tests/uxr_selftests/prioritize.py) is repo-level, outside the payload, and joined the parity SELFTESTS.",
+    "date": "2026-11-24"
+   },
+   {
+    "wave": "P4",
+    "issue": 114,
+    "delta_lines": 325,
+    "files": [
+     "uxr-plugin/scripts/walkthrough.py",
+     "uxr-plugin/commands/uxr-onboard.md",
+     "uxr-plugin/references/onboarding.md",
+     "uxr-plugin/README.md"
+    ],
+    "reason": "Forced interactive walkthrough (#114 section 3, wave P4): the deterministic completion record scripts/walkthrough.py (one entry per used feature, check exits 0 only when all four of create/move/calculator/sync carry a record, provenance file lock, fail-closed on an unresolvable state dir or an unreadable record, clear for a fresh run), the walkthrough step in the onboard command extended in place (record command after each used feature, the script gate before the completion line, declined steps stay unrecorded and keep the gate open), the per-backend calculator-inputs ask in the interview (prioritization.fields saved exactly as the operator names them, one follow-up ask for a missing order tail, never invents a field), the completion-record law section in onboarding.md, and one additive /uxr-onboard row in the README command table. Counted by the recorded convention: 325 net-new payload lines (about 1.2 percent), inside the 10 percent cap. The walkthrough step existed as prose since W3; this commit makes its gate a script check instead of attestation. The checker module (tests/uxr_selftests/walkthrough.py) is repo-level, outside the payload, and joined the parity SELFTESTS.",
+    "date": "2026-11-24"
+   },
    {
     "wave": "P4",
     "issue": 0,
@@ -603,7 +603,7 @@
      "uxr-plugin/CHANGELOG.md"
     ],
     "reason": "Divisor correction (orchestrator arithmetic-error fix, 2026-11-24, #114): the support mode divides by the total possible score 17 (the summed maxima 3+3+3+2+3+3) instead of the misruled 16, so the all-max judgment lands exactly 100 percent; the 16-vs-17 divergence disclosure is replaced by the correction note in the script docstring and constant comment, references/onboarding.md, and the 0.8.0 CHANGELOG bullet; the two earlier P4 reason lines that argued the 16 divisor are corrected here in place. MO labels and thresholds unchanged (>80 UXR to Lead / 51-80 UXR to Support / <=50 UXR to Review); the metal-name absence pin stays. Selftest support landings recomputed for /17 (82.35 Lead, 76.47/70.59/52.94 Support, 47.06 Review). Net +4 of the shipped payload.",
-   "date": "2026-11-24"
+    "date": "2026-11-24"
    },
    {
     "wave": "uxr-recruit-pipeline",
@@ -655,6 +655,165 @@
     ],
     "reason": "Release bookkeeping for the recruitment pipeline wave (#50, #51, #55; version bump 0.7.0 to 0.8.0): the CHANGELOG release section naming the pipeline and suppress stage, the finished funnel table, and the meeting-service law, plus the README currently-v line. The two JSON version surfaces (.claude-plugin/plugin.json and the marketplace entry) sit outside the counted suffixes; both also collapse the duplicate version key the 0.7.0 wave stacked (0.7.0 over 0.6.0), so the smoke version-triple check is green again. Net-new 14 payload lines, all in CHANGELOG.md (README is 1 in, 1 out); wave total after all four commits: 564 net-new payload lines, each carried by its own entry.",
     "date": "2026-11-24"
+   },
+   {
+    "wave": "uxr-install-doctor",
+    "issue": 0,
+    "delta_lines": 400,
+    "files": [
+     "uxr-plugin/scripts/plugin_doctor.py",
+     "uxr-plugin/commands/uxr-doctor.md",
+     "uxr-plugin/scripts/smoke_test.py",
+     "uxr-plugin/README.md",
+     "uxr-plugin/CHANGELOG.md"
+    ],
+    "reason": "Install + doctor program (MO directive 2026-11-25): plugin_doctor.py validates the harness, prunes optional modules (mcp, scripting) from an installed copy (reversable; repo tree never shrinks), and repairs a broken install from the marketplace source; commands/uxr-doctor.md is the user entry; smoke check 2 reconstructs pre-prune counts from .profile.json so pruned installs meet the floors a full install met. The growth buys a per-user cut: a core install ships ~2,100 fewer lines. Delta corrected 2026-11-25: the gate total moved 33,308 to 33,708 across this wave's two commits (the recorded 247 covered only the doctor commit's five payload files, not the net)."
+   },
+   {
+    "wave": "zero-loss-dedupe-w1",
+    "issue": 0,
+    "delta_lines": -41,
+    "files": [
+     "uxr-plugin/commands/uxr-recruit.md",
+     "uxr-plugin/commands/uxr-report.md",
+     "uxr-plugin/commands/uxr-edit.md",
+     "uxr-plugin/commands/uxr-move.md",
+     "uxr-plugin/commands/uxr-trace.md",
+     "uxr-plugin/skills/survey-script/SKILL.md",
+     "uxr-plugin/skills/interview-script/SKILL.md"
+    ],
+    "reason": "Zero-loss dedupe, wave 1 (MO efficiency program 2026-11-25): exact restatements removed from five command files and two skill files; every dropped law keeps a live carrier (carrier audit before each drop; recap/failure tables dropped only after sole-carrier laws moved into their sections). Front matter, safety sections, code fences, script invocation strings, config keys, and quoted gate words untouched. Each file graded by a mechanical containment checker before apply; payload 33,626 -> 33,585 lines (-41)."
+   },
+   {
+    "wave": "w3-rewrite-new-debrief",
+    "issue": 0,
+    "delta_lines": -76,
+    "files": [
+     "uxr-plugin/commands/uxr-new.md",
+     "uxr-plugin/commands/uxr-debrief.md"
+    ],
+    "reason": "Rephrase wave (MO efficiency program 2026-11-25): uxr-new 3004->2796 and uxr-debrief 2969->2803 body tokens (-376 cl100k body-only), zero law loss; all 24 invocation strings byte-identical modulo line-wrap, safety sections verbatim, one orchestrator-restored zero-writes parenthetical; payload 33585 -> 33509 lines (-76)."
+   },
+   {
+    "wave": "w2-dispatcher-slice-1",
+    "issue": 0,
+    "delta_lines": -16,
+    "files": [
+     "uxr-plugin/lib/cli.py",
+     "uxr-plugin/scripts/build_body.py",
+     "uxr-plugin/scripts/parse_shorthand.py",
+     "uxr-plugin/scripts/recruit_funnel.py",
+     "uxr-plugin/scripts/recruit_send.py",
+     "uxr-plugin/scripts/roster_apply.py",
+     "uxr-plugin/scripts/source_contacts.py"
+    ],
+    "reason": "Shared CLI dispatcher first slice (MO efficiency program 2026-11-25): new lib/cli.py (+95) absorbs main() boilerplate in six flag-style scripts (-111); net -16 lines, payload 33509 -> 33493; all six no-args usage outputs and exit codes byte-identical pre/post (re-proven on the clone post-apply), 16 module selftests green."
+   },
+   {
+    "wave": "w3-rewrite-recruit-report",
+    "issue": 0,
+    "delta_lines": -159,
+    "files": [
+     "uxr-plugin/commands/uxr-recruit.md",
+     "uxr-plugin/commands/uxr-report.md"
+    ],
+    "reason": "Rephrase wave (MO efficiency program 2026-11-25): uxr-recruit 4817->4169 and uxr-report 4289->3905 body tokens (-1032 cl100k body-only), zero law loss; 19 invocation strings identical, safety sections verbatim, yaml fence byte-identical, orchestrator restored 3 heading law parentheticals (status-gates object, deterministic zero-model-calls, default chat visual); payload 33493 -> 33334 lines (-159)."
+   },
+   {
+    "wave": "w4-exec-lazy-imports",
+    "issue": 0,
+    "delta_lines": 51,
+    "files": [
+     "uxr-plugin/hooks/analytics_flush.py",
+     "uxr-plugin/hooks/review_gate.py",
+     "uxr-plugin/hooks/provenance.py",
+     "uxr-plugin/lib/util.py",
+     "uxr-plugin/scripts/deck_render.py",
+     "uxr-plugin/scripts/eod_journal.py",
+     "uxr-plugin/scripts/recruit_send.py",
+     "uxr-plugin/scripts/render_script_docx.py",
+     "uxr-plugin/scripts/researcher_state.py",
+     "uxr-plugin/scripts/walkthrough.py",
+     "tests/uxr_selftests/deck_render.py",
+     "tests/uxr_selftests/render_script_docx.py"
+    ],
+    "reason": "Latency wave (MO efficiency program 2026-11-25, W4 divergent survey rows 2/7/8/9/10/17): lazy network and format-library imports - analytics_flush network stack only on the consent-on flush path (SessionStart chain 164->127 ms measured), deck_render pptx only on the render path (lint/usage path 337->52 ms), render_script_docx docx only on render/verify (usage 228->51 ms), smtplib only inside recruit_send _smtp_deliver, review_gate researcher_state only on Stop/SubagentStop; file_lock moved from hooks/provenance to lib/util with re-export (kills the scripts->hooks import direction). All stdout/stderr/exit byte proofs identical pre/post; 3 gates green. Wrapper lines cost +51 payload (33334 -> 33385)."
+   },
+   {
+    "wave": "w4-spawn-fusions",
+    "issue": 0,
+    "delta_lines": 53,
+    "files": [
+     "uxr-plugin/lib/checklist_gate.py",
+     "uxr-plugin/scripts/eod_journal.py",
+     "uxr-plugin/scripts/scaffold_workspace.py",
+     "uxr-plugin/references/debrief_helpers.py",
+     "uxr-plugin/references/report_helpers.py",
+     "uxr-plugin/commands/uxr-report.md",
+     "uxr-plugin/commands/uxr-debrief.md",
+     "uxr-plugin/commands/uxr-eod.md",
+     "uxr-plugin/commands/uxr-edit.md"
+    ],
+    "reason": "Same-moment spawn fusions (MO efficiency program 2026-11-25, W4 survey rows 3/4/5/6, MO-approved): checklist_gate check accepts repeatable --type (report runs both gate types in one spawn, -99 ms); report-filename --check-citations fuses the phase-5 pair (-56 ms); debrief assemble-summary/render-recap --gate run their write-time gates in-process (one spawn per pair, -50 ms x2); eod draft-auto --out writes the draft file and gates it in-process (-69 ms, the model's intermediate write disappears); scaffold lookup-workspace --then-render-overview absorbs the found/not-found branch (-122 ms on the found path); report verdicts now read from the evidence-weight output (md dedupe, -56 ms). Byte-proof rig: fused stdout/stderr equal the concatenated pre runs on all 6 cases (fixtures in scan_tools/w4exec/fusfix), existing single-run paths stable, not-found negative stable, written files byte-identical. Wrapper lines cost +53 payload."
+   },
+   {
+    "wave": "w4-row15-compact-stdout-json",
+    "issue": 0,
+    "delta_lines": 0,
+    "files": [
+     "uxr-plugin/lib/checklist_gate.py",
+     "uxr-plugin/lib/field_map.py",
+     "uxr-plugin/lib/phase_gates.py",
+     "uxr-plugin/references/debrief_helpers.py",
+     "uxr-plugin/references/deck_helpers.py",
+     "uxr-plugin/references/report_helpers.py",
+     "uxr-plugin/scripts/build_body.py",
+     "uxr-plugin/scripts/calendar_prep.py",
+     "uxr-plugin/scripts/eod_journal.py",
+     "uxr-plugin/scripts/evidence_sweep.py",
+     "uxr-plugin/scripts/roster_apply.py",
+     "uxr-plugin/scripts/source_contacts.py",
+     "uxr-plugin/scripts/trace_prompts.py",
+     "uxr-plugin/scripts/uxr_stats.py",
+     "uxr-plugin/scripts/validate_cheatsheet.py"
+    ],
+    "reason": "Token-efficiency row 15 (MO efficiency program 2026-11-25, MO-approved): stdout JSON printers drop indent=2 (35 print sites, 15 files). Script stdout lands in the model context compact; parsed JSON is identical (the 16 module selftests parse stdout JSON, they do not compare bytes). File-writer JSON keeps indent=2 (state files, payload documents stay human-debuggable). Payload unchanged: 33436 -> 33436. Source LOC -2 (33 insertions, 35 deletions; standalone indent=2 lines dropped). Zero pin moves; all three gates green on the staging tree and on the clone."
+   },
+   {
+    "wave": "w4-row21-consent-fast-path",
+    "issue": 0,
+    "delta_lines": 24,
+    "deletions": 2,
+    "files": [
+     "uxr-plugin/hooks/analytics.py",
+     "uxr-plugin/hooks/analytics_common.py"
+    ],
+    "reason": "analytics consent fast path: explicit off-gate (UXR_ANALYTICS=off, DO_NOT_TRACK truthy, home .claude/.uxr-analytics-off present) exits main() before config load; provenance and lib.util imports move lazy (consent-on path unchanged); measured analytics spawn 133-139 ms pre -> explicit-off spawn ~90 ms post (config call 45.4 ms + provenance 25.5 ms in-process skipped); consent-on wall unchanged; +24/-2 LOC earn ~-45 ms per prompt-event spawn on explicit-off setups; gates green staging (verify+parity) and clone (all 3); zero pin moves"
+   },
+   {
+    "wave": "w4-row14-config-json-snapshot",
+    "issue": 0,
+    "delta_lines": 101,
+    "deletions": 6,
+    "files": [
+     "uxr-plugin/lib/config.py",
+     "tests/uxr_selftests/config.py",
+     "uxr-plugin/.gitignore"
+    ],
+    "reason": "config JSON snapshot beside the user file: sha256 key over both source files' bytes (any edit regenerates), JSON-roundtrip guard (dates/sets/non-string keys keep the yaml path, served dict never differs), atomic tmp+replace write, written only when a distinct user file exists (selftests pass the example as the user layer and stay on the yaml path); yaml import goes lazy in config.py (_read_mapping, _print_config). Measured in-process load_config call: yaml path 27-51 ms vs snapshot hit 1.2-2.0 ms (configs asserted equal x5); snapshot-hit spawn wall 64.2 ms warm n=7; analytics prompt-event spawn 133-139 ms pre rows 14+21 -> 55.0 ms explicit-off (row 21) and 66.4 ms consent-by-config (snapshot). +101/-6 LOC (config.py +70/-6, selftest case 7 +29, gitignore +2) earn ~-30-80 ms per config-paying spawn across ~20 spawns/command run; gates green staging (verify+parity) and clone (all 3); zero pin moves; selftest case 7 pins snapshot==yaml equality, regen after user-file edit, and invalid-yaml-still-raises"
+   },
+   {
+    "wave": "w4-row1-drop-expansion-listener",
+    "issue": 0,
+    "delta_lines": 37,
+    "deletions": 158,
+    "files": [
+     "uxr-plugin/hooks/hooks.json",
+     "uxr-plugin/hooks/analytics.py",
+     "uxr-plugin/README.md",
+     "tests/uxr_selftests/analytics.py"
+    ],
+    "reason": "row 1 full drop (MO-approved): hooks.json loses the UserPromptExpansion analytics entry; UserPromptSubmit fires first on every supported runtime and already records the command, so the expansion-side listener recorded nothing unique (W4 dedupe evidence: it found the dedupe marker and recorded nothing, for every command). Dead dedupe machinery removed (PROMPT_EVENTS, 3 COMMAND_DEDUP_* constants, 5 helper functions, branch simplify): each command invocation now counts exactly once, re-invocations count again (accuracy fix, no user-visible change), and no salt+marker file I/O remains on the Submit path. Measured: the dropped spawns cost 55.0 ms explicit-off / 66.4 ms consent-by-config (measure_post.py n=7) per command turn and no longer fire; post-drop Submit spawn wall 47.7-55.7 ms n=5 consent-off (consent fast path unchanged - the dedupe sat behind the consent gate). README table+prose updated (served docs stay truthful); selftest pins rewritten (re-invocation counts again, different session counts, double-fire check removed). Payload -124 net. +37/-158 LOC (analytics.py +13/-125, hooks.json -11, README +2/-3, selftest +11/-19); gates green staging (verify+parity) and clone (all 3); zero pin moves"
    }
   ],
   "golden_path_growth": null

@@ -56,15 +56,32 @@ EXIT_FAIL = 1
 EXIT_USAGE = 2
 EXIT_SELFTEST = 4
 
-try:
-    from pptx import Presentation  # type: ignore[import-not-found]
-    from pptx.util import Inches, Pt  # type: ignore[import-not-found]
+HAVE_PPTX: bool | None = None
+PPTX_IMPORT_ERROR: Exception | None = None
+Presentation = Inches = Pt = None  # bound by _load_pptx()
 
-    HAVE_PPTX = True
-    PPTX_IMPORT_ERROR: Exception | None = None
-except Exception as _exc:  # pragma: no cover - depends on local env
-    HAVE_PPTX = False
-    PPTX_IMPORT_ERROR = _exc
+
+def _load_pptx() -> None:
+    """Import python-pptx on first use.
+
+    The old module-level import made every lint, usage, and parse-error
+    path pay the python-pptx import debt even though those paths never
+    render. HAVE_PPTX stays None until the first _load_pptx() call.
+    """
+    global HAVE_PPTX, PPTX_IMPORT_ERROR
+    if HAVE_PPTX is not None:
+        return
+    try:
+        from pptx import Presentation as _Presentation  # type: ignore[import-not-found]
+        from pptx.util import Inches as _Inches, Pt as _Pt  # type: ignore[import-not-found]
+
+        globals()["Presentation"] = _Presentation
+        globals()["Inches"] = _Inches
+        globals()["Pt"] = _Pt
+        HAVE_PPTX = True
+    except Exception as _exc:  # pragma: no cover - depends on local env
+        HAVE_PPTX = False
+        PPTX_IMPORT_ERROR = _exc
 
 PPTX_INSTALL_HINT = (
     "python-pptx is required to render a deck; install it with "
@@ -383,6 +400,7 @@ def lint_outline_file(outline_path: str) -> tuple[list[str], dict]:
 
 
 def _require_pptx() -> int:
+    _load_pptx()
     if HAVE_PPTX:
         return EXIT_OK
     print(f"deck_render: {PPTX_INSTALL_HINT}", file=sys.stderr)
@@ -418,6 +436,7 @@ def _add_shape(slide, box: dict) -> None:
 
 def render_outline(outline: dict, out_path: Path) -> list[str]:
     """Write the ``.pptx``; returns [] on success (lint failures block earlier)."""
+    _load_pptx()
     if not HAVE_PPTX:
         return [PPTX_INSTALL_HINT]
     presentation = Presentation()

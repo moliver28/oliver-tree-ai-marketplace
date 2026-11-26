@@ -239,14 +239,14 @@ def main(argv: list[str] | None = None, environ=None) -> int:
         except (OSError, ValueError) as exc:
             print("trace_prompts: unreadable spec: %s" % exc, file=sys.stderr)
             return 2
-        print(json.dumps(rq_map(spec if isinstance(spec, dict) else {}), ensure_ascii=False, indent=2))
+        print(json.dumps(rq_map(spec if isinstance(spec, dict) else {}), ensure_ascii=False))
         return 0
     if len(args) != 1 or not args[0].strip() or args[0].startswith("-"):
         print("usage: trace_prompts.py <KEY> | --rq-map <spec.json>", file=sys.stderr)
         return 2
     config = _load_config()
     prompts = collect(args[0].strip(), config, environ=environ)
-    print(json.dumps(prompts, ensure_ascii=False, indent=2))
+    print(json.dumps(prompts, ensure_ascii=False))
     return 0
 
 

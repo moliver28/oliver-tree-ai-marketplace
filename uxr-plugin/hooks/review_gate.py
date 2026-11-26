@@ -57,7 +57,6 @@ from lib.util import (
     resolve as _resolve,
     utcnow as _utcnow,
 )  # noqa: E402  (shared plumbing)
-from scripts import researcher_state as _researcher_state  # noqa: E402  (issue 120 journal read/write helpers)
 
 AGENT_NAME = "hcd-researcher"
 OVERVIEW_MARKER = "00-overview.md"
@@ -481,6 +480,7 @@ def append_researcher_journal(event: dict, key: str, config: dict | None) -> boo
     when written. Never raises (the hook contract).
     """
     try:
+        from scripts import researcher_state as _researcher_state  # noqa: E402  (lazy: Stop/SubagentStop path only)
         transcript_path = str(event.get("transcript_path") or "")
         journal = _researcher_state.journal_path(key, config)
         if journal is None:

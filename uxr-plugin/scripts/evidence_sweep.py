@@ -136,7 +136,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"evidence_sweep: {exc}", file=sys.stderr)
             return 2
         print(json.dumps(build_plan(config, topic, tactical,
-                                    value_of("--current-user")), indent=2))
+                                    value_of("--current-user"))))
         return 0
     if args and args[0] == "digest":
         results_path = value_of("--results")
@@ -149,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"evidence_sweep: unreadable results: {exc}", file=sys.stderr)
             return 2
         out = digest(results, topic, tactical, value_of("--topic-class"))
-        print(json.dumps(out["digest"], indent=2))
+        print(json.dumps(out["digest"]))
         print()
         print(out["synthesis_block"])
         print(out["metering"], file=sys.stderr)

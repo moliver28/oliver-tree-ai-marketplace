@@ -119,6 +119,26 @@ def analytics_enabled(config: dict | None = None, environ=None, home=None) -> bo
         return False
 
 
+def consent_off_without_config(environ=None, home=None) -> bool:
+    """True only when an explicit off-gate settles consent without config.
+
+    Mirrors the env and home gates of :func:`analytics_enabled` exactly;
+    returns False when consent still depends on the config's
+    ``analytics.enabled`` key, so the caller takes the full path.
+    Any error means not decided (False), never disabled.
+    """
+    try:
+        environ = os.environ if environ is None else environ
+        if str(environ.get(ENV_ANALYTICS) or "").strip().lower() == "off":
+            return True
+        if _env_true(environ.get(ENV_DO_NOT_TRACK)):
+            return True
+        base = Path(home) if home is not None else Path.home()
+        return (base / ".claude" / OFF_FILE).is_file()
+    except Exception:
+        return False
+
+
 # ---------------------------------------------------------------------------
 # identity
 # ---------------------------------------------------------------------------

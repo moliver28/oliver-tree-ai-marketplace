@@ -25,7 +25,7 @@ The probe vocabulary has three forms, all deterministic:
 CLI (exit codes copied from ``lib/phase_gates.py``: 0 pass, 1 not ready,
 2 usage)::
 
-    python lib/checklist_gate.py check --type <type> --spec <spec.json> --workspace <dir> [--json]
+    python lib/checklist_gate.py check --type <type> [--type <type> ...] --spec <spec.json> --workspace <dir> [--json]
 
 ``check`` prints one JSON object ``{"type", "items", "ok", "missing"}``
 with ``--json``; without it, one ``missing: <id> (evidence: <probe>)``
@@ -107,7 +107,7 @@ REGISTRY_ID_RE = re.compile(r"\b[RA]-\d{1,3}\b")
 SOURCE_LINE_RE = re.compile(r"(https?://|\b[RA]-\d{1,3}\b)")
 
 USAGE = """usage:
-  python lib/checklist_gate.py check --type <type> --spec <spec.json> --workspace <dir> [--json]
+  python lib/checklist_gate.py check --type <type> [--type <type> ...] --spec <spec.json> --workspace <dir> [--json]
   python lib/checklist_gate.py citations --workspace <dir> [--json]
   python lib/checklist_gate.py pauses --type <type> [--autonomy execute|approve] [--json]
 
@@ -338,7 +338,7 @@ def _cli_citations(rest: list[str]) -> int:
     workspace = Path(workspace_arg).expanduser()
     result = check_citations(workspace)
     if as_json:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        print(json.dumps(result, ensure_ascii=False))
     else:
         for warning in result["warnings"]:
             print(f"warning: {warning} not in references/sources/")
@@ -443,7 +443,7 @@ def _cli_pauses(rest: list[str]) -> int:
     pauses = pause_plan(items, autonomy)
     if as_json:
         print(json.dumps({"type": type_name, "autonomy": autonomy, "pauses": pauses},
-                         ensure_ascii=False, indent=2))
+                         ensure_ascii=False))
     else:
         for pause in pauses:
             if pause["kind"] == "boundary":
@@ -462,7 +462,7 @@ def _cli_pauses(rest: list[str]) -> int:
 
 
 def _cli_check(rest: list[str]) -> int:
-    type_name = ""
+    type_names: list[str] = []
     spec_arg: str | None = None
     workspace_arg: str | None = None
     as_json = False
@@ -470,8 +470,9 @@ def _cli_check(rest: list[str]) -> int:
     while index < len(rest):
         arg = rest[index]
         if arg == "--type" and index + 1 < len(rest):
-            type_name = rest[index + 1]
+            type_names.append(rest[index + 1])
             index += 2
+            continue
             continue
         if arg == "--spec" and index + 1 < len(rest):
             spec_arg = rest[index + 1]
@@ -487,7 +488,7 @@ def _cli_check(rest: list[str]) -> int:
             continue
         print(f"check: unknown or incomplete argument {arg!r}\n\n{USAGE}", file=sys.stderr)
         return 2
-    if not type_name or not spec_arg or not workspace_arg:
+    if not type_names or not spec_arg or not workspace_arg:
         print(f"check: --type, --spec, and --workspace are required\n\n{USAGE}", file=sys.stderr)
         return 2
     try:
@@ -497,16 +498,19 @@ def _cli_check(rest: list[str]) -> int:
             raise ValueError(f"--spec file {exc.path} is not valid JSON: {exc.exc}") from None
         raise exc.exc
     workspace = Path(workspace_arg).expanduser()
-    result = check_type(type_name, spec, workspace)
-    if absent_line(type_name, result):
-        print(f"no checklist for type {type_name}")
-        return 0
-    if as_json:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        for entry in result["missing"]:
-            print(f"missing: {entry['item']} (evidence: {entry['evidence']})")
-    return 0 if result["ok"] else 1
+    ok = True
+    for type_name in type_names:
+        result = check_type(type_name, spec, workspace)
+        if absent_line(type_name, result):
+            print(f"no checklist for type {type_name}")
+            continue
+        if as_json:
+            print(json.dumps(result, ensure_ascii=False))
+        else:
+            for entry in result["missing"]:
+                print(f"missing: {entry['item']} (evidence: {entry['evidence']})")
+        ok = ok and bool(result["ok"])
+    return 0 if ok else 1
 
 
 def main(argv: list[str] | None = None) -> int:

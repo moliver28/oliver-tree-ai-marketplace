@@ -536,9 +536,9 @@ def main(argv: list[str] | None = None) -> int:
         pick = pick_slots(events, result, level=options.get("--level") or "ii",
                           working_hours=working_hours,
                           session_minutes=session_minutes, slots_wanted=slots_wanted)
-        print(json.dumps({"classes": result, "pick": pick}, ensure_ascii=False, indent=2))
+        print(json.dumps({"classes": result, "pick": pick}, ensure_ascii=False))
         return EXIT_OK
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    print(json.dumps(result, ensure_ascii=False))
     return EXIT_OK
 
 

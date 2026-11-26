@@ -115,13 +115,23 @@ def check_versions() -> None:
 
 
 def check_component_counts() -> None:
-    """Check 2: command and skill counts meet the minimum."""
+    """Check 2: command and skill counts meet the minimum.
+
+    When ``.profile.json`` records pruned files, the counts add the
+    recorded pruned files back, so a pruned install meets the floors a
+    full install met.
+    """
     commands_dir = PLUGIN_ROOT / "commands"
     skills_dir = PLUGIN_ROOT / "skills"
     command_count = len(list(commands_dir.iterdir())) if commands_dir.is_dir() else 0
     skill_count = (
         len([p for p in skills_dir.rglob("*") if p.is_file()]) if skills_dir.is_dir() else 0
     )
+    state_path = PLUGIN_ROOT / ".profile.json"
+    if state_path.is_file():
+        pruned_files = json.loads(state_path.read_text(encoding="utf-8")).get("pruned_files") or {}
+        command_count += int(pruned_files.get("commands", 0))
+        skill_count += int(pruned_files.get("skills", 0))
     if command_count >= MIN_COMMANDS:
         record("ok", f"command count {command_count} >= {MIN_COMMANDS}")
     else:

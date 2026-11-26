@@ -95,6 +95,8 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
+from lib import util  # noqa: E402  (shared plumbing)
+
 EXIT_OK = 0
 EXIT_FAIL = 1
 EXIT_USAGE = 2
@@ -189,13 +191,8 @@ PRELIMINARY_RE = re.compile(re.escape(SINGLE_SOURCE_NOTE), re.IGNORECASE)
 
 
 def load_plugin_config() -> dict | None:
-    """Load the plugin config through lib.config; None when unavailable."""
-    try:
-        from lib.config import load_config
-
-        return load_config()
-    except Exception:
-        return None
+    """Load the plugin config through lib.util.load_config; None when unavailable."""
+    return util.load_config()
 
 
 def personas_file_from_config(config: dict | None) -> Path:
@@ -1032,7 +1029,7 @@ def cmd_load_persona(args: dict[str, str]) -> int:
         merged["cap"] = compute_cap(merged["slide_cap"], tier)
         merged["factor"] = TIER_FACTORS[tier]
     merged["name"] = name
-    print(json.dumps(merged, indent=2, ensure_ascii=False))
+    print(json.dumps(merged, ensure_ascii=False))
     return EXIT_OK
 
 
@@ -1040,7 +1037,6 @@ def cmd_list_personas(args: dict[str, str]) -> int:
     personas = load_personas(args.get("--file") or "")
     print(json.dumps(
         [{"name": name, "label": entry.get("label", name)} for name, entry in personas.items()],
-        indent=2,
         ensure_ascii=False,
     ))
     return EXIT_OK
@@ -1068,7 +1064,7 @@ def cmd_slide_plan(args: dict[str, str]) -> int:
         raise _Usage("slide-plan needs --tier")
     if tier not in TIERS:
         raise _Usage("--tier must be one of " + ", ".join(TIERS))
-    print(json.dumps(slide_plan(merged, name, tier), indent=2, ensure_ascii=False))
+    print(json.dumps(slide_plan(merged, name, tier), ensure_ascii=False))
     return EXIT_OK
 
 
@@ -1090,7 +1086,7 @@ def cmd_beat_skeleton(args: dict[str, str]) -> int:
     elif args.get("--persona"):
         _, _, merged = _persona_args(args)
         arc = persona_arc_order(merged)
-    print(json.dumps(beat_skeleton(rqs, arc), indent=2, ensure_ascii=False))
+    print(json.dumps(beat_skeleton(rqs, arc), ensure_ascii=False))
     return EXIT_OK
 
 
@@ -1145,7 +1141,7 @@ def cmd_scaffold(args: dict[str, str]) -> int:
         title=args.get("--title") or "",
         date_text=args.get("--date") or "",
     )
-    print(json.dumps(outline, indent=2, ensure_ascii=False))
+    print(json.dumps(outline, ensure_ascii=False))
     return EXIT_OK
 
 
@@ -1195,7 +1191,7 @@ def cmd_write_persona_field(args: dict[str, str]) -> int:
             return EXIT_FAIL
         personas[name] = persona
         path.write_text(
-            json.dumps({"personas": personas}, indent=2, ensure_ascii=False) + "\n",
+            json.dumps({"personas": personas}, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
         print(f"ok wrote {name}.{field} to {path}")
@@ -1234,7 +1230,7 @@ def cmd_finding_sources(args: dict[str, str]) -> int:
     except OSError as exc:
         print(f"deck_helpers: cannot read synthesis: {exc}", file=sys.stderr)
         return EXIT_FAIL
-    print(json.dumps(finding_sources(text, min_sources), indent=2, ensure_ascii=False))
+    print(json.dumps(finding_sources(text, min_sources), ensure_ascii=False))
     return EXIT_OK
 
 
