@@ -3,5 +3,7 @@ __pycache__/
 *.pyc
 deck-collect-brief-*.md
 config/org.yaml
+config/org.snapshot.json
+config/org.snapshot.tmp
 .token-optimizer/
 graphify-out/

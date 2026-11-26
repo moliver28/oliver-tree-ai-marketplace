@@ -789,6 +789,18 @@
      "uxr-plugin/hooks/analytics_common.py"
     ],
     "reason": "analytics consent fast path: explicit off-gate (UXR_ANALYTICS=off, DO_NOT_TRACK truthy, home .claude/.uxr-analytics-off present) exits main() before config load; provenance and lib.util imports move lazy (consent-on path unchanged); measured analytics spawn 133-139 ms pre -> explicit-off spawn ~90 ms post (config call 45.4 ms + provenance 25.5 ms in-process skipped); consent-on wall unchanged; +24/-2 LOC earn ~-45 ms per prompt-event spawn on explicit-off setups; gates green staging (verify+parity) and clone (all 3); zero pin moves"
+   },
+   {
+    "wave": "w4-row14-config-json-snapshot",
+    "issue": 0,
+    "delta_lines": 101,
+    "deletions": 6,
+    "files": [
+     "uxr-plugin/lib/config.py",
+     "tests/uxr_selftests/config.py",
+     "uxr-plugin/.gitignore"
+    ],
+    "reason": "config JSON snapshot beside the user file: sha256 key over both source files' bytes (any edit regenerates), JSON-roundtrip guard (dates/sets/non-string keys keep the yaml path, served dict never differs), atomic tmp+replace write, written only when a distinct user file exists (selftests pass the example as the user layer and stay on the yaml path); yaml import goes lazy in config.py (_read_mapping, _print_config). Measured in-process load_config call: yaml path 27-51 ms vs snapshot hit 1.2-2.0 ms (configs asserted equal x5); snapshot-hit spawn wall 64.2 ms warm n=7; analytics prompt-event spawn 133-139 ms pre rows 14+21 -> 55.0 ms explicit-off (row 21) and 66.4 ms consent-by-config (snapshot). +101/-6 LOC (config.py +70/-6, selftest case 7 +29, gitignore +2) earn ~-30-80 ms per config-paying spawn across ~20 spawns/command run; gates green staging (verify+parity) and clone (all 3); zero pin moves; selftest case 7 pins snapshot==yaml equality, regen after user-file edit, and invalid-yaml-still-raises"
    }
   ],
   "golden_path_growth": null
