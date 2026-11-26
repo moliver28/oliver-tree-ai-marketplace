@@ -47,8 +47,6 @@ if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
 import analytics_common  # noqa: E402
-from provenance import failure_kind  # noqa: E402  (same hooks/ directory)
-from lib.util import load_config as _load_config  # noqa: E402  (shared plumbing)
 
 #: How much transcript tail to scan for a plugin agent name, in bytes.
 TAIL_BYTES = 262144
@@ -285,6 +283,7 @@ def handle_event(event, config=None, state_dir=None, environ=None, home=None,
                 return ""
             failed, text = is_tool_failure(event)
             if failed:
+                from provenance import failure_kind  # same hooks/ directory
                 analytics_common.record_event(
                     "tool_failed", {"tool_name": tool_name, "kind": failure_kind(text)},
                     session_id=session_id, config=config, state_dir=state_dir,
@@ -300,6 +299,9 @@ def main(argv=None) -> int:
         event = json.loads(raw) if raw.strip() else {}
     except Exception:
         return 0
+    if analytics_common.consent_off_without_config():
+        return 0
+    from lib.util import load_config as _load_config  # shared plumbing
     with contextlib.suppress(Exception):
         handle_event(event, config=_load_config())
     return 0

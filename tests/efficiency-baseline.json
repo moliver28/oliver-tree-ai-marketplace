@@ -778,6 +778,17 @@
      "uxr-plugin/scripts/validate_cheatsheet.py"
     ],
     "reason": "Token-efficiency row 15 (MO efficiency program 2026-11-25, MO-approved): stdout JSON printers drop indent=2 (35 print sites, 15 files). Script stdout lands in the model context compact; parsed JSON is identical (the 16 module selftests parse stdout JSON, they do not compare bytes). File-writer JSON keeps indent=2 (state files, payload documents stay human-debuggable). Payload unchanged: 33436 -> 33436. Source LOC -2 (33 insertions, 35 deletions; standalone indent=2 lines dropped). Zero pin moves; all three gates green on the staging tree and on the clone."
+   },
+   {
+    "wave": "w4-row21-consent-fast-path",
+    "issue": 0,
+    "delta_lines": 24,
+    "deletions": 2,
+    "files": [
+     "uxr-plugin/hooks/analytics.py",
+     "uxr-plugin/hooks/analytics_common.py"
+    ],
+    "reason": "analytics consent fast path: explicit off-gate (UXR_ANALYTICS=off, DO_NOT_TRACK truthy, home .claude/.uxr-analytics-off present) exits main() before config load; provenance and lib.util imports move lazy (consent-on path unchanged); measured analytics spawn 133-139 ms pre -> explicit-off spawn ~90 ms post (config call 45.4 ms + provenance 25.5 ms in-process skipped); consent-on wall unchanged; +24/-2 LOC earn ~-45 ms per prompt-event spawn on explicit-off setups; gates green staging (verify+parity) and clone (all 3); zero pin moves"
    }
   ],
   "golden_path_growth": null
