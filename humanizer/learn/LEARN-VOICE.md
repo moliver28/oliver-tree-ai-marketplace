@@ -128,6 +128,16 @@ never runs in the delivery gate and never blocks delivery.
   `merges.txt`); with onnxruntime or the files absent the tool prints
   `onnx backend unavailable: pip install onnxruntime + place <model> (see docs)`
   and exits 2 (defined behavior).
+- Companion table (`learn/voice_fit.py`, same math, advisory presentation):
+  `python3 humanizer/learn/voice_fit.py CANDIDATE --samples SAMPLES_DIR`
+  renders one row per surface metric (sample column vs candidate column),
+  then the Burrows' Delta row with the leave-one-out sample-self number
+  (`lower = closer`), then the length confidence note (delta firms up near
+  ~5,000 words, usable from about 1,500-2,000). Fails open: with no profile
+  or samples the table still renders the candidate column with n/a reference
+  columns, exit 0. The same numbers pass a parity fixture generated from the
+  sitefactory P18 portable stylometry block
+  (`humanizer/tests/test_voice_fit.py`); never in the delivery gate.
 
 ## Conflict rule (no model arbitration)
 

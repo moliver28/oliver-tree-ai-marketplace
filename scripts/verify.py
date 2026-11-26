@@ -48,7 +48,7 @@ Checks:
     and reports a defined empty-input message; learn-edit classifies
     substantial/light edits and reports the defined no-match line;
     acceptance_check scores the Delta path and prints the defined onnx-absent
-    line with exit 2; version parity at 1.1.0.
+    line with exit 2.
 13. Researcher instruction gate (W4, issue #120): when the current
     EOL-normalized sha256 of any researcher instruction asset
     (agents/hcd-researcher.md, prompts/hcd-gate/prompt.md and its fragments,
@@ -57,6 +57,15 @@ Checks:
     also records a run whose verdict is PASS carrying that new hash. The tuning
     harness itself (tests/evals/hcd-researcher/run_evals.py) never runs here
     and is never imported.
+14. Voice-fit advisory v1.2.0: learn/voice_fit.py (the count-based stylometry
+    advisory: M15 Burrows' Delta + M18 surface stats, promoted with the
+    sitefactory P18 refinements) imports with a main(); its CLI fails open
+    with no profile (exit 0, n/a reference columns, defined note); profile
+    mode reads a delta against a built profile.json; a sample corpus too
+    small for leave-one-out reads n/a sample-self; the contract suite
+    humanizer/tests/test_voice_fit.py exits 0 (sitefactory parity fixture,
+    gate no-op byte-pin, fail-open, spread rule, stdlib-only); version
+    parity at 1.2.0.
 
 Exit 0 = marketplace verified working; nonzero = broken, do not publish.
 """
@@ -145,7 +154,7 @@ for p in data["plugins"]:
     ck(mj.get("name") == p["name"], f"manifest name matches for {p['name']}")
     ck(mj.get("version") == p.get("version"), f"version parity {p['name']} (manifest vs marketplace)")
     if p["name"] == "humanizer-voice":
-        ck(mj.get("version") == "1.1.0", f"humanizer-voice is at 1.1.0 (issue #127 tiers shipped): got {mj.get('version')}")
+        ck(mj.get("version") == "1.2.0", f"humanizer-voice is at 1.2.0 (stylometry advisory shipped): got {mj.get('version')}")
     d = mj.get("description", "")
     ck(len(d) <= 256, f"description <=256 chars for {p['name']} ({len(d)})")
     ck("'" in d and "use when the user says" in d.lower(), f"description carries human trigger phrases for {p['name']}")
@@ -200,7 +209,7 @@ for p in data["plugins"]:
                "embed_cached/embed_source_cached/learned_dir)")
             # learn tools importable (same importlib pattern as the voice-tells check above)
             for tool_name in ("build_voice_profile", "distill_phrases", "calibrate", "voice_vector_build",
-                              "train_voice_classifier", "edit_learning", "acceptance_check"):
+                              "train_voice_classifier", "edit_learning", "acceptance_check", "voice_fit"):
                 try:
                     tspec = importlib.util.spec_from_file_location(
                         f"humanizer_learn_{tool_name}", learn_dir / f"{tool_name}.py")
@@ -688,6 +697,62 @@ if voice_fix.is_dir():
                                     capture_output=True, text=True, env=env_base)
             ck(r_onnx.returncode == 2 and "onnx backend unavailable" in r_onnx.stdout,
                "acceptance_check onnx-absent path prints the defined line and exits 2")
+
+            # check 6: voice_fit advisory table (v1.2.0): fail-open with no
+            # profile, profile-mode delta, small-sample n/a spread rule, and
+            # the contract suite (sitefactory parity fixture, gate no-op
+            # byte-pin, stdlib-only). The tool never gates; the contract suite
+            # proves the delivery gate's bytes are unchanged by its presence.
+            vf_script = str(ROOT / "humanizer" / "learn" / "voice_fit.py")
+            # the fail-open probe points at a fresh empty learned dir: by this
+            # point check 5 has already built learned/profile.json
+            env_vf = {**env_base, "VOICE_LEARNED_DIR": str(learned / "absent")}
+            r_vf = subprocess.run([sys.executable, "-I", vf_script, "-"],
+                                  input=clean,
+                                  capture_output=True, text=True, env=env_vf)
+            ck(r_vf.returncode == 0 and r_vf.stdout.startswith("voice fit:")
+               and "n/a" in r_vf.stdout and "no profile at" in r_vf.stdout,
+               "voice_fit fail-open: no profile -> advisory table renders, exit 0, n/a delta")
+            r_vfp = subprocess.run([sys.executable, "-I", str(ROOT / "humanizer" / "learn" / "build_voice_profile.py"),
+                                    str(voice_fix / "clean"), str(voice_fix / "tells"),
+                                    "--out", str(learned / "profile-fit.json")],
+                                   capture_output=True, text=True, env=env_base)
+            try:
+                pf = json.loads((learned / "profile-fit.json").read_text())
+                pf_docs = pf.get("function_words", {}).get("docs")
+            except Exception as e:
+                pf, pf_docs = None, None
+                ck(False, f"voice_fit profile-mode setup JSON: {e!r}")
+            ck(r_vfp.returncode == 0 and pf_docs == 2,
+               "voice_fit profile-mode setup: 2-document profile built (spread for delta)")
+            if pf_docs == 2:
+                vf_json = subprocess.run([sys.executable, "-I", vf_script, "-",
+                                          "--profile", str(learned / "profile-fit.json"), "--json"],
+                                         input=clean, capture_output=True, text=True, env=env_base)
+                try:
+                    jvf = json.loads(vf_json.stdout)
+                    ck(vf_json.returncode == 0 and jvf["reference"] == "profile"
+                       and isinstance(jvf["burrows_delta"]["copy"], float)
+                       and jvf["candidate"]["word count"] > 0,
+                       "voice_fit profile mode: delta reads a float against the built profile")
+                except Exception as e:
+                    ck(False, f"voice_fit profile-mode JSON: {e!r}")
+            vf_one = subprocess.run([sys.executable, "-I", vf_script, "-",
+                                     "--samples", str(voice_fix / "clean"), "--json"],
+                                    input=clean, capture_output=True, text=True, env=env_base)
+            try:
+                jone = json.loads(vf_one.stdout)
+            except Exception:
+                jone = None
+            ck(vf_one.returncode == 0 and isinstance(jone, dict)
+               and jone.get("burrows_delta", {}).get("sample_self") is None,
+               "voice_fit spread rule: a sample corpus too small for leave-one-out reads n/a sample-self")
+            r_ct = subprocess.run([sys.executable, "-I", str(ROOT / "humanizer" / "tests" / "test_voice_fit.py")],
+                                  capture_output=True, text=True, env=env_base)
+            tail_ct = (r_ct.stdout or r_ct.stderr or "").strip().splitlines()
+            ck(r_ct.returncode == 0,
+               f"voice_fit contract suite (sitefactory parity / gate no-op / fail-open / stdlib-only): "
+               f"{tail_ct[-1] if tail_ct else r_ct.returncode}")
         finally:
             for k, v in saved_env.items():
                 if v is None:

@@ -1,6 +1,6 @@
 plugin:
   name: humanizer-voice
-  version: 1.1.0
+  version: 1.2.0
   description: Learned voice profile + quiet delivery gate; user surface is the /voice command only.
   author: moliver28
   entry: SKILL.md
@@ -14,7 +14,7 @@ plugin:
     contract: hooks/HOOKS.md
   learn:
     onboard: learn/VOICE_ONBOARDING.template.md
-    tools: [learn/build_voice_profile.py, learn/calibrate.py, learn/distill_phrases.py, learn/voice_vector_build.py, learn/train_voice_classifier.py, learn/edit_learning.py, learn/acceptance_check.py]
+    tools: [learn/build_voice_profile.py, learn/calibrate.py, learn/distill_phrases.py, learn/voice_vector_build.py, learn/train_voice_classifier.py, learn/edit_learning.py, learn/acceptance_check.py, learn/voice_fit.py]
     procedure: learn/LEARN-VOICE.md
   surfaces:
     user_facing: [/voice]
