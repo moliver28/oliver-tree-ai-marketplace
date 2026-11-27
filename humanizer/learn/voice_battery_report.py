@@ -214,6 +214,20 @@ def load_samples(path):
     return files
 
 
+def load_state():
+    """The setup state files (learned/state/setup.json, voice-bands.json)
+    written by voice_setup.py; ({}, {}) when absent (fail-open)."""
+    base = Path(os.environ.get("VOICE_LEARNED_DIR", PLUGIN_DIR / "learned")) / "state"
+    out = {}
+    for name in ("setup.json", "voice-bands.json"):
+        try:
+            data = json.loads((base / name).read_text(encoding="utf-8"))
+            out[name.split(".")[0]] = data if isinstance(data, dict) else {}
+        except Exception:
+            out[name.split(".")[0]] = {}
+    return out["setup"], out["voice-bands"]
+
+
 def _fw2(value):
     return "%.2f" % value if isinstance(value, (int, float)) else "n/a"
 
@@ -325,9 +339,12 @@ def _load_side_file(profile_path, suffix):
     return None
 
 
-def build_report(candidate_text, profile, profile_note=None, sample_files=None, profile_path=None):
+def build_report(candidate_text, profile, profile_note=None, sample_files=None, profile_path=None,
+                 setup=None, bands=None, situation=None):
     """Render the section-6 report text (and the JSON dict). profile_path
-    locates the side artifacts written by build_voice_profile.py."""
+    locates the side artifacts written by build_voice_profile.py. setup and
+    bands carry the voice_setup.py state; situation applies the layer-2
+    factors (pooled base + situation factor on the factor rows)."""
     lines = []
     report = {"levels": {}, "notes": []}
     notes = [profile_note] if profile_note else []
@@ -338,6 +355,7 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
     k_docs = int(battery.get("docs", 0) or 0)
     fw_pooled = ref.get("fw_pooled") or []
     total_words = int(ref.get("total_words", 0) or 0)
+    level = (setup or {}).get("level")
 
     tri_pooled = None
     if sample_files:
@@ -345,6 +363,10 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
         tri_pooled = vb.tri_merge([vb.scan(t, phrases=False, tri=True)["tri"] for t in texts])
     ref_full = None
     pca = chol = None
+    if level is not None and level < 1:
+        notes.append("note: setup level 0 keeps the battery report off (the gate fast core only); "
+                     "run learn/voice_setup.py --level 1 to enable the report path.")
+        stats = {}
     if fw_pooled and fw_profile.get("mean") and fw_profile.get("stddev"):
         ref_full = vb.ref_block(fw_profile["mean"], fw_profile["stddev"],
                                 dict(zip(vb.FUNCTION_WORDS, fw_pooled)), None, tri_pooled, k_docs)
@@ -366,14 +388,41 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
             ref_full["docs_rates"] = [[row[w] * 1000.0 / docs_words[i]
                                        for w in range(len(vb.FUNCTION_WORDS))]
                                       for i, row in enumerate(docs_fw)]
-        pca = _load_side_file(profile_path, "-pca.json")
-        if pca and {"v1", "mean", "sd"} <= set(pca):
-            ref_full["pca"] = pca
-        chol = _load_side_file(profile_path, "-covariance.json")
-        if chol and {"mean", "chol_lower"} <= set(chol):
-            ref_full["chol"] = chol
+        if level is None or level >= 2:
+            pca = _load_side_file(profile_path, "-pca.json")
+            if pca and {"v1", "mean", "sd"} <= set(pca):
+                ref_full["pca"] = pca
+            chol = _load_side_file(profile_path, "-covariance.json")
+            if chol and {"mean", "chol_lower"} <= set(chol):
+                ref_full["chol"] = chol
     elif battery:
         notes.append("note: the profile carries no function_words section; the L11 distances read n/a.")
+
+    # layer 2: the situation factors shift the band mean on the factor rows
+    sit_entry = None
+    if situation and bands:
+        sit_entry = (bands.get("situations") or {}).get(situation)
+        if sit_entry and sit_entry.get("factors") and not sit_entry.get("fallback"):
+            shifted = dict(stats)
+            for mid, f in sit_entry["factors"].items():
+                st = shifted.get(mid)
+                if st:
+                    st2 = dict(st)
+                    st2["mean"] = st["mean"] + f["factor"]
+                    shifted[mid] = st2
+            stats = shifted
+            notes.append("note: bands read at situation %s: pooled base + situation factor "
+                         "(k %d)" % (situation, sit_entry["docs"]))
+        else:
+            notes.append("note: no learned factor for situation %s; the pooled base applies"
+                         % situation)
+    elif situation:
+        notes.append("note: no setup bands found; run learn/voice_setup.py to learn per situation.")
+
+    acc = vb.scan(candidate_text, phrases=True, tri=tri_pooled is not None)
+    vals = vb.values(acc, ref=ref_full or {}, window=battery.get("window_words"))
+    n, ns, npar = acc["n"], acc["ns"], acc["np"]
+    report["words"], report["sentences"], report["paragraphs"] = n, ns, npar
 
     acc = vb.scan(candidate_text, phrases=True, tri=tri_pooled is not None)
     vals = vb.values(acc, ref=ref_full or {}, window=battery.get("window_words"))
@@ -382,6 +431,8 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
 
     quotes = acc["curly"] + acc["chars"]["straight"]
     suppressed = []
+    heavy_note = ("setup level %d keeps the heavy rows off (run learn/voice_setup.py --level 2)" % level
+                  if level is not None and level < 2 else None)
     for mid in vb.ALL_IDS:
         if vals[mid] is None:
             _lv, _name, _unit, mk, mv, _fl, _cm = vb.SPEC[mid]
@@ -389,6 +440,8 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
                 suppressed.append("%s (needs a profile reference)" % mid)
             elif mk == "ref" and mid == "L11-8" and battery:
                 suppressed.append("%s (needs --samples for the pooled character 3-gram rows)" % mid)
+            elif mid in SIDE_FILE_REASON and heavy_note:
+                suppressed.append("%s (%s)" % (mid, heavy_note))
             else:
                 suppressed.append("%s (%s)" % (mid, _suppress_reason(mk, mv, mid)))
 
@@ -399,8 +452,8 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
     lines.append("voice fit  (reference: %s)" % ("%d documents" % k_docs if k_docs else "n/a"))
 
     overall_levels = {}
-    for level in vb.LEVELS:
-        ids = sorted(mid for mid in vb.ALL_IDS if vb.SPEC[mid][0] == level)
+    for lvl in vb.LEVELS:
+        ids = sorted(mid for mid in vb.ALL_IDS if vb.SPEC[mid][0] == lvl)
         rows = []
         counts = {"inside": 0, "near the edge": 0, "outside": 0, "short": 0, "unbanded": 0}
         for mid in ids:
@@ -424,9 +477,9 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
             rows.append((mid, val, state, verdict, low, high, slow, shigh, st or {}))
         order = {"outside": 0, "near the edge": 1, "inside": 2, "short": 3, "unbanded": 4}
         rows.sort(key=lambda r: (order[r[2]], r[0]))
-        name = vb.LEVEL_NAMES[level]
+        name = vb.LEVEL_NAMES[lvl]
         readings = len(rows)
-        if level == "L11":
+        if lvl == "L11":
             if rank:
                 r, kk, _c = rank
                 if r <= kk:
@@ -445,9 +498,9 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
                 band = None
                 lines.append("L11 %s  readings %d of %d  band: n/a (the rank rule needs 3 or more "
                              "reference documents with spread)" % (name, readings, len(ids)))
-            overall_levels[level] = band
+            overall_levels[lvl] = band
         else:
-            o_star = (battery.get("levels_holdout") or {}).get(level)
+            o_star = (battery.get("levels_holdout") or {}).get(lvl)
             o = counts["outside"]
             if o_star is None or not battery:
                 band = None
@@ -457,10 +510,10 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
                 band = "near the edge"
             else:
                 band = "outside"
-            overall_levels[level] = band
+            overall_levels[lvl] = band
             band_text = "band: %s" % band if band else "band: n/a (holdout needs 4 or more reference documents)"
             lines.append("%s %s  readings %d of %d  inside %d  near the edge %d  outside %d  short %d  %s"
-                         % (level, name, readings, len(ids), counts["inside"],
+                         % (lvl, name, readings, len(ids), counts["inside"],
                             counts["near the edge"], counts["outside"], counts["short"], band_text))
         for mid, val, state, verdict, low, high, slow, shigh, st in rows:
             _lv, mname, unit, _mk, _mv, _fl, _cm = vb.SPEC[mid]
@@ -487,8 +540,8 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
                     lines.append("    rank %d of %d by the stored leave-one-out distances "
                                  "(a text by the author draws the last rank in 1 of %d cases)"
                                  % (r, len(dists) + 1, len(dists) + 1))
-        report["levels"][level] = {"readings": readings, "counts": counts, "band": overall_levels[level],
-                                   "rows": [{"id": r[0], "value": r[1], "state": r[2]} for r in rows]}
+        report["levels"][lvl] = {"readings": readings, "counts": counts, "band": overall_levels[lvl],
+                                 "rows": [{"id": r[0], "value": r[1], "state": r[2]} for r in rows]}
 
     outside_levels = [lv for lv in vb.LEVELS if overall_levels.get(lv) == "outside"]
     l11_band = overall_levels.get("L11")
@@ -502,6 +555,35 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
     else:
         overall = None
     overall_text = overall if overall else "n/a (a full reading needs a profile battery section)"
+
+    # level 3: the cross-situation comparison and the windowed stability check
+    if level is not None and level >= 3 and bands:
+        sits = (bands.get("situations") or {})
+        scored = []
+        for sname, entry in sorted(sits.items()):
+            factors = entry.get("factors") or {}
+            if not factors:
+                continue
+            zs = []
+            for mid, f in factors.items():
+                st = stats.get(mid) or (bands.get("pooled") or {}).get(mid)
+                v = vals.get(mid)
+                if st and isinstance(v, float) and st.get("sd", 0) > 0:
+                    zs.append(abs(v - (st["mean"] + f["factor"])) / st["sd"])
+            if zs:
+                scored.append((vb.sample_mean(zs), sname))
+        if scored:
+            scored.sort()
+            lines.append("cross-situation fit: " + " < ".join("%s (mean |z| %.2f)" % (s, mz)
+                                                              for mz, s in scored))
+        window = (battery or {}).get("window_words")
+        if window and len(acc["tokens"]) >= window:
+            toks = acc["tokens"]
+            ttrs = [len(set(toks[i:i + window])) / float(window)
+                    for i in range(0, len(toks) - window + 1, window)]
+            if ttrs:
+                lines.append("windowed stability: type-token ratio %.2f to %.2f across %d windows "
+                             "of %d words" % (min(ttrs), max(ttrs), len(ttrs), window))
     lines.append("overall: %s" % overall_text)
 
     readings_total = sum(1 for mid in vb.ALL_IDS if vals[mid] is not None)
@@ -531,6 +613,8 @@ def main(argv=None):
     parser.add_argument("--profile", default=None, help="learned/profile.json path (default: the plugin learned dir)")
     parser.add_argument("--samples", default=None,
                         help="sample dir or .md/.txt file; adds the pooled character 3-gram rows for L11-8")
+    parser.add_argument("--situation", default=None,
+                        help="apply the learned layer-2 factors of this situation to the band step")
     args = parser.parse_args(argv)
     if args.candidate == "-":
         candidate_text = sys.stdin.read()
@@ -546,7 +630,9 @@ def main(argv=None):
     profile, profile_note = load_profile(args.profile or learned_profile_path())
     profile_path = args.profile or learned_profile_path()
     sample_files = load_samples(args.samples) if args.samples else None
-    text, report = build_report(candidate_text, profile, profile_note, sample_files, profile_path)
+    setup, bands = load_state()
+    text, report = build_report(candidate_text, profile, profile_note, sample_files, profile_path,
+                                setup=setup, bands=bands, situation=args.situation)
     if as_json:
         print(json.dumps(report, indent=2))
     else:

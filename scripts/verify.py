@@ -160,7 +160,7 @@ for p in data["plugins"]:
     ck(mj.get("name") == p["name"], f"manifest name matches for {p['name']}")
     ck(mj.get("version") == p.get("version"), f"version parity {p['name']} (manifest vs marketplace)")
     if p["name"] == "humanizer-voice":
-        ck(mj.get("version") == "1.2.0", f"humanizer-voice is at 1.2.0 (stylometry advisory shipped): got {mj.get('version')}")
+        ck(mj.get("version") == "1.3.0", f"humanizer-voice is at 1.3.0 (setup program shipped): got {mj.get('version')}")
     d = mj.get("description", "")
     ck(len(d) <= 256, f"description <=256 chars for {p['name']} ({len(d)})")
     ck("'" in d and "use when the user says" in d.lower(), f"description carries human trigger phrases for {p['name']}")
@@ -216,7 +216,7 @@ for p in data["plugins"]:
             # learn tools importable (same importlib pattern as the voice-tells check above)
             for tool_name in ("build_voice_profile", "distill_phrases", "calibrate", "voice_vector_build",
                               "train_voice_classifier", "edit_learning", "acceptance_check", "voice_fit",
-                              "voice_battery_report"):
+                              "voice_battery_report", "voice_setup"):
                 try:
                     tspec = importlib.util.spec_from_file_location(
                         f"humanizer_learn_{tool_name}", learn_dir / f"{tool_name}.py")
@@ -781,6 +781,13 @@ if voice_fix.is_dir():
                f"voice_battery contract suite (79-row spec / list sizes / tokenizer sync / goldens / "
                f"profile battery section / gate fast core / report shape / stdlib-only): "
                f"{tail_cb[-1] if tail_cb else r_cb.returncode}")
+            r_cs = subprocess.run([sys.executable, "-I", str(ROOT / "humanizer" / "tests" / "test_voice_setup.py")],
+                                  capture_output=True, text=True, env=env_base)
+            tail_cs = (r_cs.stdout or r_cs.stderr or "").strip().splitlines()
+            ck(r_cs.returncode == 0,
+               f"voice_setup contract suite (level picker goldens / per-situation bands / two-layer "
+               f"factor shrinkage / CLI exit codes / state files user-local / stdlib-only): "
+               f"{tail_cs[-1] if tail_cs else r_cs.returncode}")
         finally:
             for k, v in saved_env.items():
                 if v is None:
