@@ -1,7 +1,7 @@
 ---
 name: humanizer-voice
 description: "Applies the user's learned voice profile to public-facing copy via the /voice command, with a quiet tell gate. Use when the user says: '/voice polish this post', 'make this sound like me', 'humanize this before it ships', 'learn my voice from these samples'."
-version: 1.0.0
+version: 1.4.0
 author: Michael Oliver (moliver28)
 license: MIT
 ---
@@ -25,6 +25,14 @@ where `<target>` is the text, file, or draft slot to process. Behavior:
 - Rewrite the target in that profile's register and structure within the source boundary (generation pass; the one model stage).
 - Run the delivery gate: `python3 $CLAUDE_PLUGIN_ROOT/hooks/gate.py --surface public` (stdin = the generated text). When the source text exists as a file or saved draft, add `--source <original file>`: the gate then reports source fidelity (source-context-only rule, mechanical; costs zero tokens; the source embedding is disk-cached so a repeated run on the same draft does not re-embed it).
 - Return final copy plus a one-line gate status: `voice: pass` / `voice: pass (fidelity 0.91)` (when `--source` produced a fidelity number from the gate JSON) / `voice: 2 fixes applied` / `voice: 2 fixes applied (voice-fit 0.72)` (when the gate JSON carried voice_fit). One line, the numbers come straight from the gate's JSON, never narrate the pattern list.
+
+## Voice-correction authority (2026-11-22)
+
+The Hermes humanizer skill (35 patterns plus the pattern-35 aphorism budget) is the master source for what counts as an AI tell. The `hooks/voice_tells.py` pattern list is the mechanical mirror of that authority: every regexable humanizer family is implemented there, tagged `humanizer N` (families 11 synonym cycling and 35 aphorism density are not regexable; they stay in the skill, executed during the `/voice` rewrite pass). Pattern families not in a numbered humanizer pattern (the Michael-voice hard bans: em dash, corporate speak, "It's not X. It's Y.", throat-clearing) are also in the pattern list. When a new tell is added to the humanizer skill, add a matching regex here in the same pass, or a comment noting the family is skill-side only.
+
+Standing voice rules and anti-patterns adapt at scan time through the env-configured rules layer: point `DANEEL_RULES_YAML` at a named-regex YAML (schema: `pattern`, `severity`, optional `fix`, `message`, `allowlist`, same as the daneel style rules file) and every rule there rides on every gate scan. Compile semantics mirror the daneel lint engine's `make_flexible`, so one YAML drives both systems. Unset keeps the de-personalized default; the layer is purely additive and fail-open.
+
+Profiles: `--surface public|chat` picks the tell set; `--profile resume` applies the humanizer skill's ATS condition profile (labeled section lines and Title Case headings exempt; all other prose rules in force). Default: `public`, full scan, no exemptions.
 
 ## Surface contract
 
