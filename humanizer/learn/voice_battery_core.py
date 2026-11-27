@@ -8,11 +8,7 @@ core needs, so a cold import stays near the 3 ms bar:
 
 - the shared tokenizer constants (byte-identical to build_voice_profile.py,
   which stays the single source of truth; a sync pin lives in
-<<<<<<< HEAD
   tests/humanizer/test_voice_battery.py),
-=======
-  humanizer/tests/test_voice_battery.py),
->>>>>>> origin/develop
 - the marker words of L10-1 (Reinhart et al. 2024, Table 1; "tapestry" stays
   out: the pattern register already bans it, and two families must not name
   the same word in one repair contract),
