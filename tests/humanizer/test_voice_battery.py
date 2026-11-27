@@ -8,8 +8,10 @@ Exit 0 = every contract gate green.
 
 The contract this file pins:
 
-1. Spec: the 79 Tier A rows (the 74 rows of the measures map section 3a plus the
-   5 rows of the re-tier pass delta1), with
+1. Spec: the 79 per-text Tier A rows (the 74 rows of the measures map section
+   3a plus the 5 rows of the re-tier pass delta1); the battery totals 82 rows
+   with the 3 corpus-level report rows (L11-12 MMD two-sample, L10-16 and
+   L10-17 variability), with
    the per-level counts, and every row carries a unit, a minimum rule, and
    a count-floor rule; the renderer carries an edit reading for every row.
 2. Closed-list sizes (deterministic; the payload contract of decision D1b):
@@ -234,6 +236,51 @@ ck([len(part) for part in segs] == [5, 5],
 fv = vb.mmd_feature_vector({"L1-8": 1.5, "L2-4": None})
 ck(len(fv) == len(vb.MMD_FEATURE_ROWS) == 24 and fv[0] == 1.5 and fv[2] == 0.0,
    "mmd: the feature vector is the fixed 24-row battery vector; None reads 0.0")
+
+# 4e. Variability row goldens (P84 section 6.2 and P86; delta4; rows
+# L10-16 / L10-17; report path only, never the gate) ---------------------------
+import random as _random
+_rng = _random.Random(5)
+VAR_ROWS = [[round(_rng.uniform(0.0, 5.0 + (2.0 if i < 20 else 6.0)), 4) for _ in range(20)]
+            for i in range(40)]
+_var_mean = [vb.sample_mean([r[w] for r in VAR_ROWS]) for w in range(20)]
+_var_sd = [vb.sample_sd([r[w] for r in VAR_ROWS]) for w in range(20)]
+VAR_Z = [[(r[w] - _var_mean[w]) / _var_sd[w] if _var_sd[w] > 0 else 0.0 for w in range(20)]
+         for r in VAR_ROWS]
+VAR_CAND = [[round(_rng.uniform(2.0, 2.4), 4) + 0.001 * w for w in range(20)] for _i in range(10)]
+VAR_CAND_Z = [[(r[w] - _var_mean[w]) / _var_sd[w] if _var_sd[w] > 0 else 0.0 for w in range(20)]
+              for r in VAR_CAND]
+v_ref = vb.var_v(VAR_Z)
+ck(abs(v_ref - 20.0) < 1.0e-9,
+   "var: V of the z-scored reference pool pins at the feature count (20.0)", str(v_ref))
+null = vb.var_null(VAR_Z, VAR_ROWS)
+ck(null is not None and abs(null["v_lo"] - 0.753432) < 1.0e-6
+   and abs(null["v_hi"] - 1.216457) < 1.0e-6
+   and abs(null["sl_lo"] - 0.737244) < 1.0e-6 and abs(null["sl_hi"] - 1.302521) < 1.0e-6
+   and abs(null["ss_lo"] - 0.587201) < 1.0e-6 and abs(null["ss_hi"] - 1.633815) < 1.0e-6
+   and null["seed"] == vb.VAR_SEED == 20261127,
+   "var: the recorded-seed null pins the V1 CI bounds and the two V2 intervals",
+   str(null))
+sl_ref, ss_ref = vb.var_reduction(VAR_ROWS)
+ck(abs(sl_ref - 2.946987) < 1.0e-6 and abs(ss_ref - 2.619303) < 1.0e-6,
+   "var: the m_d and s_d reductions pin on the fixed matrix")
+r_v, r_sl, r_ss = vb.var_ratios(VAR_CAND_Z, VAR_CAND, round(v_ref, 6),
+                                round(sl_ref, 6), round(ss_ref, 6))
+ck(abs(r_v - 0.001978) < 1.0e-6 and abs(r_sl - 0.043302) < 1.0e-6
+   and abs(r_ss - 0.047107) < 1.0e-6,
+   "var: the two ratios pin for the compressed candidate pool (R_V, R_SL, R_SS)",
+   "%.6f %.6f %.6f" % (r_v, r_sl, r_ss))
+ck(vb.var_verdict(r_v, null["v_lo"], null["v_hi"]) == "below"
+   and vb.var_verdict(1.0, null["v_lo"], null["v_hi"]) == "inside"
+   and vb.var_verdict(2.0, null["v_lo"], null["v_hi"]) == "above",
+   "var: the verdict sits below / inside / against the stored interval, never a bare AI verdict")
+ck(len(vb.VAR_FEATURE_ROWS) == 18 and len(vb.var_feature_vector(
+    {"n": 100, "n_contra": 1, "lens": [5, 7]}, {"L1-1": 1.0})) == 20,
+   "var: the fixed 20-feature vector (18 catalog rows + contraction rate + sentence-length SD)")
+segs_rule = vb.variability_segments(
+    "Short one. Another short sentence. " * 30)
+ck(all(len(seg) >= 20 for seg in segs_rule) or not segs_rule,
+   "var: segments under 20 sentences are discarded")
 
 # 5. Battery goldens on a synthetic corpus -------------------------------------
 NOUNS = ("system engine report market pattern measure sample signal model document writer reader "

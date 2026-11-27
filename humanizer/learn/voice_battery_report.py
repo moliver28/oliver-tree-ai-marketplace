@@ -451,6 +451,44 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
         if mmd is None:
             mmd = {"too_small": True}
 
+    # variability rows L10-16 / L10-17 (delta4): the candidate pool's
+    # segments are z-scored with the stored reference means and SDs; the
+    # ratios are read against the stored build-time split intervals, with
+    # the P86 calibration bands printed as context, never as thresholds
+    var = None
+    var_obj = (battery or {}).get("variability") or {}
+    if (level is None or level >= 1) and var_obj.get("status") == "ok":
+        cand_segs = vb.variability_segments(candidate_text)
+        if len(cand_segs) < vb.VAR_MIN_CAND_SEGS:
+            var = {"status": "insufficient_data",
+                   "n_cand": len(cand_segs), "n_ref": int(var_obj.get("n_seg", 0) or 0)}
+        else:
+            feats, raws = [], []
+            for seg_sents in cand_segs:
+                a_seg = vb.scan(" ".join(seg_sents), phrases=False, tri=False)
+                v_seg = vb.values(a_seg, ref={}, window=None)
+                feats.append(vb.var_feature_vector(a_seg, v_seg))
+                raws.append(feats[-1])
+            ref_mean = var_obj.get("ref_mean") or []
+            ref_sd = var_obj.get("ref_sd") or []
+            if len(ref_mean) == 20 and len(ref_sd) == 20:
+                z_rows = [[(r[w] - ref_mean[w]) / ref_sd[w] if ref_sd[w] > 0 else 0.0
+                           for w in range(20)] for r in feats]
+                r_v, r_sl, r_ss = vb.var_ratios(z_rows, raws,
+                                                var_obj.get("v_ref"),
+                                                var_obj.get("sl_ratio_ref_sd"),
+                                                var_obj.get("intra_ref_sd_of_sd"))
+                var = {
+                    "status": "ok", "n_cand": len(cand_segs),
+                    "n_ref": int(var_obj.get("n_seg", 0) or 0),
+                    "r_v": r_v, "r_sl": r_sl, "r_ss": r_ss,
+                    "v_lo": var_obj.get("v_ci_lo"), "v_hi": var_obj.get("v_ci_hi"),
+                    "sl_lo": var_obj.get("sl_ci_lo"), "sl_hi": var_obj.get("sl_ci_hi"),
+                    "ss_lo": var_obj.get("ss_ci_lo"), "ss_hi": var_obj.get("ss_ci_hi"),
+                }
+    elif battery and var_obj.get("status") == "insufficient_reference":
+        var = {"status": "insufficient_reference"}
+
     quotes = acc["curly"] + acc["chars"]["straight"]
     suppressed = []
     if sample_files is None and battery:
@@ -580,6 +618,60 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
                                 mmd["resamples"], "beyond the CI" if mmd["beyond"] else "inside the CI"))
         report["levels"][lvl] = {"readings": readings, "counts": counts, "band": overall_levels[lvl],
                                  "rows": [{"id": r[0], "value": r[1], "state": r[2]} for r in rows]}
+        if lvl == "L10" and isinstance(var, dict):
+            if var.get("status") == "insufficient_reference":
+                lines.append("  n/a  L10-16 and L10-17 variability rows")
+                lines.append("    the reference pool is below the minimum (5 documents, 50 segments); "
+                             "rebuild the profile with more samples")
+            elif var.get("status") == "insufficient_data":
+                lines.append("  n/a  L10-16 and L10-17 variability rows")
+                lines.append("    insufficient_data: the candidate pool holds %d segments of 500 words; "
+                             "the rows read from 10 or more segments" % var.get("n_cand", 0))
+            else:
+                v_v, v_sl, v_ss = var.get("r_v"), var.get("r_sl"), var.get("r_ss")
+                vd_v = vb.var_verdict(v_v, var.get("v_lo"), var.get("v_hi"))
+                vd_sl = vb.var_verdict(v_sl, var.get("sl_lo"), var.get("sl_hi"))
+                vd_ss = vb.var_verdict(v_ss, var.get("ss_lo"), var.get("ss_hi"))
+                state_v = {"below": "outside", "above": "outside", "inside": "inside"}.get(vd_v, "unbanded")
+                lines.append("  %s  L10-16 inter-text feature-variability ratio  %.4f ratio"
+                             % (state_v, v_v if isinstance(v_v, float) else 0.0))
+                dir_v = {"below": "the candidate pool is more uniform across features than the "
+                                  "author's own segments",
+                         "above": "the candidate pool is more scattered than the author's own segments",
+                         "inside": "inside the author's own spread"}.get(vd_v, "no stored interval")
+                lines.append("    V(candidate) / V(reference) = %.4f against the stored split interval "
+                             "%.4f to %.4f (segments %d candidate, %d reference); %s; "
+                             "direction is register-dependent, never a verdict on its own "
+                             "[corpus-level reading]"
+                             % (v_v if isinstance(v_v, float) else 0.0,
+                                var.get("v_lo") or 0.0, var.get("v_hi") or 0.0,
+                                var.get("n_cand", 0), var.get("n_ref", 0), dir_v))
+                state_sl = {"below": "outside", "above": "outside", "inside": "inside"}.get(vd_sl, "unbanded")
+                lines.append("  %s  L10-17 sentence-length dispersion ratio R_SL  %.4f ratio"
+                             % (state_sl, v_sl if isinstance(v_sl, float) else 0.0))
+                ctx_sl = ("calibration context from novels: strong compression sits at or below 0.15, "
+                          "moderate 0.15 to 0.5, human-like spread above 0.5")
+                dir_sl = {"below": "the candidate's mean-sentence-length spread compresses against the "
+                                   "stored interval",
+                          "above": "the candidate's mean-sentence-length spread exceeds the stored interval",
+                          "inside": "inside the stored interval"}.get(vd_sl, "no stored interval")
+                lines.append("    R_SL = %.4f against the stored split interval %.4f to %.4f; %s; %s"
+                             % (v_sl if isinstance(v_sl, float) else 0.0,
+                                var.get("sl_lo") or 0.0, var.get("sl_hi") or 0.0, dir_sl, ctx_sl))
+                state_ss = {"below": "outside", "above": "outside", "inside": "inside"}.get(vd_ss, "unbanded")
+                lines.append("  %s  L10-17 sentence-length dispersion ratio R_SS  %.4f ratio"
+                             % (state_ss, v_ss if isinstance(v_ss, float) else 0.0))
+                ctx_ss = ("calibration context, never a threshold: measured machine corpora sit in the "
+                          "0.03 to 0.10 band; above about 0.3 approaches the human corpora's relative spread")
+                dir_ss = {"below": "the candidate's intra-document dispersion compresses against the "
+                                   "stored interval",
+                          "above": "the candidate's intra-document dispersion exceeds the stored interval",
+                          "inside": "inside the stored interval"}.get(vd_ss, "no stored interval")
+                lines.append("    R_SS = %.4f against the stored split interval %.4f to %.4f; %s; %s; "
+                             "cited alone for sentence-structure compression (never next to a "
+                             "readability ratio) [corpus-level reading]"
+                             % (v_ss if isinstance(v_ss, float) else 0.0,
+                                var.get("ss_lo") or 0.0, var.get("ss_hi") or 0.0, dir_ss, ctx_ss))
 
     outside_levels = [lv for lv in vb.LEVELS if overall_levels.get(lv) == "outside"]
     l11_band = overall_levels.get("L11")
@@ -645,7 +737,7 @@ def main(argv=None):
     argv = [a for a in argv if a != "--json"]
     parser = argparse.ArgumentParser(
         prog="voice_battery_report.py",
-        description="The on-demand gestalt report of the 79-measure battery: one band per level "
+        description="The on-demand gestalt report of the 82-measure battery: one band per level "
                     "plus the overall band, each row mapped to an edit class (advisory, never gates).")
     parser.add_argument("candidate", help="candidate file path, or '-' for stdin")
     parser.add_argument("--profile", default=None, help="learned/profile.json path (default: the plugin learned dir)")

@@ -68,7 +68,7 @@ Checks:
     contract suite tests/humanizer/test_voice_fit.py exits 0 (sitefactory
     parity fixture, gate no-op byte-pin, fail-open, spread rule,
     stdlib-only); the measurement battery contract suite
-    tests/humanizer/test_voice_battery.py exits 0 (79-row Tier A spec,
+    tests/humanizer/test_voice_battery.py exits 0 (79-row Tier A spec with 3 corpus rows, 82 total,
     closed-list size pins, tokenizer sync, goldens on the synthetic
     corpus, the profile battery section, the gate fast core, the report
     shape, stdlib-only); version parity at 1.2.0.

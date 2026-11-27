@@ -53,6 +53,7 @@ outside 0 to 3, budget not a number).
 """
 import argparse
 import importlib.util
+import shutil
 import json
 import math
 import os
@@ -88,6 +89,205 @@ WORD_RE = vb.WORD_RE
 
 def learned_dir():
     return Path(os.environ.get("VOICE_LEARNED_DIR", PLUGIN_DIR / "learned"))
+
+
+# ---- private reference store (owner message 5, 2026-11-26; owner-approved
+# implementation 2026-11-27) ----
+# The reference pool grows beyond one machine folder: the user may point it
+# at any private location they control (a mounted NAS share, another drive).
+# The pool keeps the document text beside a per-document JSON vector (every
+# battery row value + word count + situation tag + measure-set version);
+# bands and factors are DERIVED from the vectors, never stored per-source.
+# Nothing from a real pool enters the repo, the payload, CI, or a test.
+
+MEASURE_SET = vb.BATTERY_VERSION          # bumped when the battery row set grows
+
+
+def _setup_settings():
+    path = state_dir() / "setup.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        data = {}
+    return path, data if isinstance(data, dict) else {}
+
+
+def reference_dir():
+    """The store location, resolved in this order: the VOICE_REFERENCE_DIR
+    environment variable, then the settings file the setup command wrote
+    (setup.json's reference_dir), then the default VOICE_LEARNED_DIR."""
+    env = os.environ.get("VOICE_REFERENCE_DIR")
+    if env:
+        return Path(env)
+    _path, data = _setup_settings()
+    ref = data.get("reference_dir")
+    if ref:
+        return Path(ref)
+    return learned_dir()
+
+
+def pool_dir(ref_dir=None):
+    d = Path(ref_dir) if ref_dir else reference_dir()
+    d = d / "pool"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def pool_store(text, situation, row, ref_dir=None):
+    """Write one pool record: the plain text beside its vector (idempotent
+    by the sha256 of the text; a re-store refreshes the vector)."""
+    import hashlib
+    doc_id = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+    d = pool_dir(ref_dir)
+    (d / (doc_id + ".txt")).write_text(text, encoding="utf-8")
+    vector = {
+        "format_version": 1,
+        "measure_set": MEASURE_SET,
+        "situation": situation,
+        "words": len(WORD_RE.findall(text)),
+        "measures": row,
+    }
+    payload = json.dumps(vector, indent=2, sort_keys=True) + "\n"
+    (d / (doc_id + ".json")).write_text(payload, encoding="utf-8")
+    return doc_id
+
+
+def pool_read(ref_dir=None):
+    """All pool records, sorted by document id: [(text, vector)]."""
+    d = pool_dir(ref_dir)
+    out = []
+    for j in sorted(d.glob("*.json")):
+        t = j.with_suffix(".txt")
+        if not t.is_file():
+            continue
+        try:
+            vector = json.loads(j.read_text(encoding="utf-8"))
+            text = t.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+        if isinstance(vector, dict):
+            out.append((text, vector))
+    return out
+
+
+def pool_refresh(ref_dir=None):
+    """Battery-growth refresh: recompute any stored vector whose measure set
+    is stale or that lacks rows the current battery carries, from the stored
+    text. Returns (records_read, vectors_updated)."""
+    records = pool_read(ref_dir)
+    if not records:
+        return 0, 0
+    texts = [t for t, _v in records]
+    ref1, window = pool_context(texts)
+    updated = 0
+    for text, vector in records:
+        missing = [mid for mid in vb.ALL_IDS if mid not in (vector.get("measures") or {})]
+        stale = vector.get("measure_set") != MEASURE_SET
+        if not missing and not stale:
+            continue
+        acc = vb.scan(text, phrases=True, tri=False)
+        row = vb.values(acc, ref=ref1, window=window)
+        vector["measures"] = row
+        vector["measure_set"] = MEASURE_SET
+        vector["words"] = acc["n"]
+        import hashlib
+        doc_id = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+        payload = json.dumps(vector, indent=2, sort_keys=True) + "\n"
+        (pool_dir(ref_dir) / (doc_id + ".json")).write_text(payload, encoding="utf-8")
+        updated += 1
+    return len(records), updated
+
+
+def bands_from_pool(ref_dir=None):
+    """Derive the pooled bands and the per-situation factors from the stored
+    vectors (the vectors, not the bands, are the stored record)."""
+    records = pool_read(ref_dir)
+    if not records:
+        return None, ["the reference pool is empty (ingest samples with /voice-setup)"]
+    vectors = [v for _t, v in records]
+    labels = [v.get("situation") or "pooled" for v in vectors]
+
+    def band_of(indices):
+        out = {}
+        for mid in vb.ALL_IDS:
+            col = [vectors[i]["measures"][mid] for i in indices
+                   if isinstance(vectors[i].get("measures", {}).get(mid), (int, float))]
+            if col:
+                out[mid] = {"mean": round(vb.sample_mean(col), 6),
+                            "sd": round(vb.sample_sd(col), 6),
+                            "min": round(min(col), 6), "max": round(max(col), 6),
+                            "k": len(col)}
+        return out
+
+    pooled_bands = band_of(list(range(len(vectors))))
+    situations = {}
+    for sit in sorted(set(labels)):
+        idx = [i for i, lab in enumerate(labels) if lab == sit]
+        entry = {"docs": len(idx), "bands": band_of(idx), "factors": {}}
+        if len(idx) >= 3:
+            for mid in FACTOR_ROWS:
+                pb, sb = pooled_bands.get(mid), entry["bands"].get(mid)
+                if pb and sb and sb["k"] >= 2:
+                    f = situation_factor(sb["mean"], pb["mean"], sb["k"])
+                    entry["factors"][mid] = {"factor": round(f, 6), "k": sb["k"]}
+        else:
+            entry["fallback"] = "pooled band applies (fewer than 3 documents)"
+            entry["doc_words"] = [int(v.get("words", 0)) for v in
+                                  [vectors[i] for i in idx]]
+        situations[sit] = entry
+    short = [s for s, e in situations.items() if e.get("fallback")]
+    bands = {
+        "format_version": 1,
+        "docs": len(vectors),
+        "window_words": 500,
+        "pooled": pooled_bands,
+        "situations": situations,
+        "measure_set": MEASURE_SET,
+        "layer_note": "layer 1 pooled bands carry no per-document source identity; "
+                      "bands derive from the stored pool vectors (measure set %s)" % MEASURE_SET,
+    }
+    notes = ["situations below the factor floor: %s" % ", ".join(short)] if short else []
+    return bands, notes
+
+
+def pool_context(texts):
+    """The shared reference context for vector recomputation: one values()
+    ref built over the whole pool (the same preamble learn_bands uses)."""
+    accs = [vb.scan(t, phrases=True, tri=False) for t in texts]
+    docs_fw = [vb.fw_counts(a) for a in accs]
+    pooled = vb.pooled_counts(docs_fw)
+    fw_pooled = dict(zip(vb.FUNCTION_WORDS, pooled))
+    window = int(round(vb.median([float(a["n"]) for a in accs])))
+    rate_rows = []
+    for a in accs:
+        n = a["n"]
+        rate_rows.append([a["fwc"].get(w, 0) * 1000.0 / n if n else 0.0 for w in vb.FUNCTION_WORDS])
+    fw_mean = [vb.sample_mean([r[w] for r in rate_rows]) for w in range(len(vb.FUNCTION_WORDS))]
+    fw_sd = [vb.sample_sd([r[w] for r in rate_rows]) for w in range(len(vb.FUNCTION_WORDS))]
+    ref0 = vb.ref_block(dict(zip(vb.FUNCTION_WORDS, fw_mean)),
+                        dict(zip(vb.FUNCTION_WORDS, fw_sd)), fw_pooled, None, None, len(accs))
+    rows0 = [vb.values(a, ref=ref0, window=window) for a in accs]
+    col71 = [r["L7-1"] for r in rows0]
+    col72 = [r["L7-2"] for r in rows0]
+    register = {"L7-1": (vb.sample_mean(col71), vb.sample_sd(col71)),
+                "L7-2": (vb.sample_mean(col72), vb.sample_sd(col72))}
+    ref1 = vb.ref_block(dict(zip(vb.FUNCTION_WORDS, fw_mean)),
+                        dict(zip(vb.FUNCTION_WORDS, fw_sd)), fw_pooled, register, None, len(accs))
+    ref1["docs_rates"] = rate_rows
+    return ref1, window
+
+
+def store_status(ref_dir=None):
+    """One plain-words status dict for the report: where the store lives,
+    how many documents it holds, the measure-set version, and the measured
+    free bytes of the store's drive."""
+    d = reference_dir() if ref_dir is None else Path(ref_dir)
+    docs = len(pool_read(d))
+    try:
+        free = shutil.disk_usage(d).free
+    except Exception:
+        free = None
+    return {"path": str(d), "docs": docs, "measure_set": MEASURE_SET, "free_bytes": free}
 
 
 def state_dir():
@@ -355,8 +555,24 @@ def learn_bands(root):
                         fw_pooled, register, None, k)
     ref1["docs_rates"] = rate_rows
     rows = [vb.values(a, ref=ref1, window=window) for a in accs]
+    # the pool is the stored record: ingest every sample document as text
+    # beside its vector; the bands below derive from the vectors
+    for text, label, row in zip(texts, labels, rows):
+        pool_store(text, label, row)
+    vectors = [{"measures": row, "situation": label,
+                "words": accs[i]["n"]} for i, (label, row) in enumerate(zip(labels, rows))]
 
     def band_of(indices):
+        out = {}
+        for mid in vb.ALL_IDS:
+            col = [vectors[i]["measures"][mid] for i in indices
+                   if isinstance(vectors[i]["measures"].get(mid), (int, float))]
+            if col:
+                out[mid] = {"mean": round(vb.sample_mean(col), 6),
+                            "sd": round(vb.sample_sd(col), 6),
+                            "min": round(min(col), 6), "max": round(max(col), 6),
+                            "k": len(col)}
+        return out
         out = {}
         for mid in vb.ALL_IDS:
             col = [rows[i][mid] for i in indices if rows[i][mid] is not None]
@@ -372,7 +588,7 @@ def learn_bands(root):
     situations = {}
     for sit, files in by_sit.items():
         idx = [i for i, lab in enumerate(labels) if lab == sit]
-        words = [accs[i]["n"] for i in idx]
+        words = [vectors[i]["words"] for i in idx]
         short = [w for w in words if w < 500]
         entry = {"docs": len(idx), "bands": band_of(idx), "doc_words": [int(w) for w in words]}
         entry["factors"] = {}
@@ -394,7 +610,9 @@ def learn_bands(root):
         "window_words": window,
         "pooled": pooled_bands,
         "situations": situations,
+        "measure_set": MEASURE_SET,
         "layer_note": "layer 1 pooled bands carry no per-document source identity; "
+                      "bands derive from the stored pool vectors; "
                       "layer 2 factors shrink toward 0 by k / (k + %d)" % N0,
     }
     return bands, notes
@@ -402,9 +620,14 @@ def learn_bands(root):
 
 # ---- step 4: the plain-words report ----
 
-def plain_report(bench, level, costs, budget, bands, notes, remeasured):
+def plain_report(bench, level, costs, budget, bands, notes, remeasured, store=None):
     lines = []
     lines.append("voice setup: the machine, the level, and the situations")
+    if store:
+        free = store.get("free_bytes")
+        lines.append("reference store: %s (%d documents, measure set %s%s)"
+                     % (store["path"], store["docs"], store["measure_set"],
+                        ", %.1f GB free on the store drive" % (free / 1.0e9) if free is not None else ""))
     lines.append("machine: interpreter spawn %.1f ms, gate command at 2,000 words %.1f ms, "
                  "battery %.1f / %.1f / %.1f ms at 500 / 2,000 / 5,000 words%s"
                  % (bench["interpreter_spawn_ms"], bench["gate_command_ms_2000w"],
@@ -458,6 +681,10 @@ def main(argv=None):
     parser.add_argument("--level", type=int, default=None, help="force a level (0 to 3)")
     parser.add_argument("--budget", type=int, default=DEFAULT_BUDGET,
                         help="report-path delay budget in ms (choices 100 / 300 / 500 / 1000; default 1000)")
+    parser.add_argument("--reference-dir", default=None,
+                        help="move the private reference store to this directory (any private "
+                             "location the user controls, for example a mounted NAS share); "
+                             "recorded in setup.json and reused after")
     args = parser.parse_args(argv)
     if args.level is not None and args.level not in (0, 1, 2, 3):
         print("usage: --level must be 0, 1, 2, or 3", file=sys.stderr)
@@ -466,6 +693,15 @@ def main(argv=None):
         print("usage: --budget must be one of %s" % ", ".join(str(b) for b in LEVEL_BUDGETS),
               file=sys.stderr)
         return 2
+    if args.reference_dir:
+        _settings_path, _settings = _setup_settings()
+        settings = dict(_settings)
+        settings["reference_dir"] = str(Path(args.reference_dir).expanduser())
+        (state_dir() / "setup.json").write_text(
+            json.dumps(settings, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    refreshed = None
+    if args.remeasure:
+        refreshed = pool_refresh()
     bench, remeasured = bench_machine(remeasure=args.remeasure)
     if args.level is not None:
         level = args.level
@@ -483,16 +719,28 @@ def main(argv=None):
         if bands is None:
             print("usage: %s" % notes[0], file=sys.stderr)
             return 2
+    elif refreshed is not None:
+        # the pool is the stored record: --remeasure rebuilds the bands and
+        # factors from the refreshed vectors even with no fresh samples
+        bands, pool_notes = bands_from_pool()
+        notes.extend(pool_notes)
+    if bands:
         (state_dir() / "voice-bands.json").write_text(
             json.dumps(bands, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if refreshed is not None:
+        notes.append("pool refresh: %d vectors held, %d recomputed from stored text "
+                     "(measure set %s)" % (refreshed[0], refreshed[1], MEASURE_SET))
+    store = store_status()
     setup = {"format_version": "1.0", "level": level, "budget_ms": args.budget,
              "costs_ms": {str(k2): round(v, 2) for k2, v in sorted(costs.items())},
-             "situations_learned": sorted((bands or {}).get("situations") or {})}
+             "situations_learned": sorted((bands or {}).get("situations") or {}),
+             "measure_set": MEASURE_SET,
+             "reference_dir": str(reference_dir())}
     (state_dir() / "setup.json").write_text(
         json.dumps(setup, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     if note:
         notes.append(note)
-    sys.stdout.write(plain_report(bench, level, costs, args.budget, bands, notes, remeasured))
+    sys.stdout.write(plain_report(bench, level, costs, args.budget, bands, notes, remeasured, store))
     return 0
 
 

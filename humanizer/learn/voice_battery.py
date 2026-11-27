@@ -793,6 +793,164 @@ def mmd_two_sample(cand_rows, ref_rows, resamples=MMD_RESAMPLES, seed=MMD_SEED,
     }
 
 
+# ---- variability rows L10-16 and L10-17 (P84 section 6.2 and P86, both read
+# in full; delta4; owner-approved 2026-11-27; report path only, never the
+# gate; R0; the two rows stay separate, never fused) ----
+
+VAR_SEGMENT_WORDS = 500      # soft limit: include the sentence that crosses it
+VAR_MIN_SENTENCES = 20       # a segment with fewer sentences is discarded
+VAR_MIN_REF_DOCS = 5         # minimum reference documents (delta4 minimum pool)
+VAR_MIN_REF_SEGS = 50        # minimum reference pseudo-documents
+VAR_MIN_CAND_SEGS = 10       # minimum candidate pseudo-documents
+VAR_SPLITS = 200             # B size-matched split nulls (owned convention)
+VAR_SEED = 20261127          # recorded seed so the CI is reproducible
+BATTERY_VERSION = "1.3.0"    # the measure-set version stamped into pool vectors
+
+VAR_FEATURE_ROWS = (
+    "L1-1", "L1-2", "L1-3", "L1-4", "L1-5", "L1-6", "L1-7", "L1-8", "L1-9",
+    "L2-1", "L2-5", "L2-6",
+    "L3-1",
+    "L4-1",
+    "L5-1", "L5-2", "L5-3", "L5-4",
+)
+# the two features outside the catalog rows: contraction rate (delta4 names
+# it in L3; the map row L9-9 stays 3b) and the within-document sentence-length
+# SD. Fixed 20-feature order; never add features without re-checking the
+# coupling list of P86 table 6.
+
+
+def variability_segments(text):
+    """Sentence-aligned pseudo-documents (delta4 shared machinery): split at
+    sentence boundaries into chunks of at least 500 words (the sentence that
+    crosses the mark joins the chunk); the last partial chunk is discarded;
+    a chunk with fewer than 20 sentences is discarded."""
+    sents, _heads, _items, _pw, _pu, _np = _structure(text)
+    segs, cur, cur_words = [], [], 0
+    for raw in sents:
+        w = len(WORD_RE.findall(raw))
+        cur.append(raw)
+        cur_words += w
+        if cur_words >= VAR_SEGMENT_WORDS:
+            segs.append(cur)
+            cur, cur_words = [], 0
+    if cur and cur_words >= VAR_SEGMENT_WORDS:
+        segs.append(cur)
+    return [seg for seg in segs
+            if len(seg) >= VAR_MIN_SENTENCES]
+
+
+def var_feature_vector(acc, vals):
+    """The fixed 20-feature vector of one pseudo-document (delta4: nine L1
+    rows, TTR, MATTR, word length, nominalization, contraction rate, mean
+    sentence length, the within-document sentence-length SD, and the four
+    connective-class rates). A row that reads None contributes 0.0 (fixed
+    rule). Deterministic; never extend without re-checking the coupling
+    list."""
+    lens = acc["lens"]
+    sl_sd = (math.sqrt(sum((x - sample_mean(lens)) ** 2 for x in lens) / len(lens))
+             if lens else 0.0)
+
+    def val(mid):
+        v = vals.get(mid)
+        return float(v) if v is not None else 0.0
+    return [
+        val("L1-1"), val("L1-2"), val("L1-3"), val("L1-4"), val("L1-5"),
+        val("L1-6"), val("L1-7"), val("L1-8"), val("L1-9"),
+        val("L2-1"), val("L2-5"), val("L2-6"),
+        val("L3-1"),
+        _per(acc["n_contra"], acc["n"], 1000.0),
+        val("L4-1"),
+        sl_sd,
+        val("L5-1"), val("L5-2"), val("L5-3"), val("L5-4"),
+    ]
+
+
+def var_v(z_rows):
+    """V(pool): the sum over the features of the variance of the z-scores
+    across the pool's pseudo-documents (divide by n - 1; delta4 V1)."""
+    if len(z_rows) < 2:
+        return None
+    n_w = len(z_rows[0])
+    return sum(sample_sd([r[w] for r in z_rows]) ** 2 for w in range(n_w))
+
+
+def var_reduction(seg_rows):
+    """The per-pool reductions of V2: (sd of the mean sentence lengths,
+    sd of the intra-document sentence-length SDs) over the pool. Rows here
+    are the raw 20-feature vectors (index 14 = m_d, index 15 = s_d)."""
+    m_list = [r[14] for r in seg_rows]
+    s_list = [r[15] for r in seg_rows]
+    return sample_sd(m_list), sample_sd(s_list)
+
+
+def var_ratios(cand_z_rows, cand_rows, v_ref, sl_ref_sd, ss_ref_sd):
+    """The two reported ratios: R_V = V(candidate z-rows) / v_ref (the
+    candidate is z-scored by the stored reference means and SDs);
+    R_SL = the candidate SD of {m_d} over the reference SD; R_SS likewise
+    for {s_d}."""
+    v_cand = var_v(cand_z_rows)
+    m_sd, s_sd = var_reduction(cand_rows)
+    r_v = v_cand / v_ref if v_ref and v_cand is not None else None
+    r_sl = m_sd / sl_ref_sd if sl_ref_sd else None
+    r_ss = s_sd / ss_ref_sd if ss_ref_sd else None
+    return r_v, r_sl, r_ss
+
+
+def var_null(ref_z_rows, ref_rows, splits=VAR_SPLITS, seed=VAR_SEED):
+    """The B size-matched split null (delta4): seeded draws of two disjoint
+    equal halves of the reference pseudo-documents; each draw yields the
+    ratio V(half1) / V(half2) and the two half-size SD ratios. Returns the
+    2.5th and 97.5th percentiles of each. Pure."""
+    import random
+    n = len(ref_z_rows)
+    if n < 4:
+        return None
+    idx = list(range(n))
+    rng = random.Random(seed)
+    vs, sls, sss = [], [], []
+    for _ in range(splits):
+        rng.shuffle(idx)
+        half = n // 2
+        a, b = idx[:half], idx[half:2 * half]
+        va, vb = var_v([ref_z_rows[i] for i in a]), var_v([ref_z_rows[i] for i in b])
+        if va and vb and vb > 0:
+            vs.append(va / vb)
+        ma, sa = var_reduction([ref_rows[i] for i in a])
+        mb, sb = var_reduction([ref_rows[i] for i in b])
+        if mb > 0 and sb > 0:
+            sls.append(ma / mb)
+            sss.append(sa / sb)
+    if not vs:
+        return None
+    lo_i = max(0, math.ceil(0.025 * len(vs)) - 1)
+    hi_i = min(len(vs) - 1, math.ceil(0.975 * len(vs)) - 1)
+
+    def pct(xs, i):
+        return sorted(xs)[min(len(xs) - 1, max(0, i))]
+    out = {"seed": seed, "splits": len(vs),
+           "v_lo": pct(vs, lo_i), "v_hi": pct(vs, hi_i),
+           "v_mean": sample_mean(vs)}
+    if sls:
+        out["sl_lo"] = pct(sls, min(len(sls) - 1, lo_i))
+        out["sl_hi"] = pct(sls, min(len(sls) - 1, hi_i))
+    if sss:
+        out["ss_lo"] = pct(sss, min(len(sss) - 1, lo_i))
+        out["ss_hi"] = pct(sss, min(len(sss) - 1, hi_i))
+    return out
+
+
+def var_verdict(value, lo, hi):
+    """Band of one ratio against the stored interval: below (more uniform
+    than the author's own spread), above (more scattered), inside."""
+    if value is None or lo is None or hi is None:
+        return None
+    if value < lo:
+        return "below"
+    if value > hi:
+        return "above"
+    return "inside"
+
+
 def _structure(text):
     """Paragraphs, sentences, headings, list items; split one time. Heading
     lines and list items do not produce sentences (they count in L1-12)."""
@@ -831,6 +989,7 @@ def scan(text, phrases=True, tri=False):
     fwc = {}
     lens = []
     n_pass = n_lower = n_you = n_marked = n_direct = n_please_medial = 0
+    n_contra = 0
     ov_sum, ov_n = 0.0, 0
     prev_content = None
     for raw in sents:
@@ -871,6 +1030,8 @@ def scan(text, phrases=True, tri=False):
             cnt[C_LONG] += 1
         if w[0].isdigit():
             cnt[C_DIGIT] += 1
+        if w.endswith(("n't", "'re", "'ve", "'ll", "'d", "'m")):
+            n_contra += 1
     chars = {}
     for mark in ("\u2014", "\u2013", "--", "?", "!", ";", ":", "(", ",", "...", "\u2026", "**", "`"):
         chars[mark] = text.count(mark)
@@ -899,6 +1060,7 @@ def scan(text, phrases=True, tri=False):
         "lens": lens, "heads": heads, "items": items,
         "para_words": para_words, "para_units": para_units,
         "snt": (n_pass, n_lower, n_you, n_marked, n_direct, n_please_medial, ov_sum, ov_n),
+        "n_contra": n_contra,
         "chars": chars, "curly": curly, "fmt": fmt, "emoji": emoji,
         "phrases": ph, "tri": tri_row,
     }

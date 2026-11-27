@@ -181,6 +181,74 @@ with tempfile.TemporaryDirectory() as td:
        "renderer: setup level 0 turns the report bands off with the defined note")
     setup_path.unlink()
 
+# reference store goldens (owner message 5; owner-approved 2026-11-27) ----------
+with tempfile.TemporaryDirectory() as td:
+    tdp = pathlib.Path(td)
+    saved_env = os.environ.pop("VOICE_REFERENCE_DIR", None)
+    saved_learned = os.environ.get("VOICE_LEARNED_DIR")
+    try:
+        # resolution order: env, then the settings file, then VOICE_LEARNED_DIR
+        os.environ["VOICE_LEARNED_DIR"] = str(tdp / "learned")
+        (tdp / "learned" / "state").mkdir(parents=True)
+        os.environ["VOICE_REFERENCE_DIR"] = str(tdp / "ref-env")
+        ck(str(vs.reference_dir()) == str(tdp / "ref-env"),
+           "store: the VOICE_REFERENCE_DIR environment variable wins")
+        del os.environ["VOICE_REFERENCE_DIR"]
+        (tdp / "learned" / "state" / "setup.json").write_text(
+            json.dumps({"reference_dir": str(tdp / "ref-settings")}), encoding="utf-8")
+        ck(str(vs.reference_dir()) == str(tdp / "ref-settings"),
+           "store: the settings file wins when the environment is unset")
+        os.remove(tdp / "learned" / "state" / "setup.json")
+        ck(str(vs.reference_dir()) == str(tdp / "learned"),
+           "store: with neither source the default is the learned dir")
+
+        # pool write/read round-trip (idempotent by text hash)
+        text = vs.fixture(520, seed=4242)
+        row = {"L4-1": 10.5, "L2-4": 18.0}
+        vs.pool_store(text, "blog", row)
+        vs.pool_store(text, "blog", row)          # same text: one record
+        records = vs.pool_read()
+        ck(len(records) == 1 and records[0][0] == text
+           and records[0][1]["measures"]["L4-1"] == 10.5
+           and records[0][1]["situation"] == "blog"
+           and records[0][1]["measure_set"] == vs.MEASURE_SET,
+           "store: the pool round-trips text, vector, situation, and measure set",
+           str(len(records)))
+
+        # battery-growth refresh: a vector missing a row gains it back
+        doc_id = sorted(p.stem for p in (tdp / "ref-settings" / "pool").glob("*.json")
+                        if False)  # noqa: F841 (path below is authoritative)
+        pool_dir = vs.pool_dir()
+        vec_path = next(pool_dir.glob("*.json"))
+        stale = json.loads(vec_path.read_text(encoding="utf-8"))
+        del stale["measures"]["L4-1"]
+        stale["measure_set"] = "0.0.0"
+        vec_path.write_text(json.dumps(stale), encoding="utf-8")
+        held, updated = vs.pool_refresh()
+        fresh = json.loads(vec_path.read_text(encoding="utf-8"))
+        ck(held == 1 and updated == 1 and "L4-1" in fresh["measures"]
+           and fresh["measure_set"] == vs.MEASURE_SET,
+           "store: --remeasure refresh recomputes the rows a stale vector lacks, from the stored text",
+           "%d held, %d updated" % (held, updated))
+
+        # bands derive from the pool vectors
+        for i in range(3):
+            vs.pool_store(vs.fixture(520, seed=9000 + i), "linkedin",
+                          {"L4-1": 11.0 + i, "L9-4": 2.0})
+        bands_pool, pnotes = vs.bands_from_pool()
+        ck(bands_pool is not None and bands_pool["docs"] == 4
+           and "linkedin" in bands_pool["situations"]
+           and bands_pool["situations"]["blog"]["factors"] == {},
+           "store: bands derive from the stored vectors, keyed by situation",
+           str(bands_pool and bands_pool["docs"]))
+    finally:
+        if saved_env is not None:
+            os.environ["VOICE_REFERENCE_DIR"] = saved_env
+        else:
+            os.environ.pop("VOICE_REFERENCE_DIR", None)
+        if saved_learned is not None:
+            os.environ["VOICE_LEARNED_DIR"] = saved_learned
+
 # interpreter probe (owner question 2026-11-27: what can be done about the
 # +42 ms spawn floor; the floor belongs to the interpreter build) ---------------
 cands = vs.interpreter_candidates()
@@ -211,7 +279,7 @@ for node in ast.walk(tree):
         imported.update(a.name.split(".")[0] for a in node.names)
     elif isinstance(node, ast.ImportFrom) and node.module:
         imported.add(node.module.split(".")[0])
-ck(imported <= {"argparse", "importlib", "json", "math", "os", "random", "shutil",
+ck(imported <= {"argparse", "hashlib", "importlib", "json", "math", "os", "random", "shutil",
                 "statistics", "subprocess", "sys", "time", "pathlib"},
    "stdlib-only: voice_setup imports stay in the pinned set", str(sorted(imported)))
 
