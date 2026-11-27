@@ -41,12 +41,13 @@ Public API:
     find_vector_hits(text) -> list[str]
     voice_fit(text) -> float | None
     vector_scores(text) -> {"tell_hits": [...], "voice_fit": float | None}
-    vector_pass(text) -> full single-pass dict (tell hits + voice_fit + doc vector)
+    vector_pass(text) -> full single-pass dict (tell hits + voice_fit + doc vector + chunk vectors)
+    cycling_signals(vp, sets) -> chunk-pair paraphrase divergence (family 11, advisory)
     embed_cached(text, backend=None) -> (vector, backend)  # per-process memo
     embed_source_cached(text, backend) -> vector | None    # disk-cached source embed
     learned_dir() -> Path
     state_path() -> Path
-    effective_rules() -> dict (patterns/exemplars/thresholds + provenance)
+    effective_rules() -> dict (patterns/exemplars/thresholds/bands + provenance)
 """
 import hashlib
 import http.client
@@ -225,6 +226,16 @@ PATTERNS = [
 
 _FLAGS = re.IGNORECASE | re.MULTILINE  # MULTILINE: opener/heading anchors match per line
 
+# Register-gap note (issue #145, wave H-C 2026-11-27): humanizer families
+# 11 (synonym cycling) and 35 (aphorism density) are not single-regex
+# families. Family 11 rides the chunk-pair divergence signal below
+# (cycling_signals; advisory until the owner calibrates its bands in the
+# state file). Family 35 is a budget check, not a pattern match: the
+# mechanical counter lives in learn/voice_battery_core.py (aphorism_shapes)
+# and hooks/gate.py enforces the skill's own budget (max one kicker per
+# section, two to three per piece). Both stay listed here so the gap stays
+# visible next to the register.
+
 # ---------------- VOICE RULES LAYER (named-regex YAML adapter) ----------------
 # 2026-11-22: the tell scan adapts to a host's local voice rules and
 # anti-patterns by consuming its named-regex YAML (DANEEL_RULES_YAML), so the
@@ -301,12 +312,17 @@ EXEMPLARS = [
 # shared by the runtime gate and the published plugin. Schema:
 #   {"format": 1, "sources": {"<source>": {"patterns": [{"pattern", "label"}],
 #                                           "exemplars": ["..."],
-#                                           "thresholds": {"<label>": float}}}}
+#                                           "thresholds": {"<label>": float},
+#                                           "bands": {"<name>": {"<key>": float}}}}}
 # with <source> naming provenance (register, learn, owner, ...). Precedence:
 # embedded defaults first, then state entries in file order: an identical
 # regex replaces the earlier label in place (later source wins), exemplars
 # dedupe on exact text, thresholds override the embedded calibration per
-# class. Absent file: embedded defaults, silent (pre-loader behavior).
+# class, and band numbers override per <name>/<key> in file order (wave H-C,
+# 2026-11-27: the detector threshold bands of the new signal methods, for
+# example cycling t_sem/t_lex, load from here at scan time; absent bands
+# mean the signal stays advisory with no fail line, never a code constant).
+# Absent file: embedded defaults, silent (pre-loader behavior).
 # Corrupt/invalid file: embedded defaults + one `state_skip` log line per
 # state change (fail-open unchanged); entry-level problems skip just that
 # entry and log, valid entries still apply.
@@ -345,7 +361,7 @@ def _dead_state(st, err):
 
 def _parse_state(p, key):
     st = {"key": key, "ok": False, "err": None, "path": str(p), "sources": {},
-          "patterns": [], "exemplars": [], "thresholds": {}}
+          "patterns": [], "exemplars": [], "thresholds": {}, "bands": {}}
     if key[1] is None:
         st["err"] = "absent"  # embedded-only, silent like today: no log line
         return st
@@ -387,23 +403,39 @@ def _parse_state(p, key):
                 else:
                     warns.append(f"source '{src}': non-string exemplar skipped")
         th = body.get("thresholds")
-        if th is None:
-            continue
-        if not isinstance(th, dict):
-            warns.append(f"source '{src}': thresholds is not an object")
-            continue
-        for label, v in th.items():
-            if isinstance(v, (int, float)) and not isinstance(v, bool):
-                st["thresholds"][label] = float(v)  # later sources override earlier
+        if th is not None:
+            if not isinstance(th, dict):
+                warns.append(f"source '{src}': thresholds is not an object")
             else:
-                warns.append(f"source '{src}': threshold '{label}' is not a number; skipped")
+                for label, v in th.items():
+                    if isinstance(v, (int, float)) and not isinstance(v, bool):
+                        st["thresholds"][label] = float(v)  # later sources override earlier
+                    else:
+                        warns.append(f"source '{src}': threshold '{label}' is not a number; skipped")
+        bd = body.get("bands")
+        if bd is None:
+            continue
+        if not isinstance(bd, dict):
+            warns.append(f"source '{src}': bands is not an object")
+            continue
+        for name, entries in bd.items():
+            if not isinstance(entries, dict):
+                warns.append(f"source '{src}': band '{name}' is not an object; skipped")
+                continue
+            slot = st["bands"].setdefault(name, {})  # later sources override per key
+            for k, v in entries.items():
+                if isinstance(v, (int, float)) and not isinstance(v, bool):
+                    slot[k] = float(v)
+                else:
+                    warns.append(f"source '{src}': band '{name}.{k}' is not a number; skipped")
     if warns:
         st["err"] = "; ".join(warns)  # partial apply: valid entries stand, problems visible
         _log_vec("state_skip", {"path": str(p), "err": st["err"]})
     else:
         _log_vec("state_load", {"path": str(p), "sources": len(st["sources"]),
                                 "patterns": len(st["patterns"]), "exemplars": len(st["exemplars"]),
-                                "thresholds": len(st["thresholds"])})
+                                "thresholds": len(st["thresholds"]),
+                                "bands": len(st["bands"])})
     return st
 
 
@@ -431,16 +463,17 @@ def _effective():
             exs.append(text)
             esrc.append(src)
     ths = st["thresholds"]
+    bands = st["bands"]
     try:
         compiled = [(re.compile(p, _FLAGS), l) for p, l in pats]
     except Exception as e:  # belt and braces: a bad regex must never silence the gate
         _log_vec("error", {"path": st["path"], "err": f"compile: {e!r}; embedded-only fallback"})
         pats, psrc = list(PATTERNS), ["embedded"] * len(PATTERNS)
         exs, esrc = list(EXEMPLARS), ["embedded"] * len(EXEMPLARS)
-        ths = {}
+        ths, bands = {}, {}
         compiled = [(re.compile(p, _FLAGS), l) for p, l in pats]
     eff = {"patterns": pats, "pattern_sources": psrc, "exemplars": exs,
-           "exemplar_sources": esrc, "thresholds": dict(ths),
+           "exemplar_sources": esrc, "thresholds": dict(ths), "bands": dict(bands),
            "state": st, "compiled": compiled}
     _eff_cache["key"], _eff_cache["value"] = st["key"], eff
     return eff
@@ -449,11 +482,12 @@ def _effective():
 def effective_rules():
     """Merged rule set (embedded + state overrides) with per-entry provenance:
     {"patterns": [(rx, label)], "pattern_sources": [...], "exemplars": [...],
-     "exemplar_sources": [...], "thresholds": {label: float}, "state": {...}}.
+     "exemplar_sources": [...], "thresholds": {label: float},
+     "bands": {name: {key: float}}, "state": {...}}.
     Consumed by voice-vector-build.py (rebuild reads the effective exemplars)."""
     e = _effective()
     return {k: e[k] for k in ("patterns", "pattern_sources", "exemplars",
-                              "exemplar_sources", "thresholds", "state")}
+                              "exemplar_sources", "thresholds", "bands", "state")}
 
 _cache = None       # loaded exemplar vectors (backend-keyed)
 _cal = None         # loaded calibration table (backend-keyed)
@@ -793,14 +827,18 @@ def vector_pass(text):
     """Single embedding pass over the chunks of text (v1.1.0, issue #127 T1).
 
     Returns {"active": bool, "backend": str | None, "tell_hits": [str],
-             "voice_fit": float | None, "doc_vec": [float] | None}.
+             "voice_fit": float | None, "doc_vec": [float] | None,
+             "chunk_vecs": [[float]] | None}.
     active False = the vector layer is off or unavailable (no artifacts, no
     embedder): every consumer fails open. One chunk embed serves the tell
-    similarities, the voice-fit cosines and the document vector (per-process
-    memo via embed_cached). Embed or calibration miss on a chunk aborts the
-    scan exactly like v1.0.0 find_vector_hits (fail-open, logged)."""
+    similarities, the voice-fit cosines, the document vector and the
+    per-chunk vectors (wave H-C 2026-11-27: chunk_vecs carries the same
+    normalized chunk vectors the pass already computed, so the chunk-pair
+    divergence signal adds zero embed calls; None when inactive). Embed or
+    calibration miss on a chunk aborts the scan exactly like v1.0.0
+    find_vector_hits (fail-open, logged)."""
     inactive = {"active": False, "backend": None, "tell_hits": [],
-                "voice_fit": None, "doc_vec": None}
+                "voice_fit": None, "doc_vec": None, "chunk_vecs": None}
     if os.environ.get("VOICE_GATE_VECTOR", "").lower() == "off":
         return inactive
     cache, cal = _load_vectors(), _load_calibration()
@@ -861,7 +899,41 @@ def vector_pass(text):
         doc_vec = [x / norm for x in mean] if norm else mean
     voice_fit = sum(fits) / len(fits) if fits else None
     return {"active": backend is not None, "backend": backend, "tell_hits": uniq,
-            "voice_fit": voice_fit, "doc_vec": doc_vec}
+            "voice_fit": voice_fit, "doc_vec": doc_vec, "chunk_vecs": vecs or None}
+
+
+def cycling_signals(vp, sets):
+    """Chunk-pair paraphrase divergence (family 11, wave H-C 2026-11-27,
+    method-menu A1): for each adjacent chunk pair (i, i+1), the pair is a
+    cycling pair when the semantic cosine of the EXISTING chunk vectors is
+    high and the lexical Jaccard overlap of the content-word sets from the
+    EXISTING fast-core token loop is low: same meaning, different words.
+    Thresholds are never code constants: they load from the learned-state
+    chain at scan time (source 'bands', name 'cycling', keys 't_sem' and
+    't_lex'). Absent or invalid bands -> [] (the signal stays advisory, no
+    fail line ships from this method). vp is a vector_pass result; sets the
+    aligned chunk content sets (learn/voice_battery_core.py
+    chunk_content_sets). Pure; fails open on any shape mismatch."""
+    try:
+        band = (_effective().get("bands") or {}).get("cycling") or {}
+        t_sem, t_lex = band.get("t_sem"), band.get("t_lex")
+        if not (isinstance(t_sem, (int, float)) and isinstance(t_lex, (int, float))
+                and not isinstance(t_sem, bool) and not isinstance(t_lex, bool)):
+            return []
+        vecs = (vp or {}).get("chunk_vecs") or []
+        if len(vecs) < 2 or len(sets) != len(vecs):
+            return []
+        out = []
+        for i in range(len(vecs) - 1):
+            sem = _cosine(vecs[i], vecs[i + 1])
+            a, b = sets[i] or set(), sets[i + 1] or set()
+            union = a | b
+            lex = (len(a & b) / float(len(union))) if union else 0.0
+            if sem >= t_sem and lex <= t_lex:
+                out.append({"pair": i, "cosine": round(sem, 3), "jaccard": round(lex, 3)})
+        return out
+    except Exception:
+        return []
 
 
 def find_vector_hits(text):

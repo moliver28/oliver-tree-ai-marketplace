@@ -218,7 +218,7 @@ for p in data["plugins"]:
             # learn tools importable (same importlib pattern as the voice-tells check above)
             for tool_name in ("build_voice_profile", "distill_phrases", "calibrate", "voice_vector_build",
                               "train_voice_classifier", "edit_learning", "acceptance_check", "voice_fit",
-                              "voice_battery_report", "voice_setup"):
+                              "voice_battery_report", "voice_setup", "regenerate"):
                 try:
                     tspec = importlib.util.spec_from_file_location(
                         f"humanizer_learn_{tool_name}", learn_dir / f"{tool_name}.py")
@@ -790,6 +790,13 @@ if voice_fix.is_dir():
                f"voice_setup contract suite (level picker goldens / per-situation bands / two-layer "
                f"factor shrinkage / CLI exit codes / state files user-local / stdlib-only): "
                f"{tail_cs[-1] if tail_cs else r_cs.returncode}")
+            r_hc = subprocess.run([sys.executable, "-I", str(ROOT / "tests" / "humanizer" / "test_hc_methods.py")],
+                                  capture_output=True, text=True, env=env_base)
+            tail_hc = (r_hc.stdout or r_hc.stderr or "").strip().splitlines()
+            ck(r_hc.returncode == 0,
+               f"hc data-contract suite (state bands load at scan / cycling bands advisory / "
+               f"regenerate chain / learn-write audit / clause 1 gate proof): "
+               f"{tail_hc[-1] if tail_hc else r_hc.returncode}")
         finally:
             for k, v in saved_env.items():
                 if v is None:
