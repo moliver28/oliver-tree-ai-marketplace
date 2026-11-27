@@ -6,16 +6,17 @@ plugin:
   entry: SKILL.md
   command: /voice
   stages:
-    learn: learn/ (onboarding template + deterministic profile/calibration/distillation/classifier/acceptance tools; zero-LLM)
-    hooks: hooks/ (self-contained gate: voice_tells.py scanner + STE layer; pass = zero tokens, fail = patch-in-place repair contract, scan error = fail-open; advisory voice-fit/fidelity/classifier fields cost zero tokens and never block)
+    learn: learn/ (onboarding template + deterministic profile/calibration/distillation/classifier/acceptance/battery tools; zero-LLM)
+    hooks: hooks/ (self-contained gate: voice_tells.py scanner + STE layer + battery fast core; pass = zero tokens, fail = patch-in-place repair contract, scan error = fail-open; advisory voice-fit/fidelity/classifier fields cost zero tokens and never block)
     apply: /voice <target> -> rewrite in learned profile -> gate scan -> copy + one status line
   hooks:
-    gate: hooks/gate.py (deterministic regex scan; pass = silence/zero tokens; fail = repair contract naming up to 5 family-deduped patterns with in-place fix hints; scan error = fail-open; --source FILE adds source_fidelity, voice_fit and classifier signals appear when their learned artifacts exist — advisory only in 1.1.0, never blocking)
+    gate: hooks/gate.py (deterministic regex scan + battery fast core of learn/voice_battery_core.py; pass = silence/zero tokens; fail = repair contract naming up to 5 family-deduped patterns with in-place fix hints, at most one of them a battery marker line; scan error = fail-open; --source FILE adds source_fidelity, voice_fit and classifier signals appear when their learned artifacts exist, advisory only, never blocking)
     contract: hooks/HOOKS.md
   learn:
     onboard: learn/VOICE_ONBOARDING.template.md
-    tools: [learn/build_voice_profile.py, learn/calibrate.py, learn/distill_phrases.py, learn/voice_vector_build.py, learn/train_voice_classifier.py, learn/edit_learning.py, learn/acceptance_check.py, learn/voice_fit.py]
+    tools: [learn/build_voice_profile.py, learn/calibrate.py, learn/distill_phrases.py, learn/voice_vector_build.py, learn/train_voice_classifier.py, learn/edit_learning.py, learn/acceptance_check.py, learn/voice_fit.py, learn/voice_battery_report.py]
+    libraries: [learn/voice_battery.py, learn/voice_battery_core.py]
     procedure: learn/LEARN-VOICE.md
   surfaces:
-    user_facing: [/voice]
+    user_facing: [/voice, /voice-fit]
     background: [learn, scan hooks, logs]

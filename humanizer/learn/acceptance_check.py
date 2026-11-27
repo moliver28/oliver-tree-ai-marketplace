@@ -8,11 +8,14 @@ A. Burrows' Delta (default backend "delta"; stdlib-only, zero setup):
    the candidate's per-1000-words frequency profile over the 60 hardcoded
    English function words (FUNCTION_WORDS in build_voice_profile.py) is
    z-scored against learned/profile.json's "function_words" section (written
-   by build_voice_profile.py: per-document mean + stddev) and the score is the
-   mean absolute z-score over the words with a nonzero stddev. Lower = closer
-   to the user's profile. Words with zero stddev (constant across the profile
-   documents) contribute 0. Delta needs >= 2 profile documents to be
-   meaningful; with fewer, every stddev is 0 and the score is 0.0 (defined).
+   by build_voice_profile.py: per-document mean + sample stddev, divide by
+   k - 1) and the score is the mean absolute z-score over the words with a
+   nonzero stddev, each denominator carrying the count floor
+   s_eff = sqrt(s^2 + mean * 1000 / n). Lower = closer to the user's
+   profile. Delta needs >= 2 profile documents AND at least one word with
+   cross-document spread to be meaningful; with fewer, the score is None
+   and the row prints n/a (never 0.0: zero is the best score and must not
+   stand for "no spread").
 
 B. Local small-LM perplexity + burstiness (--backend onnx; OPTIONAL, offline
    batch): onnxruntime over a GPT-2 small ONNX model placed in
@@ -94,7 +97,11 @@ def load_profile(path):
 
 def burrows_delta(text, fw):
     """Signal A: mean absolute z-score of the candidate's function-word
-    frequencies against the profile. Returns (delta, word_count)."""
+    frequencies against the profile. Mirrors learn/voice_fit.py
+    burrows_delta line for line (one math source, two entry points): sample
+    stddev profile (AM-04), count floor s_eff = sqrt(s^2 + mean * 1000 / n)
+    (AM-06), and None when no word has spread (AM-03). Returns
+    (delta_or_None, word_count, words_counted)."""
     words = [w.lower() for w in WORD_RE.findall(text)]
     n = len(words)
     counts = {}
@@ -102,13 +109,17 @@ def burrows_delta(text, fw):
         counts[w] = counts.get(w, 0) + 1
     mean, sd = fw["mean"], fw["stddev"]
     zs = []
+    used = 0
     for w in fw["words"]:
         s = sd.get(w, 0.0)
         if s and s > 0:
             f = counts.get(w, 0) * 1000.0 / n if n else 0.0
-            zs.append(abs((f - mean.get(w, 0.0)) / s))
-    delta = sum(zs) / len(zs) if zs else 0.0
-    return delta, n
+            mu = mean.get(w, 0.0)
+            se = math.sqrt(s * s + mu * 1000.0 / n) if n else s
+            zs.append(abs((f - mu) / se))
+            used += 1
+    delta = sum(zs) / len(zs) if zs else None
+    return delta, n, used
 
 
 # ---------------- Signal B: GPT-2 small ONNX (optional) ----------------
@@ -277,9 +288,10 @@ def main():
         fw = load_profile(profile_path)
         for f in a.files:
             text = Path(f).expanduser().read_text(encoding="utf-8", errors="replace")
-            delta, n = burrows_delta(text, fw)
+            delta, n, used = burrows_delta(text, fw)
             rows.append({"file": f, "backend": "delta",
-                         "burrows_delta": round(delta, 3), "words": n})
+                         "burrows_delta": round(delta, 3) if delta is not None else None,
+                         "words_counted": used, "words": n})
     else:
         model = _GPT2()
         for f in a.files:
@@ -292,7 +304,8 @@ def main():
     else:
         for r in rows:
             if r["backend"] == "delta":
-                print(f"{r['file']}  burrows_delta={r['burrows_delta']}  words={r['words']}")
+                d = "n/a" if r["burrows_delta"] is None else r["burrows_delta"]
+                print(f"{r['file']}  burrows_delta={d}  words={r['words']}")
             else:
                 print(f"{r['file']}  perplexity={r['perplexity']}  burstiness={r['burstiness']}  "
                       f"sentences={r['sentences']}")

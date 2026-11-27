@@ -61,11 +61,17 @@ Checks:
     advisory: M15 Burrows' Delta + M18 surface stats, promoted with the
     sitefactory P18 refinements) imports with a main(); its CLI fails open
     with no profile (exit 0, n/a reference columns, defined note); profile
-    mode reads a delta against a built profile.json; a sample corpus too
-    small for leave-one-out reads n/a sample-self; the contract suite
-    humanizer/tests/test_voice_fit.py exits 0 (sitefactory parity fixture,
-    gate no-op byte-pin, fail-open, spread rule, stdlib-only); version
-    parity at 1.2.0.
+    mode reads a delta against a built profile.json (short candidates read
+    n/a under the owned 500-word floor, AM-02; long candidates read the
+    delta with the sample stddev and the count floor, AM-04/AM-06); a
+    sample corpus too small for leave-one-out reads n/a sample-self; the
+    contract suite humanizer/tests/test_voice_fit.py exits 0 (sitefactory
+    parity fixture, gate no-op byte-pin, fail-open, spread rule,
+    stdlib-only); the measurement battery contract suite
+    humanizer/tests/test_voice_battery.py exits 0 (74-row Tier A spec,
+    closed-list size pins, tokenizer sync, goldens on the synthetic
+    corpus, the profile battery section, the gate fast core, the report
+    shape, stdlib-only); version parity at 1.2.0.
 
 Exit 0 = marketplace verified working; nonzero = broken, do not publish.
 """
@@ -209,7 +215,8 @@ for p in data["plugins"]:
                "embed_cached/embed_source_cached/learned_dir)")
             # learn tools importable (same importlib pattern as the voice-tells check above)
             for tool_name in ("build_voice_profile", "distill_phrases", "calibrate", "voice_vector_build",
-                              "train_voice_classifier", "edit_learning", "acceptance_check", "voice_fit"):
+                              "train_voice_classifier", "edit_learning", "acceptance_check", "voice_fit",
+                              "voice_battery_report"):
                 try:
                     tspec = importlib.util.spec_from_file_location(
                         f"humanizer_learn_{tool_name}", learn_dir / f"{tool_name}.py")
@@ -476,7 +483,7 @@ if voice_fix.is_dir():
 # VOICE_RULES_STATE/VOICE_GATE_LOG), so no per-user payload can land in the
 # repo. The embedder is patched ONLY for the first in-process build/run; the
 # no-rebuild and no-retrain runs are unpatched subprocesses with no embedder on
-# the machine — if the hash guard ever tried to embed they would crash, which
+# the machine. If the hash guard ever tried to embed they would crash, which
 # is the ruling-1 proof. Deterministic fake embedder: pure function of the text
 # sha256, so every advisory value is reproducible.
 if voice_fix.is_dir():
@@ -687,8 +694,10 @@ if voice_fix.is_dir():
             try:
                 rows = json.loads(r_acj.stdout)
                 ck(r_acj.returncode == 0 and isinstance(rows, list) and rows
-                   and isinstance(rows[0].get("burrows_delta"), (int, float)),
-                   "acceptance_check --json emits a parseable row array")
+                   and (rows[0].get("burrows_delta") is None
+                        or isinstance(rows[0].get("burrows_delta"), (int, float))),
+                   "acceptance_check --json emits a parseable row array "
+                   "(burrows_delta number, or null when the profile has no spread)")
             except Exception as e:
                 ck(False, f"acceptance_check --json parse: {e!r}")
             r_onnx = subprocess.run([sys.executable, "-I", ac_script,
@@ -732,11 +741,23 @@ if voice_fix.is_dir():
                 try:
                     jvf = json.loads(vf_json.stdout)
                     ck(vf_json.returncode == 0 and jvf["reference"] == "profile"
-                       and isinstance(jvf["burrows_delta"]["copy"], float)
+                       and jvf["burrows_delta"]["copy"] is None
                        and jvf["candidate"]["word count"] > 0,
-                       "voice_fit profile mode: delta reads a float against the built profile")
+                       "voice_fit profile mode: a short candidate reads n/a under the owned "
+                       "500-word floor (AM-02)")
                 except Exception as e:
                     ck(False, f"voice_fit profile-mode JSON: {e!r}")
+                vf_long = subprocess.run([sys.executable, "-I", vf_script, "-",
+                                          "--profile", str(learned / "profile-fit.json"), "--json"],
+                                         input=(clean + " ") * 40, capture_output=True, text=True,
+                                         env=env_base)
+                try:
+                    jvfl = json.loads(vf_long.stdout)
+                    ck(vf_long.returncode == 0 and isinstance(jvfl["burrows_delta"]["copy"], float),
+                       "voice_fit profile mode: a 600-word candidate reads a float delta "
+                       "against the built profile (sample stddev + count floor, AM-04/AM-06)")
+                except Exception as e:
+                    ck(False, f"voice_fit profile-mode long JSON: {e!r}")
             vf_one = subprocess.run([sys.executable, "-I", vf_script, "-",
                                      "--samples", str(voice_fix / "clean"), "--json"],
                                     input=clean, capture_output=True, text=True, env=env_base)
@@ -753,6 +774,13 @@ if voice_fix.is_dir():
             ck(r_ct.returncode == 0,
                f"voice_fit contract suite (sitefactory parity / gate no-op / fail-open / stdlib-only): "
                f"{tail_ct[-1] if tail_ct else r_ct.returncode}")
+            r_cb = subprocess.run([sys.executable, "-I", str(ROOT / "humanizer" / "tests" / "test_voice_battery.py")],
+                                  capture_output=True, text=True, env=env_base)
+            tail_cb = (r_cb.stdout or r_cb.stderr or "").strip().splitlines()
+            ck(r_cb.returncode == 0,
+               f"voice_battery contract suite (74-row spec / list sizes / tokenizer sync / goldens / "
+               f"profile battery section / gate fast core / report shape / stdlib-only): "
+               f"{tail_cb[-1] if tail_cb else r_cb.returncode}")
         finally:
             for k, v in saved_env.items():
                 if v is None:
@@ -806,7 +834,7 @@ DEF_STUB_RE = re.compile(
 
 # tracked files are the repo's published content (git ls-files): untracked
 # machine caches (.mimosa/, .token-optimizer/, ...) are disk-local only and do
-# not fail the law — same scope rule as the tracked-pyc check below.
+# not fail the law; same scope rule as the tracked-pyc check below.
 tracked = [t for t in subprocess.run(["git", "-C", str(ROOT), "ls-files", "-z"],
                                      capture_output=True).stdout.split(b"\x00") if t]
 tracked = [t.decode("utf-8", "replace") for t in tracked]

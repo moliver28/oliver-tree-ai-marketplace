@@ -2,7 +2,7 @@
 """Delivery gate adapter for the /voice plugin.
 
 Contract (token economy):
-- Deterministic scan only (regex tell scan from hooks/voice_tells.py + an ASD-STE100 layer). Zero LLM tokens to evaluate.
+- Deterministic scan only (regex tell scan from hooks/voice_tells.py + an ASD-STE100 layer + the battery fast core of learn/voice_battery_core.py). Zero LLM tokens to evaluate.
 - Surfaces: --surface public (default: tell scan + STE) or --surface chat (STE always enforced; the onboarding STE row decides whether public mode also carries STE).
 - PASS: emit {"status": "pass", "tokens_to_model": 0} and stop. The model is never re-engaged.
 - FAIL: emit the violated pattern labels (one line each, max 5) with nearby context, plus one instruction
@@ -59,6 +59,7 @@ FIX_HINT = (
     ("testament", "Cut the inflation; state the concrete fact."),
     ("pivotal|landscape", "Cut the significance inflation; state the concrete fact."),
     ("not just", "See negative parallelism."),
+    ("battery marker", "Delete the marker word or state the concrete fact in its place."),
 )
 
 S1_MAX_WORDS = 20
@@ -123,6 +124,31 @@ def _log_gate(event, detail):
             tells._log_vec(event, detail)
         except Exception:
             pass
+
+def _battery_hits(raw):
+    """Battery fast core (v1.2.0): lazy-import learn/voice_battery_core.py
+    (the small gate-path module; the full battery sits outside the gate's
+    latency budget) and run its fast core: token loop, sentence block,
+    paragraph block, character counts in one pass (no diversity index, no
+    profile distance). The gate turns only the L10-1 marker-word hits into
+    gate hits, one line per distinct word; the family dedup below collapses
+    them to at most ONE fail line, never a sixth, and the pass line stays
+    byte-identical. Fail-open: an unavailable battery layer means no battery
+    hits, never a gate error."""
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "voice_battery_gate", os.path.join(_HERE, "..", "learn", "voice_battery_core.py"))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        fc = mod.fast_core(raw)
+    except Exception:
+        return []
+    hits = []
+    for word in sorted(fc["marker_counts"]):
+        m = re.search(r"\b%s\b" % re.escape(word), raw, re.IGNORECASE)
+        near = raw[max(0, m.start() - 20):m.end() + 20].replace(chr(10), " ") if m else word
+        hits.append("battery marker word (L10-1) '%s' (near: '...%s...')" % (word, near))
+    return hits
 
 def _classifier_score(text):
     """Advisory authorship score from learn/train_voice_classifier.py when its
@@ -200,6 +226,9 @@ def main():
         hits = list(hits) + ste_hits(raw)
     except Exception:
         pass
+    # battery fast core (L10-1 marker words), both surfaces; family dedup
+    # below caps its contribution at one fail line.
+    hits = list(hits) + _battery_hits(raw)
     advisory = _advisory_signals(raw, source_path)
     if not hits:
         print(json.dumps({"status": "pass", "surface": surface, "tokens_to_model": 0, **advisory})); return 0

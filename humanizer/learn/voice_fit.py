@@ -29,13 +29,24 @@ Boundary (the plugin's separation of powers, unchanged):
 - stdlib only (argparse, importlib.util, json, math, os, re, sys, pathlib);
   no embeddings, no perplexity, no classifier.
 
-Reliability: Burrows' Delta firms up near ~5,000 words and is usable from
-about 1,500-2,000 (Eder 2015/2017). Below that the table says so in a note;
-no length ever hard-fails anything.
+Reliability (AM-05, each number with its task and source): the cited lengths
+cover attribution among candidate authors (Burrows 2002, abstract: texts
+exceeding about 1,500 words; Eder 2015, abstract: 2,500 to 5,000 words).
+This table runs the different one-text-against-one-profile task, so its
+delta rows read as directional, and they read n/a below 500 candidate words
+(an owned floor, map 4.6). The length note states all of this; no length
+ever hard-fails anything.
 
-Delta needs spread: a profile built from fewer than 2 sample documents has
-every stddev at 0, and fewer than 3 sample documents cannot produce the
-leave-one-out sample-self number; both render as n/a.
+Delta needs spread (AM-03): a profile built from fewer than 2 sample
+documents has every stddev at 0, a candidate against documents with no
+spread on any word has no defined score, and fewer than 3 sample documents
+cannot produce the leave-one-out sample-self number; all three render as
+n/a, never as 0.0 (0.0 is the best score and must not stand for "no
+spread"). The yardstick prints with its k and its leave-one-out minimum and
+maximum (AM-01); the standardization uses the sample stddev (AM-04) and the
+count floor s_eff = sqrt(s^2 + r * 1000 / N) (AM-06). Delta rows are
+suppressed below 500 candidate words and compared in windows of the median
+reference length outside 0.5 to 2 times that length (AM-02, map 4.5).
 
 Usage:
     python3 voice_fit.py CANDIDATE [--samples PATH] [--profile PATH] [--json]
@@ -78,14 +89,14 @@ READER_ADDRESS_RE = re.compile(r"\b(you|your)\b", re.IGNORECASE)
 
 # The sitefactory punctuation set: six marks, counted on the whole text with
 # the same leftmost alternation the JS block uses. (build_voice_profile.py's
-# own punctuation table is wider — periods, commas, close paren — and feeds
-# the profile; this narrower set is the sitefactory-parity view.)
+# own punctuation table is wider, adding periods, commas, and close paren,
+# and feeds the profile; this narrower set is the sitefactory-parity view.)
 PUNCT_MATCHERS = [
     ("questions per 1k words", re.compile(r"\?")),
     ("exclamations per 1k words", re.compile(r"!")),
     ("semicolons per 1k words", re.compile(r";")),
     ("colons per 1k words", re.compile(r":")),
-    ("dashes per 1k words", re.compile(r"—|--")),
+    ("dashes per 1k words", re.compile(r"\u2014|--")),
     ("parens per 1k words", re.compile(r"\(")),
 ]
 
@@ -182,26 +193,39 @@ def function_rates(text):
     return {w: (counts[w] * 1000.0) / base if base else 0.0 for w in FUNCTION_WORDS}
 
 
-def delta(rate, docs):
-    """Burrows' Delta against per-document rate rows (the sitefactory shape):
-    mean absolute z-score over profile words whose cross-document stddev > 0
-    (population stddev). Returns None when no word qualifies (no spread — the
-    sitefactory block returns NaN there; the table renders n/a)."""
+def delta(rate, docs, n_words):
+    """Burrows' Delta against per-document rate rows, with the two map fixes:
+    - AM-04: the cross-document spread is the SAMPLE stddev (divide by
+      k - 1), so the unit no longer shrinks as documents are added.
+    - AM-06: the count floor s_eff = sqrt(s^2 + r * 1000 / n_words) puts the
+      candidate's own sampling noise in the denominator.
+    Mean absolute z-score over the words whose sample spread > 0. Returns
+    (value_or_None, words_counted); None when no word has spread (AM-03: no
+    spread never prints 0.0, the best score)."""
     zs = []
+    used = 0
     for w in FUNCTION_WORDS:
         col = [d[w] for d in docs]
         mu = sum(col) / len(col)
-        sd = math.sqrt(sum((x - mu) ** 2 for x in col) / len(col))
+        sd = math.sqrt(sum((x - mu) ** 2 for x in col) / (len(col) - 1)) if len(col) > 1 else 0.0
         if sd > 0:
-            zs.append(abs((rate[w] - mu) / sd))
-    return sum(zs) / len(zs) if zs else None
+            f = rate[w]
+            se = math.sqrt(sd * sd + mu * 1000.0 / n_words) if n_words else sd
+            zs.append(abs((f - mu) / se))
+            used += 1
+    return (sum(zs) / len(zs) if zs else None), used
 
 
 def burrows_delta(text, fw):
     """Burrows' Delta against a built profile's function_words section (the
     upstream acceptance_check.py shape, mirrored line for line so the two
     tools stay one math source; the contract test asserts equal outputs).
-    Returns (delta, word_count); delta is 0.0 when no word qualifies."""
+    The stored stddev is the sample stddev (AM-04, written by
+    build_voice_profile.py). The count floor s_eff = sqrt(s^2 + mean *
+    1000 / n) adds the candidate's sampling noise (AM-06). Returns
+    (delta_or_None, word_count, words_counted); delta is None when no word
+    has spread (AM-03: 0.0 is the best score and must never stand for
+    "no spread")."""
     toks = words(text)
     n = len(toks)
     counts = {}
@@ -209,24 +233,81 @@ def burrows_delta(text, fw):
         counts[w] = counts.get(w, 0) + 1
     mean, sd = fw["mean"], fw["stddev"]
     zs = []
+    used = 0
     for w in fw["words"]:
         s = sd.get(w, 0.0)
         if s and s > 0:
             f = counts.get(w, 0) * 1000.0 / n if n else 0.0
-            zs.append(abs((f - mean.get(w, 0.0)) / s))
-    return (sum(zs) / len(zs) if zs else 0.0), n
+            mu = mean.get(w, 0.0)
+            se = math.sqrt(s * s + mu * 1000.0 / n) if n else s
+            zs.append(abs((f - mu) / se))
+            used += 1
+    return (sum(zs) / len(zs) if zs else None), n, used
 
 
-def sample_self_delta(docs):
-    """Leave-one-out mean of each sample document's Delta against the rest of
-    the sample corpus (the sitefactory sample-self column). None under three
+def sample_self_delta(docs, word_counts):
+    """Leave-one-out yardstick with its spread (AM-01): each sample document
+    is measured against the other documents, and the row prints the mean
+    together with k and the minimum and maximum leave-one-out value, never
+    the mean alone (the unit changes with k: 2.03 at k = 3, 0.89 at k = 20
+    for the same author, measured in the map's model). None under three
     documents: with fewer, one document cannot sit out and a two-document
     remainder carries no spread to average over."""
     if len(docs) < 3:
         return None
-    vals = [delta(docs[i], docs[:i] + docs[i + 1:]) for i in range(len(docs))]
-    vals = [v for v in vals if v is not None]
-    return sum(vals) / len(vals) if vals else None
+    vals = []
+    for i in range(len(docs)):
+        v, _used = delta(docs[i], docs[:i] + docs[i + 1:], word_counts[i])
+        if v is not None:
+            vals.append(v)
+    if not vals:
+        return None
+    return {"mean": sum(vals) / len(vals), "k": len(vals),
+            "min": min(vals), "max": max(vals)}
+
+
+DELTA_MIN_WORDS = 500     # owned floor: delta rows stay n/a below this (map 4.6)
+WINDOW_RATIO = (0.5, 2.0)  # compare in windows outside this candidate/median-reference band (map 4.5)
+
+
+def _median_f(vals):
+    """Plain median of a non-empty float list (the parity median() above
+    follows the sitefactory integer rounding and must not be reused here)."""
+    s = sorted(vals)
+    n = len(s)
+    mid = n // 2
+    return s[mid] if n % 2 else (s[mid - 1] + s[mid]) / 2.0
+
+
+def candidate_delta(candidate_text, docs, word_counts):
+    """The copy-side delta with the AM-02 length rules. Returns
+    (value_or_None, words_counted, windows_or_None, note_or_None).
+    Below 500 candidate words the row is suppressed (owned floor, map 4.6).
+    Outside 0.5 to 2 times the median reference document length the
+    candidate is cut into windows of that median length and the median
+    window delta is reported (map 4.5)."""
+    n = len(words(candidate_text))
+    if n == 0:
+        return None, 0, None, "empty candidate"
+    if n < DELTA_MIN_WORDS:
+        return None, 0, None, "candidate under %d words; suppressed (owned floor, map 4.6)" % DELTA_MIN_WORDS
+    window = int(_median_f([float(w) for w in word_counts])) if word_counts else 0
+    if window and (n < WINDOW_RATIO[0] * window or n > WINDOW_RATIO[1] * window):
+        toks = words(candidate_text)
+        vals = []
+        used_last = 0
+        for i in range(0, n - window + 1, window):
+            part = " ".join(toks[i:i + window])
+            v, used_last = delta(function_rates(part), docs, window)
+            if v is not None:
+                vals.append(v)
+        if vals:
+            return _median_f(vals), used_last, len(vals), None
+        return None, 0, len(vals), "no function word has spread in the sample documents"
+    v, used = delta(function_rates(candidate_text), docs, n)
+    if v is None:
+        return None, 0, None, "no function word has spread in the sample documents"
+    return v, used, None, None
 
 
 def load_samples(path):
@@ -298,21 +379,33 @@ def load_profile(path):
 
 
 def length_note(sample_stats, copy_stats):
-    """The P18 confidence note. Delta firms up near ~5,000 words and is
-    usable from ~1,500-2,000 (Eder 2015/2017); under 1,500 a side, the whole
-    table is rough. Never a gate at any length."""
+    """The length confidence note, with the task and the source stated next
+    to each number (AM-05). The cited lengths cover a different task:
+    Burrows 2002 (abstract) gives "texts exceeding about 1,500 words" (and
+    "as little as 100 words" to reduce a candidate field) for attribution
+    among candidate authors; Eder 2015 (abstract) gives 2,500 to 5,000 words
+    for the same task. This table runs a different task: one text against
+    one author's profile. The 500-word floor under which the delta rows read
+    n/a is an owned convention of this tool (map 4.6), not a cited number."""
     wc_s = sample_stats.get("word count") if sample_stats else None
     wc_c = copy_stats.get("word count") if copy_stats else None
     sides = [w for w in (wc_s, wc_c) if isinstance(w, int) and w > 0]
     if not sides:
         return None
     m = min(sides)
+    if m < DELTA_MIN_WORDS:
+        return ("note: the shorter side is under %d words, so the delta rows read n/a "
+                "(owned floor of this tool, map 4.6; not a cited number). The surface "
+                "statistics still read." % DELTA_MIN_WORDS)
     if m < 1500:
-        return "note: under ~1,500 words on a side; read these as rough."
-    if m < 5000:
-        return ("note: burrows_delta firms up near ~5,000 words (usable from about "
-                "1,500-2,000); treat these numbers as directional until the corpus grows.")
-    return None
+        return ("note: under ~1,500 words on a side, read these as rough. The cited "
+                "1,500-word number (Burrows 2002, abstract) is for attribution among "
+                "candidate authors, a different task than this table's one-text-against-"
+                "one-profile comparison.")
+    return ("note: the cited lengths (Burrows 2002, abstract: texts exceeding about "
+            "1,500 words; Eder 2015, abstract: 2,500 to 5,000 words) cover attribution "
+            "among candidate authors. This table compares one text with one author's "
+            "profile, so read the delta row as directional.")
 
 
 def _js_str(v):
@@ -333,14 +426,32 @@ def _fmt(v):
     return str(int(r)) if float(r).is_integer() else str(r)
 
 
-def fit_table(sample_stats, copy_stats, sample_self, copy_delta, extra_notes):
-    """Render the advisory table: one row per metric, then the Delta row."""
+def fit_table(sample_stats, copy_stats, sample_self, copy_delta, extra_notes, delta_meta=None):
+    """Render the advisory table: one row per metric, then the Delta row.
+    AM-01: the sample-self mean prints with k and the leave-one-out minimum
+    and maximum, never alone. AM-04: the copy segment reports how many
+    function words count."""
+    meta = delta_meta or {}
     lines = ["voice fit: client sample vs candidate copy"]
     for k in STAT_KEYS:
         s = _js_str(sample_stats.get(k)) if sample_stats else "n/a"
         lines.append(f"  {k}  sample {s}  copy {_js_str(copy_stats.get(k))}")
-    lines.append(f"burrows_delta   sample-self {_fmt(sample_self)}   "
-                 f"copy {_fmt(copy_delta)}   lower = closer")
+    if sample_self is None:
+        self_seg = "sample-self n/a"
+    else:
+        self_seg = ("sample-self %s (k %d, loo %s to %s)"
+                    % (_fmt(sample_self["mean"]), sample_self["k"],
+                       _fmt(sample_self["min"]), _fmt(sample_self["max"])))
+    if copy_delta is None:
+        copy_seg = "copy n/a (%s)" % meta.get("copy_note", "no reference")
+    else:
+        seg = []
+        if meta.get("copy_windows"):
+            seg.append("median of %d windows of %d words" % (meta["copy_windows"], meta["copy_window_words"]))
+        if meta.get("copy_words_counted") is not None:
+            seg.append("%d of 60 words count" % meta["copy_words_counted"])
+        copy_seg = "copy %s%s" % (_fmt(copy_delta), " (%s)" % ", ".join(seg) if seg else "")
+    lines.append(f"burrows_delta   {self_seg}   {copy_seg}   lower = closer")
     lines.extend(n for n in extra_notes if n)
     return "\n".join(lines) + "\n"
 
@@ -348,25 +459,46 @@ def fit_table(sample_stats, copy_stats, sample_self, copy_delta, extra_notes):
 def build_report(candidate_text, sample_files, profile, profile_note):
     """Assemble (table_text, report_json_dict) for one candidate."""
     copy_stats = voice_stats(candidate_text)
+    cand_words = len(words(candidate_text))
     docs = None
+    word_counts = None
     sample_stats = None
     sample_self = None
     copy_delta = None
+    delta_meta = {}
     reference = None
     notes = [profile_note] if profile_note else []
     if sample_files:
         texts = [f.read_text(encoding="utf-8", errors="replace") for f in sample_files]
         sample_stats = voice_stats("\n\n".join(texts))
         docs = [function_rates(t) for t in texts]
-        sample_self = sample_self_delta(docs)
-        copy_delta = delta(function_rates(candidate_text), docs) if copy_stats["word count"] else None
+        word_counts = [len(words(t)) for t in texts]
+        sample_self = sample_self_delta(docs, word_counts)
+        if cand_words:
+            copy_delta, used, windows, wnote = candidate_delta(candidate_text, docs, word_counts)
+            if wnote:
+                delta_meta["copy_note"] = wnote
+            delta_meta["copy_words_counted"] = used
+            if windows:
+                delta_meta["copy_windows"] = windows
+                delta_meta["copy_window_words"] = int(_median_f([float(w) for w in word_counts]))
+        else:
+            delta_meta["copy_note"] = "empty candidate"
         reference = "samples"
     elif profile:
         sample_stats = profile_stats(profile)
         fw = profile["function_words"]
         if isinstance(fw.get("docs"), int) and fw["docs"] >= 2:
-            copy_delta = burrows_delta(candidate_text, fw)[0] if copy_stats["word count"] else None
+            copy_delta, n, used = burrows_delta(candidate_text, fw)
             reference = "profile"
+            if copy_delta is None:
+                delta_meta["copy_note"] = "no function word has spread in the profile"
+            elif cand_words < DELTA_MIN_WORDS:
+                copy_delta = None
+                delta_meta["copy_note"] = ("candidate under %d words; suppressed (owned floor, map 4.6)"
+                                           % DELTA_MIN_WORDS)
+            else:
+                delta_meta["copy_words_counted"] = used
         else:
             notes.append("note: the profile carries fewer than 2 documents, so its function-word "
                          "spread is zero and delta reads n/a (add samples, rebuild the profile).")
@@ -377,12 +509,20 @@ def build_report(candidate_text, sample_files, profile, profile_note):
     note = length_note(sample_stats, copy_stats)
     if note:
         notes.append(note)
-    table = fit_table(sample_stats, copy_stats, sample_self, copy_delta, notes)
+    table = fit_table(sample_stats, copy_stats, sample_self, copy_delta, notes, delta_meta)
     report = {
         "candidate": copy_stats,
         "sample": sample_stats,
-        "burrows_delta": {"sample_self": sample_self, "copy": copy_delta,
-                          "unit": "mean absolute z-score; lower = closer"},
+        "burrows_delta": {
+            "sample_self": sample_self["mean"] if sample_self else None,
+            "sample_self_k": sample_self["k"] if sample_self else None,
+            "sample_self_loo_min": sample_self["min"] if sample_self else None,
+            "sample_self_loo_max": sample_self["max"] if sample_self else None,
+            "copy": copy_delta,
+            "copy_words_counted": delta_meta.get("copy_words_counted"),
+            "copy_windows": delta_meta.get("copy_windows"),
+            "unit": "mean absolute z-score with the count floor; lower = closer",
+        },
         "reference": reference,
         "notes": notes,
     }
