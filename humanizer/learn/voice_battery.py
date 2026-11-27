@@ -66,7 +66,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))          # humanizer/learn/
 
 # The tokenizer constants live in voice_battery_core.py (the gate-path fast
 # core), byte-identical to build_voice_profile.py (the single source of
+<<<<<<< HEAD
 # truth). The sync pin in tests/humanizer/test_voice_battery.py fails the
+=======
+# truth). The sync pin in humanizer/tests/test_voice_battery.py fails the
+>>>>>>> origin/develop
 # build if the three files drift.
 _core_spec = importlib.util.spec_from_file_location(
     "voice_battery_core_mod", os.path.join(HERE, "voice_battery_core.py"))
@@ -672,6 +676,7 @@ def mahalanobis_distance(rate_vec, mean_vec, L):
     return math.sqrt(sum(x * x for x in y))
 
 
+<<<<<<< HEAD
 # ---- MMD two-sample (P84 Nieth et al. 2026, read in full; delta2; report
 # path, corpus level; owner-approved 2026-11-27) ----
 
@@ -951,6 +956,8 @@ def var_verdict(value, lo, hi):
     return "inside"
 
 
+=======
+>>>>>>> origin/develop
 def _structure(text):
     """Paragraphs, sentences, headings, list items; split one time. Heading
     lines and list items do not produce sentences (they count in L1-12)."""
@@ -989,7 +996,10 @@ def scan(text, phrases=True, tri=False):
     fwc = {}
     lens = []
     n_pass = n_lower = n_you = n_marked = n_direct = n_please_medial = 0
+<<<<<<< HEAD
     n_contra = 0
+=======
+>>>>>>> origin/develop
     ov_sum, ov_n = 0.0, 0
     prev_content = None
     for raw in sents:
@@ -1030,8 +1040,11 @@ def scan(text, phrases=True, tri=False):
             cnt[C_LONG] += 1
         if w[0].isdigit():
             cnt[C_DIGIT] += 1
+<<<<<<< HEAD
         if w.endswith(("n't", "'re", "'ve", "'ll", "'d", "'m")):
             n_contra += 1
+=======
+>>>>>>> origin/develop
     chars = {}
     for mark in ("\u2014", "\u2013", "--", "?", "!", ";", ":", "(", ",", "...", "\u2026", "**", "`"):
         chars[mark] = text.count(mark)
@@ -1060,7 +1073,10 @@ def scan(text, phrases=True, tri=False):
         "lens": lens, "heads": heads, "items": items,
         "para_words": para_words, "para_units": para_units,
         "snt": (n_pass, n_lower, n_you, n_marked, n_direct, n_please_medial, ov_sum, ov_n),
+<<<<<<< HEAD
         "n_contra": n_contra,
+=======
+>>>>>>> origin/develop
         "chars": chars, "curly": curly, "fmt": fmt, "emoji": emoji,
         "phrases": ph, "tri": tri_row,
     }
