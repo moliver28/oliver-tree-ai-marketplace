@@ -181,6 +181,27 @@ with tempfile.TemporaryDirectory() as td:
        "renderer: setup level 0 turns the report bands off with the defined note")
     setup_path.unlink()
 
+# interpreter probe (owner question 2026-11-27: what can be done about the
+# +42 ms spawn floor; the floor belongs to the interpreter build) ---------------
+cands = vs.interpreter_candidates()
+ck(any(name == "current" for name, _path in cands) and len(cands) >= 1,
+   "interpreters: the probe always finds the current interpreter",
+   str([c[0] for c in cands]))
+measured = vs.bench_interpreters(cands)
+ck(all(e["spawn_ms"] > 0 for e in measured) and len(measured) == len(cands),
+   "interpreters: every found interpreter carries a measured spawn")
+line_one = vs.interpreter_line(measured[:1])
+ck(line_one is None,
+   "interpreters: one interpreter prints no note")
+fake = [{"name": "current", "path": "x", "spawn_ms": 40.0},
+        {"name": "python", "path": "y", "spawn_ms": 20.5},
+        {"name": "py", "path": "z", "spawn_ms": 41.0}]
+line = vs.interpreter_line(fake)
+ck(line is not None and line.startswith("interpreters on PATH: python 20.5 ms, current 40.0 ms, py 41.0 ms; "
+                                        "the fastest spawn is python and saves up to 20.5 ms per gate call"),
+   "interpreters: the report line pins the fastest-first order and the saving", str(line))
+ck(vs.interpreter_line([]) is None, "interpreters: an empty probe prints no note")
+
 # stdlib-only pin ----------------------------------------------------------------
 import ast  # noqa: E402
 tree = ast.parse((PLUGIN_DIR / "learn" / "voice_setup.py").read_text(encoding="utf-8"))
@@ -190,8 +211,8 @@ for node in ast.walk(tree):
         imported.update(a.name.split(".")[0] for a in node.names)
     elif isinstance(node, ast.ImportFrom) and node.module:
         imported.add(node.module.split(".")[0])
-ck(imported <= {"argparse", "importlib", "json", "math", "os", "random", "statistics",
-                "subprocess", "sys", "time", "pathlib"},
+ck(imported <= {"argparse", "importlib", "json", "math", "os", "random", "shutil",
+                "statistics", "subprocess", "sys", "time", "pathlib"},
    "stdlib-only: voice_setup imports stay in the pinned set", str(sorted(imported)))
 
 print(f"\nvoice_setup contract: {len(fails)} failure(s)")

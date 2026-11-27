@@ -672,6 +672,127 @@ def mahalanobis_distance(rate_vec, mean_vec, L):
     return math.sqrt(sum(x * x for x in y))
 
 
+# ---- MMD two-sample (P84 Nieth et al. 2026, read in full; delta2; report
+# path, corpus level; owner-approved 2026-11-27) ----
+
+MMD_SEGMENT_WORDS = 500      # pseudo-document size (owned convention)
+MMD_RESAMPLES = 200          # B null resamples (owned convention, fixed)
+MMD_SEED = 20261127          # fixed seed so the CI is reproducible
+MMD_NULL_HALF = 25           # cap on the units per null half (owned cost cap)
+MMD_FEATURE_ROWS = (
+    "L1-8", "L1-13", "L2-4", "L2-5", "L2-6", "L2-7", "L2-9", "L2-10",
+    "L2-11", "L2-12", "L3-1", "L3-3", "L3-4", "L3-5", "L3-6", "L4-1",
+    "L4-4", "L4-5", "L4-7", "L5-6", "L5-9", "L6-11", "L8-2", "L9-4",
+)
+
+
+def mmd_segments(text, words=MMD_SEGMENT_WORDS):
+    """Pseudo-document segmentation: consecutive full token chunks of `words`
+    tokens; a remainder below `words` tokens is dropped (deterministic)."""
+    toks = [w.lower() for w in WORD_RE.findall(text)]
+    return [toks[i:i + words] for i in range(0, len(toks) - words + 1, words)]
+
+
+def mmd_feature_vector(vals):
+    """The fixed deterministic feature row values of one pseudo-document
+    (delta2: the battery feeds the test its own feature vector). A row that
+    reads None below its minimum contributes 0.0 (fixed rule, documented)."""
+    return [float(vals[mid]) if vals.get(mid) is not None else 0.0
+            for mid in MMD_FEATURE_ROWS]
+
+
+def _mmd2(K, a, b):
+    """Biased squared MMD between two unit sets over a precomputed kernel
+    matrix: (1/m^2) S_AA + (1/n^2) S_BB - (2/mn) S_AB."""
+    sub_a = [K[i] for i in a]
+    sub_b = [K[i] for i in b]
+    m, n = float(len(a)), float(len(b))
+    s_aa = sum(sub_a[i][j] for i in range(len(a)) for j in a)
+    s_bb = sum(sub_b[i][j] for i in range(len(b)) for j in b)
+    s_ab = sum(sub_a[i][j] for i in range(len(a)) for j in b)
+    return s_aa / (m * m) + s_bb / (n * n) - 2.0 * s_ab / (m * n)
+
+
+def mmd_two_sample(cand_rows, ref_rows, resamples=MMD_RESAMPLES, seed=MMD_SEED,
+                   null_half=MMD_NULL_HALF):
+    """Squared maximum mean discrepancy with an RBF kernel between the
+    candidate pseudo-documents and the reference pool's pseudo-documents
+    (P84 section 3.3-3.4; delta2). Bandwidth by the median heuristic on the
+    pooled sample. Null calibration: the reference pool splits into two
+    exclusive halves resample times (fixed seed), giving the human-human
+    distance CI at 0.95. Features are z-scored over the pooled sample.
+    Returns a dict with the distance, the CI, and the counts. Pure."""
+    cand = [list(r) for r in cand_rows]
+    ref = [list(r) for r in ref_rows]
+    if not cand or not ref:
+        return None
+    pooled = cand + ref
+    n_w = len(pooled[0])
+    # z-score each feature over the pooled sample; a feature with no spread
+    # over the pool contributes nothing and drops from the vector
+    cols = []
+    for w in range(n_w):
+        col = [row[w] for row in pooled]
+        mu = sample_mean(col)
+        sd = sample_sd(col)
+        if sd > 0:
+            cols.append((w, mu, sd))
+    if not cols:
+        return None
+    z = [[(row[w] - mu) / sd for (w, mu, sd) in cols] for row in pooled]
+    n_c, n_r = len(cand), len(ref)
+    n = len(z)
+    # pairwise squared distances over the pooled sample, upper triangle
+    dists = []
+    for i in range(n):
+        zi = z[i]
+        for j in range(i + 1, n):
+            zj = z[j]
+            dists.append(sum((a - b) ** 2 for a, b in zip(zi, zj)))
+    sigma2 = median(dists)
+    if sigma2 <= 0:
+        sigma2 = 1.0
+    # kernel matrix over all pooled units
+    K = [[1.0] * n for _ in range(n)]
+    for i in range(n):
+        zi = z[i]
+        for j in range(i + 1, n):
+            d2 = sum((a - b) ** 2 for a, b in zip(zi, z[j]))
+            k = math.exp(-d2 / (2.0 * sigma2))
+            K[i][j] = K[j][i] = k
+    cand_idx = list(range(n_c))
+    ref_idx = list(range(n_c, n))
+    distance = _mmd2(K, cand_idx, ref_idx)
+    # null: exclusive halves of the reference pool, seeded
+    import random
+    rng = random.Random(seed)
+    null_pool = list(ref_idx)
+    if len(null_pool) > 2 * null_half:
+        null_pool = sorted(rng.sample(null_pool, 2 * null_half))
+    nulls = []
+    for _ in range(resamples):
+        shuffled = list(null_pool)
+        rng.shuffle(shuffled)
+        half = len(shuffled) // 2
+        nulls.append(_mmd2(K, shuffled[:half], shuffled[half:]))
+    nulls.sort()
+    lo_i = max(0, math.ceil(0.025 * resamples) - 1)
+    hi_i = min(resamples - 1, math.ceil(0.975 * resamples) - 1)
+    return {
+        "distance": distance,
+        "null_mean": sample_mean(nulls),
+        "null_ci_low": nulls[lo_i],
+        "null_ci_high": nulls[hi_i],
+        "beyond": distance > nulls[hi_i],
+        "units_cand": n_c,
+        "units_ref": n_r,
+        "features": len(cols),
+        "resamples": resamples,
+        "segment_words": MMD_SEGMENT_WORDS,
+        "null_units": len(null_pool),
+    }
+
+
 def _structure(text):
     """Paragraphs, sentences, headings, list items; split one time. Heading
     lines and list items do not produce sentences (they count in L1-12)."""

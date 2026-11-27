@@ -33,7 +33,14 @@ No public norm exists: L11 rows and every band read the user's profile.
   with one level outside or L11 near the edge; outside with two or more
   levels outside or L11 outside.
 
-L11-8 needs the pooled character 3-gram rows of the samples; the profile
+L11-12 (MMD two-sample, owner-approved 2026-11-27) is a corpus-level
+report row: the candidate and the sample pool are segmented into pseudo-
+documents of 500 tokens, each described by the battery's own deterministic
+24-row feature vector, and squared MMD with an RBF kernel (median-heuristic
+bandwidth) is compared against the human-human null CI from 200 seeded
+splits of the reference halves. It needs --samples and states the segment
+counts and the owned-adaptation caveat (the paper's stability range is 400
+or more texts). L11-8 needs the pooled character 3-gram rows of the samples; the profile
 does not carry them. Pass --samples DIR for that one row (it reads n/a with
 a note otherwise).
 
@@ -358,9 +365,10 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
     level = (setup or {}).get("level")
 
     tri_pooled = None
+    sample_texts = []
     if sample_files:
-        texts = [f.read_text(encoding="utf-8", errors="replace") for f in sample_files]
-        tri_pooled = vb.tri_merge([vb.scan(t, phrases=False, tri=True)["tri"] for t in texts])
+        sample_texts = [f.read_text(encoding="utf-8", errors="replace") for f in sample_files]
+        tri_pooled = vb.tri_merge([vb.scan(t, phrases=False, tri=True)["tri"] for t in sample_texts])
     ref_full = None
     pca = chol = None
     if level is not None and level < 1:
@@ -424,13 +432,29 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
     n, ns, npar = acc["n"], acc["ns"], acc["np"]
     report["words"], report["sentences"], report["paragraphs"] = n, ns, npar
 
-    acc = vb.scan(candidate_text, phrases=True, tri=tri_pooled is not None)
-    vals = vb.values(acc, ref=ref_full or {}, window=battery.get("window_words"))
-    n, ns, npar = acc["n"], acc["ns"], acc["np"]
-    report["words"], report["sentences"], report["paragraphs"] = n, ns, npar
+    # L11-12 MMD two-sample (P84; delta2; owner-approved 2026-11-27):
+    # pseudo-documents of the candidate and the sample pool, the battery's own
+    # deterministic feature vector, RBF kernel, median-heuristic bandwidth,
+    # and the human-human null CI from exclusive reference halves
+    mmd = None
+    if sample_texts and (level is None or level >= 1):
+        def _mmd_rows(texts):
+            rows = []
+            for t in texts:
+                for seg_toks in vb.mmd_segments(t):
+                    a_seg = vb.scan(" ".join(seg_toks), phrases=True, tri=False)
+                    rows.append(vb.mmd_feature_vector(vb.values(a_seg, ref={}, window=None)))
+            return rows
+        cand_rows = _mmd_rows([candidate_text])
+        ref_rows = _mmd_rows(sample_texts)
+        mmd = vb.mmd_two_sample(cand_rows, ref_rows)
+        if mmd is None:
+            mmd = {"too_small": True}
 
     quotes = acc["curly"] + acc["chars"]["straight"]
     suppressed = []
+    if sample_files is None and battery:
+        suppressed.append("L11-12 (needs --samples: the pooled segments come from the sample texts)")
     heavy_note = ("setup level %d keeps the heavy rows off (run learn/voice_setup.py --level 2)" % level
                   if level is not None and level < 2 else None)
     for mid in vb.ALL_IDS:
@@ -540,6 +564,20 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
                     lines.append("    rank %d of %d by the stored leave-one-out distances "
                                  "(a text by the author draws the last rank in 1 of %d cases)"
                                  % (r, len(dists) + 1, len(dists) + 1))
+        if lvl == "L11" and isinstance(mmd, dict):
+            if mmd.get("too_small"):
+                lines.append("  n/a  L11-12 MMD two-sample distance (squared, RBF, median heuristic)")
+                lines.append("    the pool has too few segments with spread for the two-sample reading")
+            else:
+                lines.append("  %s  L11-12 MMD two-sample distance (squared, RBF, median heuristic)  "
+                             "%.6f squared MMD" % ("outside" if mmd["beyond"] else "inside", mmd["distance"]))
+                lines.append("    candidate-to-pool distance %.6f against the human-human CI %.6f to %.6f "
+                             "(upper limit %.6f); %d reference segments + %d candidate segments of %d words "
+                             "(%d features, %d resamples); owned adaptation: the paper's stability range is "
+                             "400 or more texts, this pool is smaller; %s"
+                             % (mmd["distance"], mmd["null_ci_low"], mmd["null_ci_high"], mmd["null_ci_high"],
+                                mmd["units_ref"], mmd["units_cand"], mmd["segment_words"], mmd["features"],
+                                mmd["resamples"], "beyond the CI" if mmd["beyond"] else "inside the CI"))
         report["levels"][lvl] = {"readings": readings, "counts": counts, "band": overall_levels[lvl],
                                  "rows": [{"id": r[0], "value": r[1], "state": r[2]} for r in rows]}
 

@@ -137,6 +137,52 @@ def fixture(n_words, seed=20260101):
     return "\n\n".join(paras)
 
 
+def interpreter_candidates():
+    """The distinct interpreters this machine can run the plugin with: the
+    current one plus bare python, python3, and the py launcher from PATH
+    (read-only probing; deduped by real path)."""
+    import shutil
+    found = []
+
+    def add(label, path):
+        if not path:
+            return
+        try:
+            real = os.path.realpath(path)
+        except Exception:
+            real = path
+        if not any(real == f[1] for f in found):
+            found.append((label, real))
+
+    add("current", sys.executable)
+    for name in ("python", "python3", "py"):
+        add(name, shutil.which(name))
+    return found
+
+
+def bench_interpreters(candidates):
+    """Measured spawn of each interpreter (median of 5 runs of -I -c pass)."""
+    out = []
+    for label, path in candidates:
+        ms = _median_ms(lambda path=path: subprocess.run([path, "-I", "-c", "pass"], check=True))
+        out.append({"name": label, "path": path, "spawn_ms": round(ms, 2)})
+    return out
+
+
+def interpreter_line(entries):
+    """The one-line interpreter note for the plain-words report (pure; None
+    when only one interpreter was found)."""
+    if len(entries) < 2:
+        return None
+    parts = sorted(entries, key=lambda e: e["spawn_ms"])
+    fastest = parts[0]
+    slowest = max(e["spawn_ms"] for e in entries)
+    listing = ", ".join("%s %.1f ms" % (e["name"], e["spawn_ms"]) for e in parts)
+    return ("interpreters on PATH: %s; the fastest spawn is %s and saves up to %.1f ms "
+            "per gate call against the slowest"
+            % (listing, fastest["name"], slowest - fastest["spawn_ms"]))
+
+
 def _median_ms(fn, runs=5):
     ts = []
     for _ in range(runs):
@@ -206,9 +252,11 @@ def bench_machine(remeasure=False):
                 len(set(part)) / float(len(part))
         return s
     l3_ms = _median_ms(level3_piece)
+    interpreters = bench_interpreters(interpreter_candidates())
     bench = {
         "format_version": "1.0",
         "python": sys.version.split()[0],
+        "interpreters": interpreters,
         "interpreter_spawn_ms": round(spawn, 2),
         "gate_command_ms_2000w": round(gate_ms, 2),
         "gate_fast_core_ms_2000w": fast_core_ms,
@@ -372,6 +420,9 @@ def plain_report(bench, level, costs, budget, bands, notes, remeasured):
         lines.append("gate path: %.1f ms, inside the 100 ms perception threshold" % gate_total)
     lines.append("level: %d (%s); measured cost %.1f ms against your %d ms budget"
                  % (level, LEVEL_NAMES[level], costs[level], budget))
+    interp_line = interpreter_line(bench.get("interpreters") or [])
+    if interp_line:
+        lines.append(interp_line)
     lines.append("  level costs measured on this machine: "
                  + ", ".join("level %d %.1f ms" % (lv, costs[lv]) for lv in sorted(costs)))
     if bands:

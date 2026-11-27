@@ -51,7 +51,7 @@ import tempfile
 HERE = pathlib.Path(__file__).resolve().parent      # tests/humanizer/
 REPO_ROOT = HERE.parent.parent                     # the repository root
 PLUGIN_DIR = REPO_ROOT / "humanizer"               # humanizer/
-ALLOWED_IMPORTS = {"importlib", "math", "os", "re"}
+ALLOWED_IMPORTS = {"importlib", "math", "os", "random", "re"}
 ALLOWED_IMPORTS_REPORT = {"argparse", "importlib", "json", "math", "os", "sys", "pathlib"}
 
 fails = []
@@ -210,6 +210,30 @@ excess_text = " ".join(["plain"] * 1998 + ["delve", "intricate"])
 excess_vals = vb.values(vb.scan(excess_text), ref={})
 ck(excess_vals["L10-15"] == 1.0,
    "rows: two excess words in 2,000 tokens read 1.0 per 1,000 words", str(excess_vals["L10-15"]))
+
+# 4d. MMD two-sample goldens (P84; delta2; owner-approved 2026-11-27) ----------
+GOLD_A = [[0.0, 0.0, 2.0], [0.2, 0.1, 1.8], [0.1, 0.2, 2.2]]
+GOLD_B = [[4.0, 5.0, 0.5], [4.2, 4.8, 0.3], [3.8, 5.2, 0.7], [4.1, 4.9, 0.4]]
+mmd = vb.mmd_two_sample(GOLD_A, GOLD_B)
+ck(mmd is not None and abs(mmd["distance"] - 0.85163739) < 1.0e-7,
+   "mmd: the fixed matrices pin the squared MMD distance (Python 3.11.15 run)",
+   str(mmd and mmd["distance"]))
+ck(abs(mmd["null_ci_low"] - 0.00052637) < 1.0e-8
+   and abs(mmd["null_ci_high"] - 0.01221897) < 1.0e-8
+   and abs(mmd["null_mean"] - 0.00587241) < 1.0e-8,
+   "mmd: the fixed matrices pin the human-human CI bounds (200 seeded resamples)",
+   str((mmd["null_ci_low"], mmd["null_ci_high"], mmd["null_mean"])))
+ck(mmd["beyond"] is True and mmd["units_cand"] == 3 and mmd["units_ref"] == 4
+   and mmd["features"] == 3 and mmd["null_units"] == 4,
+   "mmd: the verdict, unit counts, and feature count are pinned")
+ck(vb.mmd_two_sample([], GOLD_B) is None and vb.mmd_two_sample(GOLD_A, []) is None,
+   "mmd: an empty sample reads None, never a made-up distance")
+segs = vb.mmd_segments(" ".join(["w%d" % (i % 7) for i in range(12)]), words=5)
+ck([len(part) for part in segs] == [5, 5],
+   "mmd: segmentation cuts full 500-token chunks and drops the remainder")
+fv = vb.mmd_feature_vector({"L1-8": 1.5, "L2-4": None})
+ck(len(fv) == len(vb.MMD_FEATURE_ROWS) == 24 and fv[0] == 1.5 and fv[2] == 0.0,
+   "mmd: the feature vector is the fixed 24-row battery vector; None reads 0.0")
 
 # 5. Battery goldens on a synthetic corpus -------------------------------------
 NOUNS = ("system engine report market pattern measure sample signal model document writer reader "
@@ -395,6 +419,8 @@ with tempfile.TemporaryDirectory() as td:
     ck("L7-6 function-word PCA projection" in out1 and "L11-11 full-covariance Delta" in out1
        and "by the stored leave-one-out distances" in out1,
        "report: the two axis rows print, L11-11 with its leave-one-out rank line")
+    ck("L11-12 (needs --samples" in out1,
+       "report: L11-12 reads n/a without --samples with the defined reason")
     rj = subprocess.run([sys.executable, "-I", str(PLUGIN_DIR / "learn" / "voice_battery_report.py"),
                          str(cand), "--profile", str(tdp / "learned" / "profile.json"), "--json"],
                         capture_output=True, text=True, env=env)
