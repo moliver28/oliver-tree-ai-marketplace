@@ -7,3 +7,7 @@ __pycache__/
 .mimosa/
 
 tests/evals/grounding/runs/
+
+# humanizer per-user runtime artifacts (zero-commit contract, learned/README)
+humanizer/learned/pool/
+humanizer/learned/state/

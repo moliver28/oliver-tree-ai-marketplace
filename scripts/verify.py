@@ -861,6 +861,19 @@ pyc_cruft = [t for t in tracked
              if t.endswith(".pyc") or "__pycache__" in pathlib.PurePosixPath(t).parts]
 ck(not pyc_cruft, f"no tracked __pycache__/*.pyc anywhere (zero-stub law): {pyc_cruft[:5]}")
 
+# the humanizer learned directory is per-user runtime data: the reference
+# pool, the setup state, and every profile artifact stay user-local, never
+# committed (owner message 5 privacy rule; the shipped exceptions are the
+# README and the empty phrase sink)
+tracked_learned = [t for t in tracked
+                   if t.startswith("humanizer/learned/")
+                   and t != "humanizer/learned/README.md"
+                   and t != "humanizer/learned/phrases.log"]
+ck(not tracked_learned,
+   "no tracked files under humanizer/learned besides README.md and phrases.log "
+   "(the reference pool, the setup state, and every profile artifact are "
+   "user-local runtime data, never committed)" + str(tracked_learned[:5]))
+
 # stub markers in plugin/skill text files (word-boundary matched: prose like
 # "stubborn" is not a marker). Inline `verify-allow: stub-marker` on the same
 # or preceding line whitelists a load-bearing construct; rare and explicit.
