@@ -3,7 +3,7 @@
 learn/voice_battery_report.py, and the battery sections of
 learn/build_voice_profile.py and hooks/gate.py (v1.2.0).
 
-Run: python3 humanizer/tests/test_voice_battery.py
+Run: python3 tests/humanizer/test_voice_battery.py
 Exit 0 = every contract gate green.
 
 The contract this file pins:
@@ -48,9 +48,9 @@ import subprocess
 import sys
 import tempfile
 
-HERE = pathlib.Path(__file__).resolve().parent      # humanizer/tests/
-PLUGIN_DIR = HERE.parent                            # humanizer/
-REPO_ROOT = PLUGIN_DIR.parent
+HERE = pathlib.Path(__file__).resolve().parent      # tests/humanizer/
+REPO_ROOT = HERE.parent.parent                     # the repository root
+PLUGIN_DIR = REPO_ROOT / "humanizer"               # humanizer/
 ALLOWED_IMPORTS = {"importlib", "math", "os", "re"}
 ALLOWED_IMPORTS_REPORT = {"argparse", "importlib", "json", "math", "os", "sys", "pathlib"}
 

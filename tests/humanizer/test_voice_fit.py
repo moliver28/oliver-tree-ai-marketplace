@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Contract tests for learn/voice_fit.py (the advisory voice-fit table).
 
-Run: python3 humanizer/tests/test_voice_fit.py
+Run: python3 tests/humanizer/test_voice_fit.py
 Also invoked by scripts/verify.py. Exit 0 = every contract gate green.
 
 The contract this file pins (the P18 promotion of M15 + M18, extended by the
@@ -44,9 +44,9 @@ import subprocess
 import sys
 import tempfile
 
-HERE = pathlib.Path(__file__).resolve().parent      # humanizer/tests/
-PLUGIN_DIR = HERE.parent                            # humanizer/
-REPO_ROOT = PLUGIN_DIR.parent
+HERE = pathlib.Path(__file__).resolve().parent      # tests/humanizer/
+REPO_ROOT = HERE.parent.parent                     # the repository root
+PLUGIN_DIR = REPO_ROOT / "humanizer"               # humanizer/
 FIXTURE = HERE / "fixtures" / "sitefactory_p18.json"
 ALLOWED_IMPORTS = {"argparse", "importlib", "json", "math", "os", "re", "sys", "pathlib"}
 

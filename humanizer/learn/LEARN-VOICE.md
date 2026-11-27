@@ -137,7 +137,7 @@ never runs in the delivery gate and never blocks delivery.
   or samples the table still renders the candidate column with n/a reference
   columns, exit 0. The same numbers pass a parity fixture generated from the
   sitefactory P18 portable stylometry block
-  (`humanizer/tests/test_voice_fit.py`); never in the delivery gate.
+  (`tests/humanizer/test_voice_fit.py`); never in the delivery gate.
 
 ## Conflict rule (no model arbitration)
 

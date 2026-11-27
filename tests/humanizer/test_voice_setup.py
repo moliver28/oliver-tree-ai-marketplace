@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Contract tests for learn/voice_setup.py (the install experience, v1.3.0).
 
-Run: python3 humanizer/tests/test_voice_setup.py
+Run: python3 tests/humanizer/test_voice_setup.py
 Exit 0 = every contract gate green.
 
 The contract this file pins:
@@ -28,8 +28,9 @@ import subprocess
 import sys
 import tempfile
 
-HERE = pathlib.Path(__file__).resolve().parent      # humanizer/tests/
-PLUGIN_DIR = HERE.parent                            # humanizer/
+HERE = pathlib.Path(__file__).resolve().parent      # tests/humanizer/
+REPO_ROOT = HERE.parent.parent                     # the repository root
+PLUGIN_DIR = REPO_ROOT / "humanizer"               # humanizer/
 
 fails = []
 

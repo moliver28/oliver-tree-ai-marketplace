@@ -66,7 +66,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))          # humanizer/learn/
 
 # The tokenizer constants live in voice_battery_core.py (the gate-path fast
 # core), byte-identical to build_voice_profile.py (the single source of
-# truth). The sync pin in humanizer/tests/test_voice_battery.py fails the
+# truth). The sync pin in tests/humanizer/test_voice_battery.py fails the
 # build if the three files drift.
 _core_spec = importlib.util.spec_from_file_location(
     "voice_battery_core_mod", os.path.join(HERE, "voice_battery_core.py"))

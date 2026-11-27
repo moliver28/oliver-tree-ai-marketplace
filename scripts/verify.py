@@ -65,10 +65,10 @@ Checks:
     n/a under the owned 500-word floor, AM-02; long candidates read the
     delta with the sample stddev and the count floor, AM-04/AM-06); a
     sample corpus too small for leave-one-out reads n/a sample-self; the
-    contract suite humanizer/tests/test_voice_fit.py exits 0 (sitefactory
+    contract suite tests/humanizer/test_voice_fit.py exits 0 (sitefactory
     parity fixture, gate no-op byte-pin, fail-open, spread rule,
     stdlib-only); the measurement battery contract suite
-    humanizer/tests/test_voice_battery.py exits 0 (79-row Tier A spec,
+    tests/humanizer/test_voice_battery.py exits 0 (79-row Tier A spec,
     closed-list size pins, tokenizer sync, goldens on the synthetic
     corpus, the profile battery section, the gate fast core, the report
     shape, stdlib-only); version parity at 1.2.0.
@@ -768,20 +768,20 @@ if voice_fix.is_dir():
             ck(vf_one.returncode == 0 and isinstance(jone, dict)
                and jone.get("burrows_delta", {}).get("sample_self") is None,
                "voice_fit spread rule: a sample corpus too small for leave-one-out reads n/a sample-self")
-            r_ct = subprocess.run([sys.executable, "-I", str(ROOT / "humanizer" / "tests" / "test_voice_fit.py")],
+            r_ct = subprocess.run([sys.executable, "-I", str(ROOT / "tests" / "humanizer" / "test_voice_fit.py")],
                                   capture_output=True, text=True, env=env_base)
             tail_ct = (r_ct.stdout or r_ct.stderr or "").strip().splitlines()
             ck(r_ct.returncode == 0,
                f"voice_fit contract suite (sitefactory parity / gate no-op / fail-open / stdlib-only): "
                f"{tail_ct[-1] if tail_ct else r_ct.returncode}")
-            r_cb = subprocess.run([sys.executable, "-I", str(ROOT / "humanizer" / "tests" / "test_voice_battery.py")],
+            r_cb = subprocess.run([sys.executable, "-I", str(ROOT / "tests" / "humanizer" / "test_voice_battery.py")],
                                   capture_output=True, text=True, env=env_base)
             tail_cb = (r_cb.stdout or r_cb.stderr or "").strip().splitlines()
             ck(r_cb.returncode == 0,
                f"voice_battery contract suite (79-row spec / list sizes / tokenizer sync / goldens / "
                f"profile battery section / gate fast core / report shape / stdlib-only): "
                f"{tail_cb[-1] if tail_cb else r_cb.returncode}")
-            r_cs = subprocess.run([sys.executable, "-I", str(ROOT / "humanizer" / "tests" / "test_voice_setup.py")],
+            r_cs = subprocess.run([sys.executable, "-I", str(ROOT / "tests" / "humanizer" / "test_voice_setup.py")],
                                   capture_output=True, text=True, env=env_base)
             tail_cs = (r_cs.stdout or r_cs.stderr or "").strip().splitlines()
             ck(r_cs.returncode == 0,
