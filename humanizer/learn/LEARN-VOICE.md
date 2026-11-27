@@ -76,9 +76,9 @@ nothing runs at install time except the host's own plugin loader.
 - The delivery gate `hooks/gate.py` runs on every generated surface: pass =
   zero tokens delivered (the model is never re-engaged); fail = one repair
   contract naming at most 5 family-deduped patterns with patch-in-place
-  instructions; scan error = fail-open (deliver). Advisory signals —
+  instructions; scan error = fail-open (deliver). Advisory signals:
   `voice_fit` (clean-corpus centroid cosine), `source_fidelity` (with
-  `--source FILE`) and the classifier's `p_ai`/`voice_delta` — appear in the
+  `--source FILE`) and the classifier's `p_ai`/`voice_delta` appear in the
   JSON only when their learned artifacts exist, cost zero model tokens, and
   never change pass/fail in 1.1.0.
 - `/voice` applies the profile and gates the result. `/voice --dry` gates the
@@ -96,7 +96,7 @@ nothing runs at install time except the host's own plugin loader.
   `learn/edit_learning.py`, matches the delivery hash, and diffs the pair
   with difflib. A substantial edit (>15% of tokens changed) files BEFORE and
   AFTER under `learned/edit-delta/{before,after}/` (classifier negatives /
-  positives; retrain pending) — a light edit (<=15%) files the edited copy
+  positives; retrain pending). A light edit (<=15%) files the edited copy
   durably and adds it to `learned/clean-corpus-index.txt` as `edit-confirmed`
   (BEFORE discarded). After learning edits, retrain the classifier and
   rebuild the centroid (both hash-guarded) and rerun `learn/calibrate.py`,
@@ -114,7 +114,7 @@ nothing runs at install time except the host's own plugin loader.
 never runs in the delivery gate and never blocks delivery.
 
 - Signal A (default, zero setup): `python3 humanizer/learn/acceptance_check.py
-  FILE...` scores Burrows' Delta — the candidate's per-1000-words frequency
+  FILE...` scores Burrows' Delta: the candidate's per-1000-words frequency
   profile over 60 hardcoded function words z-scored against the
   `function_words` section of `learned/profile.json` (rebuild the profile
   after growing the corpus: the profile needs >= 2 documents for nonzero
@@ -137,7 +137,7 @@ never runs in the delivery gate and never blocks delivery.
   or samples the table still renders the candidate column with n/a reference
   columns, exit 0. The same numbers pass a parity fixture generated from the
   sitefactory P18 portable stylometry block
-  (`humanizer/tests/test_voice_fit.py`); never in the delivery gate.
+  (`tests/humanizer/test_voice_fit.py`); never in the delivery gate.
 
 ## Conflict rule (no model arbitration)
 

@@ -371,6 +371,55 @@ def battery_block(texts, fw_profile, fw_rows):
                              "min": round(min(col), 6), "max": round(max(col), 6),
                              "k": len(col)}
 
+    # variability rows L10-16 / L10-17 (delta4): sentence-aligned
+    # pseudo-documents, the fixed 20-feature vector, the reference
+    # reductions, and the B=200 size-matched split null with the recorded
+    # seed. R3 user-local, rebuilt by this command, never shipped. Below the
+    # minimum pool (5 documents, 50 segments) the object stores
+    # status: insufficient_reference.
+    seg_rows_raw, seg_labels, per_doc_segs = [], [], []
+    for i, t in enumerate(texts):
+        for seg_sents in vb.variability_segments(t):
+            seg_text = " ".join(seg_sents)
+            a_seg = vb.scan(seg_text, phrases=False, tri=False)
+            v_seg = vb.values(a_seg, ref={}, window=None)
+            seg_rows_raw.append(vb.var_feature_vector(a_seg, v_seg))
+            per_doc_segs.append(i)
+    n_seg = len(seg_rows_raw)
+    k_docs = len(texts)
+    variability = {
+        "features": list(vb.VAR_FEATURE_ROWS) + ["contraction_rate", "sentence_length_sd"],
+        "seed": vb.VAR_SEED, "splits": vb.VAR_SPLITS,
+        "k_docs": k_docs, "n_seg": n_seg,
+        "segment_words": vb.VAR_SEGMENT_WORDS,
+    }
+    if k_docs < vb.VAR_MIN_REF_DOCS or n_seg < vb.VAR_MIN_REF_SEGS:
+        variability["status"] = "insufficient_reference"
+    else:
+        ref_mean = [vb.sample_mean([r[w] for r in seg_rows_raw]) for w in range(20)]
+        ref_sd = [vb.sample_sd([r[w] for r in seg_rows_raw]) for w in range(20)]
+        z_rows = [[(r[w] - ref_mean[w]) / ref_sd[w] if ref_sd[w] > 0 else 0.0
+                   for w in range(20)] for r in seg_rows_raw]
+        null = vb.var_null(z_rows, seg_rows_raw)
+        sl_ref_sd, ss_ref_sd = vb.var_reduction(seg_rows_raw)
+        v_ref = vb.var_v(z_rows)
+        variability.update({
+            "ref_mean": [round(x, 6) for x in ref_mean],
+            "ref_sd": [round(x, 6) for x in ref_sd],
+            "v_ref": round(v_ref, 6) if v_ref is not None else None,
+            "sl_ratio_ref_sd": round(sl_ref_sd, 6),
+            "intra_ref_sd_of_sd": round(ss_ref_sd, 6),
+            "status": "ok",
+        })
+        if null:
+            variability.update({
+                "v_ci_lo": round(null["v_lo"], 6), "v_ci_hi": round(null["v_hi"], 6),
+                "sl_ci_lo": round(null.get("sl_lo", 0.0), 6),
+                "sl_ci_hi": round(null.get("sl_hi", 0.0), 6),
+                "ss_ci_lo": round(null.get("ss_lo", 0.0), 6),
+                "ss_ci_hi": round(null.get("ss_hi", 0.0), 6),
+            })
+
     # holdout matrix (map 4.5 rank rule and map 4.7 level outside counts):
     # each document measured against the other documents' own reference rows.
     # The rank rule needs 3 or more documents and the holdout bands need a
@@ -433,6 +482,8 @@ def battery_block(texts, fw_profile, fw_rows):
         "measures": measures,
         "levels_holdout": levels_holdout,
         "rank": rank,
+        "variability": variability,
+        "measure_set": vb.BATTERY_VERSION,
         "reference": {
             "fw_pooled": [int(c) for c in pooled],
             "docs_fw": [[int(c) for c in row] for row in docs_fw],

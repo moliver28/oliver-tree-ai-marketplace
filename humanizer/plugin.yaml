@@ -1,6 +1,6 @@
 plugin:
   name: humanizer-voice
-  version: 1.2.0
+  version: 1.3.0
   description: Learned voice profile + quiet delivery gate; user surface is the /voice command only.
   author: moliver28
   entry: SKILL.md
@@ -9,14 +9,16 @@ plugin:
     learn: learn/ (onboarding template + deterministic profile/calibration/distillation/classifier/acceptance/battery tools; zero-LLM)
     hooks: hooks/ (self-contained gate: voice_tells.py scanner + STE layer + battery fast core; pass = zero tokens, fail = patch-in-place repair contract, scan error = fail-open; advisory voice-fit/fidelity/classifier fields cost zero tokens and never block)
     apply: /voice <target> -> rewrite in learned profile -> gate scan -> copy + one status line
+  setup:
+    command: /voice-setup (learn/voice_setup.py; the install experience: machine bench, level picker, per-situation bands with layer-2 factors, plain-words report; state in learned/state/, user-local)
   hooks:
     gate: hooks/gate.py (deterministic regex scan + battery fast core of learn/voice_battery_core.py; pass = silence/zero tokens; fail = repair contract naming up to 5 family-deduped patterns with in-place fix hints, at most one of them a battery marker line; scan error = fail-open; --source FILE adds source_fidelity, voice_fit and classifier signals appear when their learned artifacts exist, advisory only, never blocking)
     contract: hooks/HOOKS.md
   learn:
     onboard: learn/VOICE_ONBOARDING.template.md
-    tools: [learn/build_voice_profile.py, learn/calibrate.py, learn/distill_phrases.py, learn/voice_vector_build.py, learn/train_voice_classifier.py, learn/edit_learning.py, learn/acceptance_check.py, learn/voice_fit.py, learn/voice_battery_report.py]
+    tools: [learn/build_voice_profile.py, learn/calibrate.py, learn/distill_phrases.py, learn/voice_vector_build.py, learn/train_voice_classifier.py, learn/edit_learning.py, learn/acceptance_check.py, learn/voice_fit.py, learn/voice_battery_report.py, learn/voice_setup.py]
     libraries: [learn/voice_battery.py, learn/voice_battery_core.py]
     procedure: learn/LEARN-VOICE.md
   surfaces:
-    user_facing: [/voice, /voice-fit]
+    user_facing: [/voice, /voice-fit, /voice-setup]
     background: [learn, scan hooks, logs]

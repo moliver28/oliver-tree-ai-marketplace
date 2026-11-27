@@ -65,10 +65,10 @@ Checks:
     n/a under the owned 500-word floor, AM-02; long candidates read the
     delta with the sample stddev and the count floor, AM-04/AM-06); a
     sample corpus too small for leave-one-out reads n/a sample-self; the
-    contract suite humanizer/tests/test_voice_fit.py exits 0 (sitefactory
+    contract suite tests/humanizer/test_voice_fit.py exits 0 (sitefactory
     parity fixture, gate no-op byte-pin, fail-open, spread rule,
     stdlib-only); the measurement battery contract suite
-    humanizer/tests/test_voice_battery.py exits 0 (79-row Tier A spec,
+    tests/humanizer/test_voice_battery.py exits 0 (79-row Tier A spec with 3 corpus rows, 82 total,
     closed-list size pins, tokenizer sync, goldens on the synthetic
     corpus, the profile battery section, the gate fast core, the report
     shape, stdlib-only); version parity at 1.2.0.
@@ -160,7 +160,7 @@ for p in data["plugins"]:
     ck(mj.get("name") == p["name"], f"manifest name matches for {p['name']}")
     ck(mj.get("version") == p.get("version"), f"version parity {p['name']} (manifest vs marketplace)")
     if p["name"] == "humanizer-voice":
-        ck(mj.get("version") == "1.2.0", f"humanizer-voice is at 1.2.0 (stylometry advisory shipped): got {mj.get('version')}")
+        ck(mj.get("version") == "1.3.0", f"humanizer-voice is at 1.3.0 (setup program shipped): got {mj.get('version')}")
     d = mj.get("description", "")
     ck(len(d) <= 256, f"description <=256 chars for {p['name']} ({len(d)})")
     ck("'" in d and "use when the user says" in d.lower(), f"description carries human trigger phrases for {p['name']}")
@@ -216,7 +216,7 @@ for p in data["plugins"]:
             # learn tools importable (same importlib pattern as the voice-tells check above)
             for tool_name in ("build_voice_profile", "distill_phrases", "calibrate", "voice_vector_build",
                               "train_voice_classifier", "edit_learning", "acceptance_check", "voice_fit",
-                              "voice_battery_report"):
+                              "voice_battery_report", "voice_setup"):
                 try:
                     tspec = importlib.util.spec_from_file_location(
                         f"humanizer_learn_{tool_name}", learn_dir / f"{tool_name}.py")
@@ -768,19 +768,26 @@ if voice_fix.is_dir():
             ck(vf_one.returncode == 0 and isinstance(jone, dict)
                and jone.get("burrows_delta", {}).get("sample_self") is None,
                "voice_fit spread rule: a sample corpus too small for leave-one-out reads n/a sample-self")
-            r_ct = subprocess.run([sys.executable, "-I", str(ROOT / "humanizer" / "tests" / "test_voice_fit.py")],
+            r_ct = subprocess.run([sys.executable, "-I", str(ROOT / "tests" / "humanizer" / "test_voice_fit.py")],
                                   capture_output=True, text=True, env=env_base)
             tail_ct = (r_ct.stdout or r_ct.stderr or "").strip().splitlines()
             ck(r_ct.returncode == 0,
                f"voice_fit contract suite (sitefactory parity / gate no-op / fail-open / stdlib-only): "
                f"{tail_ct[-1] if tail_ct else r_ct.returncode}")
-            r_cb = subprocess.run([sys.executable, "-I", str(ROOT / "humanizer" / "tests" / "test_voice_battery.py")],
+            r_cb = subprocess.run([sys.executable, "-I", str(ROOT / "tests" / "humanizer" / "test_voice_battery.py")],
                                   capture_output=True, text=True, env=env_base)
             tail_cb = (r_cb.stdout or r_cb.stderr or "").strip().splitlines()
             ck(r_cb.returncode == 0,
                f"voice_battery contract suite (79-row spec / list sizes / tokenizer sync / goldens / "
                f"profile battery section / gate fast core / report shape / stdlib-only): "
                f"{tail_cb[-1] if tail_cb else r_cb.returncode}")
+            r_cs = subprocess.run([sys.executable, "-I", str(ROOT / "tests" / "humanizer" / "test_voice_setup.py")],
+                                  capture_output=True, text=True, env=env_base)
+            tail_cs = (r_cs.stdout or r_cs.stderr or "").strip().splitlines()
+            ck(r_cs.returncode == 0,
+               f"voice_setup contract suite (level picker goldens / per-situation bands / two-layer "
+               f"factor shrinkage / CLI exit codes / state files user-local / stdlib-only): "
+               f"{tail_cs[-1] if tail_cs else r_cs.returncode}")
         finally:
             for k, v in saved_env.items():
                 if v is None:
@@ -853,6 +860,19 @@ for t in tracked:
 pyc_cruft = [t for t in tracked
              if t.endswith(".pyc") or "__pycache__" in pathlib.PurePosixPath(t).parts]
 ck(not pyc_cruft, f"no tracked __pycache__/*.pyc anywhere (zero-stub law): {pyc_cruft[:5]}")
+
+# the humanizer learned directory is per-user runtime data: the reference
+# pool, the setup state, and every profile artifact stay user-local, never
+# committed (owner message 5 privacy rule; the shipped exceptions are the
+# README and the empty phrase sink)
+tracked_learned = [t for t in tracked
+                   if t.startswith("humanizer/learned/")
+                   and t != "humanizer/learned/README.md"
+                   and t != "humanizer/learned/phrases.log"]
+ck(not tracked_learned,
+   "no tracked files under humanizer/learned besides README.md and phrases.log "
+   "(the reference pool, the setup state, and every profile artifact are "
+   "user-local runtime data, never committed)" + str(tracked_learned[:5]))
 
 # stub markers in plugin/skill text files (word-boundary matched: prose like
 # "stubborn" is not a marker). Inline `verify-allow: stub-marker` on the same

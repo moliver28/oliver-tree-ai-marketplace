@@ -3,13 +3,15 @@
 learn/voice_battery_report.py, and the battery sections of
 learn/build_voice_profile.py and hooks/gate.py (v1.2.0).
 
-Run: python3 humanizer/tests/test_voice_battery.py
+Run: python3 tests/humanizer/test_voice_battery.py
 Exit 0 = every contract gate green.
 
 The contract this file pins:
 
-1. Spec: the 79 Tier A rows (the 74 rows of the measures map section 3a plus the
-   5 rows of the re-tier pass delta1), with
+1. Spec: the 79 per-text Tier A rows (the 74 rows of the measures map section
+   3a plus the 5 rows of the re-tier pass delta1); the battery totals 82 rows
+   with the 3 corpus-level report rows (L11-12 MMD two-sample, L10-16 and
+   L10-17 variability), with
    the per-level counts, and every row carries a unit, a minimum rule, and
    a count-floor rule; the renderer carries an edit reading for every row.
 2. Closed-list sizes (deterministic; the payload contract of decision D1b):
@@ -48,10 +50,10 @@ import subprocess
 import sys
 import tempfile
 
-HERE = pathlib.Path(__file__).resolve().parent      # humanizer/tests/
-PLUGIN_DIR = HERE.parent                            # humanizer/
-REPO_ROOT = PLUGIN_DIR.parent
-ALLOWED_IMPORTS = {"importlib", "math", "os", "re"}
+HERE = pathlib.Path(__file__).resolve().parent      # tests/humanizer/
+REPO_ROOT = HERE.parent.parent                     # the repository root
+PLUGIN_DIR = REPO_ROOT / "humanizer"               # humanizer/
+ALLOWED_IMPORTS = {"importlib", "math", "os", "random", "re"}
 ALLOWED_IMPORTS_REPORT = {"argparse", "importlib", "json", "math", "os", "sys", "pathlib"}
 
 fails = []
@@ -210,6 +212,75 @@ excess_text = " ".join(["plain"] * 1998 + ["delve", "intricate"])
 excess_vals = vb.values(vb.scan(excess_text), ref={})
 ck(excess_vals["L10-15"] == 1.0,
    "rows: two excess words in 2,000 tokens read 1.0 per 1,000 words", str(excess_vals["L10-15"]))
+
+# 4d. MMD two-sample goldens (P84; delta2; owner-approved 2026-11-27) ----------
+GOLD_A = [[0.0, 0.0, 2.0], [0.2, 0.1, 1.8], [0.1, 0.2, 2.2]]
+GOLD_B = [[4.0, 5.0, 0.5], [4.2, 4.8, 0.3], [3.8, 5.2, 0.7], [4.1, 4.9, 0.4]]
+mmd = vb.mmd_two_sample(GOLD_A, GOLD_B)
+ck(mmd is not None and abs(mmd["distance"] - 0.85163739) < 1.0e-7,
+   "mmd: the fixed matrices pin the squared MMD distance (Python 3.11.15 run)",
+   str(mmd and mmd["distance"]))
+ck(abs(mmd["null_ci_low"] - 0.00052637) < 1.0e-8
+   and abs(mmd["null_ci_high"] - 0.01221897) < 1.0e-8
+   and abs(mmd["null_mean"] - 0.00587241) < 1.0e-8,
+   "mmd: the fixed matrices pin the human-human CI bounds (200 seeded resamples)",
+   str((mmd["null_ci_low"], mmd["null_ci_high"], mmd["null_mean"])))
+ck(mmd["beyond"] is True and mmd["units_cand"] == 3 and mmd["units_ref"] == 4
+   and mmd["features"] == 3 and mmd["null_units"] == 4,
+   "mmd: the verdict, unit counts, and feature count are pinned")
+ck(vb.mmd_two_sample([], GOLD_B) is None and vb.mmd_two_sample(GOLD_A, []) is None,
+   "mmd: an empty sample reads None, never a made-up distance")
+segs = vb.mmd_segments(" ".join(["w%d" % (i % 7) for i in range(12)]), words=5)
+ck([len(part) for part in segs] == [5, 5],
+   "mmd: segmentation cuts full 500-token chunks and drops the remainder")
+fv = vb.mmd_feature_vector({"L1-8": 1.5, "L2-4": None})
+ck(len(fv) == len(vb.MMD_FEATURE_ROWS) == 24 and fv[0] == 1.5 and fv[2] == 0.0,
+   "mmd: the feature vector is the fixed 24-row battery vector; None reads 0.0")
+
+# 4e. Variability row goldens (P84 section 6.2 and P86; delta4; rows
+# L10-16 / L10-17; report path only, never the gate) ---------------------------
+import random as _random
+_rng = _random.Random(5)
+VAR_ROWS = [[round(_rng.uniform(0.0, 5.0 + (2.0 if i < 20 else 6.0)), 4) for _ in range(20)]
+            for i in range(40)]
+_var_mean = [vb.sample_mean([r[w] for r in VAR_ROWS]) for w in range(20)]
+_var_sd = [vb.sample_sd([r[w] for r in VAR_ROWS]) for w in range(20)]
+VAR_Z = [[(r[w] - _var_mean[w]) / _var_sd[w] if _var_sd[w] > 0 else 0.0 for w in range(20)]
+         for r in VAR_ROWS]
+VAR_CAND = [[round(_rng.uniform(2.0, 2.4), 4) + 0.001 * w for w in range(20)] for _i in range(10)]
+VAR_CAND_Z = [[(r[w] - _var_mean[w]) / _var_sd[w] if _var_sd[w] > 0 else 0.0 for w in range(20)]
+              for r in VAR_CAND]
+v_ref = vb.var_v(VAR_Z)
+ck(abs(v_ref - 20.0) < 1.0e-9,
+   "var: V of the z-scored reference pool pins at the feature count (20.0)", str(v_ref))
+null = vb.var_null(VAR_Z, VAR_ROWS)
+ck(null is not None and abs(null["v_lo"] - 0.753432) < 1.0e-6
+   and abs(null["v_hi"] - 1.216457) < 1.0e-6
+   and abs(null["sl_lo"] - 0.737244) < 1.0e-6 and abs(null["sl_hi"] - 1.302521) < 1.0e-6
+   and abs(null["ss_lo"] - 0.587201) < 1.0e-6 and abs(null["ss_hi"] - 1.633815) < 1.0e-6
+   and null["seed"] == vb.VAR_SEED == 20261127,
+   "var: the recorded-seed null pins the V1 CI bounds and the two V2 intervals",
+   str(null))
+sl_ref, ss_ref = vb.var_reduction(VAR_ROWS)
+ck(abs(sl_ref - 2.946987) < 1.0e-6 and abs(ss_ref - 2.619303) < 1.0e-6,
+   "var: the m_d and s_d reductions pin on the fixed matrix")
+r_v, r_sl, r_ss = vb.var_ratios(VAR_CAND_Z, VAR_CAND, round(v_ref, 6),
+                                round(sl_ref, 6), round(ss_ref, 6))
+ck(abs(r_v - 0.001978) < 1.0e-6 and abs(r_sl - 0.043302) < 1.0e-6
+   and abs(r_ss - 0.047107) < 1.0e-6,
+   "var: the two ratios pin for the compressed candidate pool (R_V, R_SL, R_SS)",
+   "%.6f %.6f %.6f" % (r_v, r_sl, r_ss))
+ck(vb.var_verdict(r_v, null["v_lo"], null["v_hi"]) == "below"
+   and vb.var_verdict(1.0, null["v_lo"], null["v_hi"]) == "inside"
+   and vb.var_verdict(2.0, null["v_lo"], null["v_hi"]) == "above",
+   "var: the verdict sits below / inside / against the stored interval, never a bare AI verdict")
+ck(len(vb.VAR_FEATURE_ROWS) == 18 and len(vb.var_feature_vector(
+    {"n": 100, "n_contra": 1, "lens": [5, 7]}, {"L1-1": 1.0})) == 20,
+   "var: the fixed 20-feature vector (18 catalog rows + contraction rate + sentence-length SD)")
+segs_rule = vb.variability_segments(
+    "Short one. Another short sentence. " * 30)
+ck(all(len(seg) >= 20 for seg in segs_rule) or not segs_rule,
+   "var: segments under 20 sentences are discarded")
 
 # 5. Battery goldens on a synthetic corpus -------------------------------------
 NOUNS = ("system engine report market pattern measure sample signal model document writer reader "
@@ -395,6 +466,8 @@ with tempfile.TemporaryDirectory() as td:
     ck("L7-6 function-word PCA projection" in out1 and "L11-11 full-covariance Delta" in out1
        and "by the stored leave-one-out distances" in out1,
        "report: the two axis rows print, L11-11 with its leave-one-out rank line")
+    ck("L11-12 (needs --samples" in out1,
+       "report: L11-12 reads n/a without --samples with the defined reason")
     rj = subprocess.run([sys.executable, "-I", str(PLUGIN_DIR / "learn" / "voice_battery_report.py"),
                          str(cand), "--profile", str(tdp / "learned" / "profile.json"), "--json"],
                         capture_output=True, text=True, env=env)

@@ -66,7 +66,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))          # humanizer/learn/
 
 # The tokenizer constants live in voice_battery_core.py (the gate-path fast
 # core), byte-identical to build_voice_profile.py (the single source of
-# truth). The sync pin in humanizer/tests/test_voice_battery.py fails the
+# truth). The sync pin in tests/humanizer/test_voice_battery.py fails the
 # build if the three files drift.
 _core_spec = importlib.util.spec_from_file_location(
     "voice_battery_core_mod", os.path.join(HERE, "voice_battery_core.py"))
@@ -672,6 +672,285 @@ def mahalanobis_distance(rate_vec, mean_vec, L):
     return math.sqrt(sum(x * x for x in y))
 
 
+# ---- MMD two-sample (P84 Nieth et al. 2026, read in full; delta2; report
+# path, corpus level; owner-approved 2026-11-27) ----
+
+MMD_SEGMENT_WORDS = 500      # pseudo-document size (owned convention)
+MMD_RESAMPLES = 200          # B null resamples (owned convention, fixed)
+MMD_SEED = 20261127          # fixed seed so the CI is reproducible
+MMD_NULL_HALF = 25           # cap on the units per null half (owned cost cap)
+MMD_FEATURE_ROWS = (
+    "L1-8", "L1-13", "L2-4", "L2-5", "L2-6", "L2-7", "L2-9", "L2-10",
+    "L2-11", "L2-12", "L3-1", "L3-3", "L3-4", "L3-5", "L3-6", "L4-1",
+    "L4-4", "L4-5", "L4-7", "L5-6", "L5-9", "L6-11", "L8-2", "L9-4",
+)
+
+
+def mmd_segments(text, words=MMD_SEGMENT_WORDS):
+    """Pseudo-document segmentation: consecutive full token chunks of `words`
+    tokens; a remainder below `words` tokens is dropped (deterministic)."""
+    toks = [w.lower() for w in WORD_RE.findall(text)]
+    return [toks[i:i + words] for i in range(0, len(toks) - words + 1, words)]
+
+
+def mmd_feature_vector(vals):
+    """The fixed deterministic feature row values of one pseudo-document
+    (delta2: the battery feeds the test its own feature vector). A row that
+    reads None below its minimum contributes 0.0 (fixed rule, documented)."""
+    return [float(vals[mid]) if vals.get(mid) is not None else 0.0
+            for mid in MMD_FEATURE_ROWS]
+
+
+def _mmd2(K, a, b):
+    """Biased squared MMD between two unit sets over a precomputed kernel
+    matrix: (1/m^2) S_AA + (1/n^2) S_BB - (2/mn) S_AB."""
+    sub_a = [K[i] for i in a]
+    sub_b = [K[i] for i in b]
+    m, n = float(len(a)), float(len(b))
+    s_aa = sum(sub_a[i][j] for i in range(len(a)) for j in a)
+    s_bb = sum(sub_b[i][j] for i in range(len(b)) for j in b)
+    s_ab = sum(sub_a[i][j] for i in range(len(a)) for j in b)
+    return s_aa / (m * m) + s_bb / (n * n) - 2.0 * s_ab / (m * n)
+
+
+def mmd_two_sample(cand_rows, ref_rows, resamples=MMD_RESAMPLES, seed=MMD_SEED,
+                   null_half=MMD_NULL_HALF):
+    """Squared maximum mean discrepancy with an RBF kernel between the
+    candidate pseudo-documents and the reference pool's pseudo-documents
+    (P84 section 3.3-3.4; delta2). Bandwidth by the median heuristic on the
+    pooled sample. Null calibration: the reference pool splits into two
+    exclusive halves resample times (fixed seed), giving the human-human
+    distance CI at 0.95. Features are z-scored over the pooled sample.
+    Returns a dict with the distance, the CI, and the counts. Pure."""
+    cand = [list(r) for r in cand_rows]
+    ref = [list(r) for r in ref_rows]
+    if not cand or not ref:
+        return None
+    pooled = cand + ref
+    n_w = len(pooled[0])
+    # z-score each feature over the pooled sample; a feature with no spread
+    # over the pool contributes nothing and drops from the vector
+    cols = []
+    for w in range(n_w):
+        col = [row[w] for row in pooled]
+        mu = sample_mean(col)
+        sd = sample_sd(col)
+        if sd > 0:
+            cols.append((w, mu, sd))
+    if not cols:
+        return None
+    z = [[(row[w] - mu) / sd for (w, mu, sd) in cols] for row in pooled]
+    n_c, n_r = len(cand), len(ref)
+    n = len(z)
+    # pairwise squared distances over the pooled sample, upper triangle
+    dists = []
+    for i in range(n):
+        zi = z[i]
+        for j in range(i + 1, n):
+            zj = z[j]
+            dists.append(sum((a - b) ** 2 for a, b in zip(zi, zj)))
+    sigma2 = median(dists)
+    if sigma2 <= 0:
+        sigma2 = 1.0
+    # kernel matrix over all pooled units
+    K = [[1.0] * n for _ in range(n)]
+    for i in range(n):
+        zi = z[i]
+        for j in range(i + 1, n):
+            d2 = sum((a - b) ** 2 for a, b in zip(zi, z[j]))
+            k = math.exp(-d2 / (2.0 * sigma2))
+            K[i][j] = K[j][i] = k
+    cand_idx = list(range(n_c))
+    ref_idx = list(range(n_c, n))
+    distance = _mmd2(K, cand_idx, ref_idx)
+    # null: exclusive halves of the reference pool, seeded
+    import random
+    rng = random.Random(seed)
+    null_pool = list(ref_idx)
+    if len(null_pool) > 2 * null_half:
+        null_pool = sorted(rng.sample(null_pool, 2 * null_half))
+    nulls = []
+    for _ in range(resamples):
+        shuffled = list(null_pool)
+        rng.shuffle(shuffled)
+        half = len(shuffled) // 2
+        nulls.append(_mmd2(K, shuffled[:half], shuffled[half:]))
+    nulls.sort()
+    lo_i = max(0, math.ceil(0.025 * resamples) - 1)
+    hi_i = min(resamples - 1, math.ceil(0.975 * resamples) - 1)
+    return {
+        "distance": distance,
+        "null_mean": sample_mean(nulls),
+        "null_ci_low": nulls[lo_i],
+        "null_ci_high": nulls[hi_i],
+        "beyond": distance > nulls[hi_i],
+        "units_cand": n_c,
+        "units_ref": n_r,
+        "features": len(cols),
+        "resamples": resamples,
+        "segment_words": MMD_SEGMENT_WORDS,
+        "null_units": len(null_pool),
+    }
+
+
+# ---- variability rows L10-16 and L10-17 (P84 section 6.2 and P86, both read
+# in full; delta4; owner-approved 2026-11-27; report path only, never the
+# gate; R0; the two rows stay separate, never fused) ----
+
+VAR_SEGMENT_WORDS = 500      # soft limit: include the sentence that crosses it
+VAR_MIN_SENTENCES = 20       # a segment with fewer sentences is discarded
+VAR_MIN_REF_DOCS = 5         # minimum reference documents (delta4 minimum pool)
+VAR_MIN_REF_SEGS = 50        # minimum reference pseudo-documents
+VAR_MIN_CAND_SEGS = 10       # minimum candidate pseudo-documents
+VAR_SPLITS = 200             # B size-matched split nulls (owned convention)
+VAR_SEED = 20261127          # recorded seed so the CI is reproducible
+BATTERY_VERSION = "1.3.0"    # the measure-set version stamped into pool vectors
+
+VAR_FEATURE_ROWS = (
+    "L1-1", "L1-2", "L1-3", "L1-4", "L1-5", "L1-6", "L1-7", "L1-8", "L1-9",
+    "L2-1", "L2-5", "L2-6",
+    "L3-1",
+    "L4-1",
+    "L5-1", "L5-2", "L5-3", "L5-4",
+)
+# the two features outside the catalog rows: contraction rate (delta4 names
+# it in L3; the map row L9-9 stays 3b) and the within-document sentence-length
+# SD. Fixed 20-feature order; never add features without re-checking the
+# coupling list of P86 table 6.
+
+
+def variability_segments(text):
+    """Sentence-aligned pseudo-documents (delta4 shared machinery): split at
+    sentence boundaries into chunks of at least 500 words (the sentence that
+    crosses the mark joins the chunk); the last partial chunk is discarded;
+    a chunk with fewer than 20 sentences is discarded."""
+    sents, _heads, _items, _pw, _pu, _np = _structure(text)
+    segs, cur, cur_words = [], [], 0
+    for raw in sents:
+        w = len(WORD_RE.findall(raw))
+        cur.append(raw)
+        cur_words += w
+        if cur_words >= VAR_SEGMENT_WORDS:
+            segs.append(cur)
+            cur, cur_words = [], 0
+    if cur and cur_words >= VAR_SEGMENT_WORDS:
+        segs.append(cur)
+    return [seg for seg in segs
+            if len(seg) >= VAR_MIN_SENTENCES]
+
+
+def var_feature_vector(acc, vals):
+    """The fixed 20-feature vector of one pseudo-document (delta4: nine L1
+    rows, TTR, MATTR, word length, nominalization, contraction rate, mean
+    sentence length, the within-document sentence-length SD, and the four
+    connective-class rates). A row that reads None contributes 0.0 (fixed
+    rule). Deterministic; never extend without re-checking the coupling
+    list."""
+    lens = acc["lens"]
+    sl_sd = (math.sqrt(sum((x - sample_mean(lens)) ** 2 for x in lens) / len(lens))
+             if lens else 0.0)
+
+    def val(mid):
+        v = vals.get(mid)
+        return float(v) if v is not None else 0.0
+    return [
+        val("L1-1"), val("L1-2"), val("L1-3"), val("L1-4"), val("L1-5"),
+        val("L1-6"), val("L1-7"), val("L1-8"), val("L1-9"),
+        val("L2-1"), val("L2-5"), val("L2-6"),
+        val("L3-1"),
+        _per(acc["n_contra"], acc["n"], 1000.0),
+        val("L4-1"),
+        sl_sd,
+        val("L5-1"), val("L5-2"), val("L5-3"), val("L5-4"),
+    ]
+
+
+def var_v(z_rows):
+    """V(pool): the sum over the features of the variance of the z-scores
+    across the pool's pseudo-documents (divide by n - 1; delta4 V1)."""
+    if len(z_rows) < 2:
+        return None
+    n_w = len(z_rows[0])
+    return sum(sample_sd([r[w] for r in z_rows]) ** 2 for w in range(n_w))
+
+
+def var_reduction(seg_rows):
+    """The per-pool reductions of V2: (sd of the mean sentence lengths,
+    sd of the intra-document sentence-length SDs) over the pool. Rows here
+    are the raw 20-feature vectors (index 14 = m_d, index 15 = s_d)."""
+    m_list = [r[14] for r in seg_rows]
+    s_list = [r[15] for r in seg_rows]
+    return sample_sd(m_list), sample_sd(s_list)
+
+
+def var_ratios(cand_z_rows, cand_rows, v_ref, sl_ref_sd, ss_ref_sd):
+    """The two reported ratios: R_V = V(candidate z-rows) / v_ref (the
+    candidate is z-scored by the stored reference means and SDs);
+    R_SL = the candidate SD of {m_d} over the reference SD; R_SS likewise
+    for {s_d}."""
+    v_cand = var_v(cand_z_rows)
+    m_sd, s_sd = var_reduction(cand_rows)
+    r_v = v_cand / v_ref if v_ref and v_cand is not None else None
+    r_sl = m_sd / sl_ref_sd if sl_ref_sd else None
+    r_ss = s_sd / ss_ref_sd if ss_ref_sd else None
+    return r_v, r_sl, r_ss
+
+
+def var_null(ref_z_rows, ref_rows, splits=VAR_SPLITS, seed=VAR_SEED):
+    """The B size-matched split null (delta4): seeded draws of two disjoint
+    equal halves of the reference pseudo-documents; each draw yields the
+    ratio V(half1) / V(half2) and the two half-size SD ratios. Returns the
+    2.5th and 97.5th percentiles of each. Pure."""
+    import random
+    n = len(ref_z_rows)
+    if n < 4:
+        return None
+    idx = list(range(n))
+    rng = random.Random(seed)
+    vs, sls, sss = [], [], []
+    for _ in range(splits):
+        rng.shuffle(idx)
+        half = n // 2
+        a, b = idx[:half], idx[half:2 * half]
+        va, vb = var_v([ref_z_rows[i] for i in a]), var_v([ref_z_rows[i] for i in b])
+        if va and vb and vb > 0:
+            vs.append(va / vb)
+        ma, sa = var_reduction([ref_rows[i] for i in a])
+        mb, sb = var_reduction([ref_rows[i] for i in b])
+        if mb > 0 and sb > 0:
+            sls.append(ma / mb)
+            sss.append(sa / sb)
+    if not vs:
+        return None
+    lo_i = max(0, math.ceil(0.025 * len(vs)) - 1)
+    hi_i = min(len(vs) - 1, math.ceil(0.975 * len(vs)) - 1)
+
+    def pct(xs, i):
+        return sorted(xs)[min(len(xs) - 1, max(0, i))]
+    out = {"seed": seed, "splits": len(vs),
+           "v_lo": pct(vs, lo_i), "v_hi": pct(vs, hi_i),
+           "v_mean": sample_mean(vs)}
+    if sls:
+        out["sl_lo"] = pct(sls, min(len(sls) - 1, lo_i))
+        out["sl_hi"] = pct(sls, min(len(sls) - 1, hi_i))
+    if sss:
+        out["ss_lo"] = pct(sss, min(len(sss) - 1, lo_i))
+        out["ss_hi"] = pct(sss, min(len(sss) - 1, hi_i))
+    return out
+
+
+def var_verdict(value, lo, hi):
+    """Band of one ratio against the stored interval: below (more uniform
+    than the author's own spread), above (more scattered), inside."""
+    if value is None or lo is None or hi is None:
+        return None
+    if value < lo:
+        return "below"
+    if value > hi:
+        return "above"
+    return "inside"
+
+
 def _structure(text):
     """Paragraphs, sentences, headings, list items; split one time. Heading
     lines and list items do not produce sentences (they count in L1-12)."""
@@ -710,6 +989,7 @@ def scan(text, phrases=True, tri=False):
     fwc = {}
     lens = []
     n_pass = n_lower = n_you = n_marked = n_direct = n_please_medial = 0
+    n_contra = 0
     ov_sum, ov_n = 0.0, 0
     prev_content = None
     for raw in sents:
@@ -750,6 +1030,8 @@ def scan(text, phrases=True, tri=False):
             cnt[C_LONG] += 1
         if w[0].isdigit():
             cnt[C_DIGIT] += 1
+        if w.endswith(("n't", "'re", "'ve", "'ll", "'d", "'m")):
+            n_contra += 1
     chars = {}
     for mark in ("\u2014", "\u2013", "--", "?", "!", ";", ":", "(", ",", "...", "\u2026", "**", "`"):
         chars[mark] = text.count(mark)
@@ -778,6 +1060,7 @@ def scan(text, phrases=True, tri=False):
         "lens": lens, "heads": heads, "items": items,
         "para_words": para_words, "para_units": para_units,
         "snt": (n_pass, n_lower, n_you, n_marked, n_direct, n_please_medial, ov_sum, ov_n),
+        "n_contra": n_contra,
         "chars": chars, "curly": curly, "fmt": fmt, "emoji": emoji,
         "phrases": ph, "tri": tri_row,
     }
