@@ -2,7 +2,7 @@
 """voice_battery_core.py: the gate-path fast core of the measurement battery.
 
 hooks/gate.py lazy-imports THIS module, never the full battery: the full
-module builds the closed lists of all 74 measures and its import cost sits
+module builds the closed lists of all 79 measures and its import cost sits
 outside the gate's latency budget (D6a). This file holds only what the fast
 core needs, so a cold import stays near the 3 ms bar:
 

@@ -68,7 +68,7 @@ Checks:
     contract suite humanizer/tests/test_voice_fit.py exits 0 (sitefactory
     parity fixture, gate no-op byte-pin, fail-open, spread rule,
     stdlib-only); the measurement battery contract suite
-    humanizer/tests/test_voice_battery.py exits 0 (74-row Tier A spec,
+    humanizer/tests/test_voice_battery.py exits 0 (79-row Tier A spec,
     closed-list size pins, tokenizer sync, goldens on the synthetic
     corpus, the profile battery section, the gate fast core, the report
     shape, stdlib-only); version parity at 1.2.0.
@@ -778,7 +778,7 @@ if voice_fix.is_dir():
                                   capture_output=True, text=True, env=env_base)
             tail_cb = (r_cb.stdout or r_cb.stderr or "").strip().splitlines()
             ck(r_cb.returncode == 0,
-               f"voice_battery contract suite (74-row spec / list sizes / tokenizer sync / goldens / "
+               f"voice_battery contract suite (79-row spec / list sizes / tokenizer sync / goldens / "
                f"profile battery section / gate fast core / report shape / stdlib-only): "
                f"{tail_cb[-1] if tail_cb else r_cb.returncode}")
         finally:

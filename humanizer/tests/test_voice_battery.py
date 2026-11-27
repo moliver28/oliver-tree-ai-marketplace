@@ -8,7 +8,8 @@ Exit 0 = every contract gate green.
 
 The contract this file pins:
 
-1. Spec: exactly the 74 Tier A rows of the measures map (section 3a), with
+1. Spec: the 79 Tier A rows (the 74 rows of the measures map section 3a plus the
+   5 rows of the re-tier pass delta1), with
    the per-level counts, and every row carries a unit, a minimum rule, and
    a count-floor rule; the renderer carries an edit reading for every row.
 2. Closed-list sizes (deterministic; the payload contract of decision D1b):
@@ -76,14 +77,15 @@ core = load_module("voice_battery_core_contract", PLUGIN_DIR / "learn" / "voice_
 bvp = load_module("voice_profile_contract", PLUGIN_DIR / "learn" / "build_voice_profile.py")
 
 # 1. Spec pins -----------------------------------------------------------------
-PER_LEVEL = {"L1": 13, "L2": 8, "L3": 6, "L4": 12, "L5": 8, "L6": 1,
-             "L7": 3, "L8": 2, "L9": 11, "L10": 6, "L11": 4}
+PER_LEVEL = {"L1": 13, "L2": 9, "L3": 6, "L4": 12, "L5": 8, "L6": 1,
+             "L7": 4, "L8": 2, "L9": 11, "L10": 7, "L11": 6}
 got_levels = {}
 for mid in vb.ALL_IDS:
     lv = vb.SPEC[mid][0]
     got_levels[lv] = got_levels.get(lv, 0) + 1
-ck(len(vb.ALL_IDS) == 74 and got_levels == PER_LEVEL,
-   "spec: exactly the 74 Tier A rows with the map's per-level counts", str(got_levels))
+ck(len(vb.ALL_IDS) == 79 and got_levels == PER_LEVEL,
+   "spec: the 79 Tier A rows (74 at dispatch plus the 5 re-tier rows) with the per-level counts",
+   str(got_levels))
 ck(all(vb.SPEC[mid][2] in vb.UNIT_TEXT for mid in vb.ALL_IDS),
    "spec: every row carries a known unit")
 ck(all(vb.SPEC[mid][4] is not None for mid in vb.ALL_IDS if vb.SPEC[mid][3] != "win"),
@@ -148,6 +150,66 @@ ck(vb.verdict(0.9, 2.7764) == "inside" and vb.verdict(3.5, 2.7764) == "near the 
    "band: verdict thresholds sit at t and 1.5 t")
 ck(abs(vb.eff_sd(2.0, 5.4) - math.sqrt(4.0 + 5.4)) < 1.0e-12,
    "band: s_eff = sqrt(s^2 + floor), the AM-06 count floor")
+
+# 4b. Reference-derived axis goldens (delta1 rows L7-6 and L11-11) --------------
+R3 = [[1.0, 0.9, 0.9], [0.9, 1.0, 0.9], [0.9, 0.9, 1.0]]
+v1, lam = vb.power_iteration(R3)
+want_v = 1.0 / math.sqrt(3.0)
+ck(all(abs(x - want_v) < 1.0e-9 for x in v1) and abs(lam - 2.8) < 1.0e-9,
+   "pca: power iteration pins the eigenvector (1,1,1)/sqrt(3) and lambda 2.8 of the fixed matrix",
+   "%s %.6f" % (["%.9f" % x for x in v1], lam))
+PC_ROWS = [[2.0, 1.0, 0.5], [1.0, 2.0, 1.5], [3.0, 2.5, 2.0], [1.5, 1.0, 0.5], [2.5, 3.0, 2.5]]
+pc_v1, pc_mean, pc_sd, pc_projs = vb.first_pca(PC_ROWS)
+PC_V1_GOLDEN = [0.471858, 0.623438, 0.623438]
+PC_PROJ_GOLDEN = -1.035107
+ck(all(abs(a - b) < 1.0e-6 for a, b in zip(pc_v1, PC_V1_GOLDEN)),
+   "pca: the fixed rate rows pin the first eigenvector", str(["%.6f" % x for x in pc_v1]))
+proj_row = [1.2, 1.4, 1.1]
+z_row = [(proj_row[w] - pc_mean[w]) / pc_sd[w] if pc_sd[w] > 0 else 0.0 for w in range(3)]
+proj = sum(pc_v1[w] * z_row[w] for w in range(3))
+ck(abs(proj - PC_PROJ_GOLDEN) < 1.0e-6,
+   "pca: the fixed candidate pins its projection score", "%.6f" % proj)
+L2x2 = vb.cholesky_lower([[4.0, 2.0], [2.0, 3.0]])
+ck(abs(L2x2[0][0] - 2.0) < 1.0e-12 and L2x2[0][1] == 0.0
+   and abs(L2x2[1][0] - 1.0) < 1.0e-12 and abs(L2x2[1][1] - math.sqrt(2.0)) < 1.0e-12,
+   "chol: the fixed 2x2 covariance pins its Cholesky factor",
+   str([("%.9f" % x) for row in L2x2 for x in row]))
+dist = vb.mahalanobis_distance([2.0, 2.0], [1.0, 1.0], L2x2)
+ck(abs(dist - math.sqrt(0.375)) < 1.0e-12,
+   "chol: the fixed difference pins the full-covariance distance (sqrt(0.375))", "%.9f" % dist)
+# shrinkage fallback at k = 30: word 3 = word 0 + word 1 makes the covariance
+# singular, so the unshrunk solve fails and the shrunk solve stays stable
+rows30 = [[1.0 + 0.1 * (i % 5), 2.0 + 0.2 * (i % 3), 0.5 + 0.05 * ((i + 1) % 4),
+           3.0 + 0.1 * (i % 5) + 0.2 * (i % 3)] for i in range(30)]
+S_raw, _ = vb.shrunk_covariance(rows30, alpha=0.0)
+raw_failed = False
+try:
+    vb.cholesky_lower(S_raw)
+except ValueError:
+    raw_failed = True
+S_shr, mean30 = vb.shrunk_covariance(rows30, alpha=0.1)
+shr_ok = False
+try:
+    L30 = vb.cholesky_lower(S_shr)
+    d30 = vb.mahalanobis_distance(rows30[7], mean30, L30)
+    shr_ok = d30 >= 0.0
+except ValueError:
+    shr_ok = False
+ck(raw_failed and shr_ok,
+   "chol: shrinkage fallback at k = 30 (unshrunk solve fails on the singular matrix, shrunk solve is stable)")
+
+# 4c. MATTR window pin (Kendro et al. 2025: window 50; the prototype's 100 is
+# superseded) and the excess-vocabulary list (Kobak et al. 2025, figure S6) ----
+ck(vb.MATTR_WINDOW == 50 and len(set(vb.EXCESS_WORDS)) == 291,
+   "rows: MATTR window pins at 50 and the excess list pins at 291 words (Kobak figure S6)")
+toks_m = ["w%d" % (i % 13) for i in range(200)]
+manual = vb.sample_mean([len(set(toks_m[i:i + 50])) / 50.0 for i in range(151)])
+ck(abs(vb._mattr(toks_m) - manual) < 1.0e-12,
+   "rows: MATTR equals the mean type-token ratio over consecutive 50-token windows")
+excess_text = " ".join(["plain"] * 1998 + ["delve", "intricate"])
+excess_vals = vb.values(vb.scan(excess_text), ref={})
+ck(excess_vals["L10-15"] == 1.0,
+   "rows: two excess words in 2,000 tokens read 1.0 per 1,000 words", str(excess_vals["L10-15"]))
 
 # 5. Battery goldens on a synthetic corpus -------------------------------------
 NOUNS = ("system engine report market pattern measure sample signal model document writer reader "
@@ -243,10 +305,10 @@ full_rows = [vb.values(a, ref=vb.ref_block(mean, sd, fw_pooled, reg, tri_pooled,
 cand_vals = vb.run(CAND_TEXT, ref=vb.ref_block(mean, sd, fw_pooled, reg, tri_pooled, 5), window=window)
 golden_payload = json.dumps({mid: (round(v, 6) if isinstance(v, float) else v)
                              for mid, v in sorted(cand_vals.items())}, sort_keys=True)
-GOLDEN_SHA = "6f1cc387e657b642c5dbe65cc872d78b6fa4c5c1fdaf6ce8b9f8cd5ce4f4dfbc"
+GOLDEN_SHA = "1044b725ce634e4ee01db410b27251978b54837fbdcc6f6cd3e4e5b027c66aa7"
 got_sha = hashlib.sha256(golden_payload.encode("utf-8")).hexdigest()
 ck(got_sha == GOLDEN_SHA,
-   "goldens: the candidate battery row pins its SHA-256 (74 rounded values, Python 3.11.15 run)",
+   "goldens: the candidate battery row pins its SHA-256 (79 rounded values, Python 3.11.15 run)",
    got_sha)
 ck(abs(cand_vals["L4-1"] - 11.010870) < 1.0e-6 and abs(cand_vals["L11-4"] - 0.511455) < 1.0e-6,
    "goldens: named floats (mean sentence length 11.010870, Jensen-Shannon 0.511455)",
@@ -295,6 +357,18 @@ with tempfile.TemporaryDirectory() as td:
     rank = batt.get("rank") or {}
     ck(rank.get("measure") == "L11-4" and len(rank.get("d") or []) == 5,
        "profile: the rank vector holds one leave-one-out distance per document")
+    pca_side = json.loads((tdp / "learned" / "profile-pca.json").read_text(encoding="utf-8"))
+    chol_side = json.loads((tdp / "learned" / "profile-covariance.json").read_text(encoding="utf-8"))
+    ck(pca_side.get("k") == 5 and len(pca_side.get("v1") or []) == 60
+       and isinstance(pca_side.get("proj_sd"), float),
+       "profile: profile-pca.json carries the eigenvector and the projection band (5 documents)")
+    ck(chol_side.get("k") == 5 and 2 <= len(chol_side.get("words") or []) <= 60
+       and len((chol_side.get("band") or {}).get("distances") or []) == 5
+       and chol_side.get("alpha") == 0.1,
+       "profile: profile-covariance.json carries the shrinkage factor and the leave-one-out band",
+       "words kept %d" % len(chol_side.get("words") or []))
+    ck("L7-6" in meas and "L11-11" in meas and "L2-5" in meas,
+       "profile: the axes and MATTR store per-measure bands like every other row")
     refw = (batt.get("reference") or {})
     ck(len(refw.get("fw_pooled") or []) == 60 and len(refw.get("docs_fw")) == 5
        and len(refw.get("docs_words")) == 5
@@ -318,6 +392,9 @@ with tempfile.TemporaryDirectory() as td:
                            capture_output=True, text=True, env=env)
     ck(rrep2.returncode == 0 and rrep2.stdout == out1,
        "report: two runs print byte-identical text")
+    ck("L7-6 function-word PCA projection" in out1 and "L11-11 full-covariance Delta" in out1
+       and "by the stored leave-one-out distances" in out1,
+       "report: the two axis rows print, L11-11 with its leave-one-out rank line")
     rj = subprocess.run([sys.executable, "-I", str(PLUGIN_DIR / "learn" / "voice_battery_report.py"),
                          str(cand), "--profile", str(tdp / "learned" / "profile.json"), "--json"],
                         capture_output=True, text=True, env=env)

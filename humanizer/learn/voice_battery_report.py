@@ -88,6 +88,7 @@ EDIT_READINGS = {
     "L1-14": ("fewer ellipses than the author", "more ellipses than the author: remove some", "punctuation"),
     "L2-1": ("the words repeat sooner than the author's: replace a repeated word (read at equal length only)", "the words repeat later than the author's", "word choice"),
     "L2-4": ("the vocabulary repeats sooner than the author's: replace a repeated word", "the vocabulary repeats later than the author's", "word choice"),
+    "L2-5": ("the words repeat sooner than the author's over 50-word windows: replace a repeated word", "the words repeat later than the author's over 50-word windows", "word choice"),
     "L2-6": ("shorter words than the author", "longer words than the author: use the shorter word", "word choice"),
     "L2-7": ("fewer long words than the author", "more long words than the author: use the shorter word", "word choice"),
     "L2-9": ("the top content word repeats less than the author's", "one content word repeats more than the author's: replace some of its occurrences", "word choice"),
@@ -124,6 +125,7 @@ EDIT_READINGS = {
     "L7-1": ("the register sits more informational than the author's", "the register sits more involved than the author's: add the words of that side (pronouns and verbs, or nouns)", "word choice"),
     "L7-2": ("the register sits more expository than the author's", "the register sits more narrative than the author's", "word choice"),
     "L7-4": ("a property of the reference, not of the candidate", "a property of the reference, not of the candidate", "no edit"),
+    "L7-6": ("the candidate sits below the author's main function-word axis position", "the candidate sits above the author's main function-word axis position: look at the word rates that stand out", "word choice"),
     "L8-1": ("more verbs than a text of the situation", "more nouns than a text of the situation: use a verb at some places", "word choice"),
     "L8-2": ("fewer content words per sentence than the author", "more content words per sentence than the author: split the sentence", "sentence length"),
     "L9-1": ("less of this tone (reader address) than the author", "more of this tone: remove some", "tone"),
@@ -143,23 +145,35 @@ EDIT_READINGS = {
     "L10-11": ("sentence length more uniform than the author's: vary sentence length", "sentence length less uniform than the author's", "sentence length"),
     "L10-13": ("less variety of vocabulary than the author's: vary the words", "more variety of vocabulary than the author's", "word choice"),
     "L10-14": ("the register position differs from the reference in one direction", "the register position differs from the reference in the other direction", "word choice"),
+    "L10-15": ("no excess style word", "excess style words present: delete them or use the plain word", "machine patterns"),
     "L11-1": ("no edit (closer than a typical own document)", "the function-word profile differs: look at the word rates that stand out", "word choice"),
+    "L11-2": ("no edit (closer than a typical own document)", "the z-scored function-word profile differs in direction: look at the word rates that stand out", "word choice"),
     "L11-4": ("no edit (closer than a typical own document)", "the function-word distribution differs: look at the word rates that stand out", "word choice"),
     "L11-5": ("no edit (closer than a typical own document)", "the candidate reads less like the reference distribution: look at the word rates that stand out", "word choice"),
     "L11-8": ("no edit (character habits closer than typical)", "the character-level habits differ: check dashes, quotes, and word endings", "word choice"),
+    "L11-11": ("no edit (the correlated profile matches)", "the correlated pattern of word rates differs: look at word pairs that move together", "word choice"),
 }
 
 SUPPRESS_TEXT = {
     "w": "needs %s words", "s": "needs %s sentences", "q": "needs %s quotes",
     "wc10": "needs 2,000 words or 10 counts", "pairs": "needs 10 sentence pairs",
     "win": "needs windows of the reference length", "docs": "needs 5 reference documents",
-    "ref": "needs a reference and 500 words",
+    "ref": "needs a reference and %s words",
+}
+
+SIDE_FILE_REASON = {
+    "L7-6": "needs profile-pca.json beside the profile (built from 5 or more sample documents)",
+    "L11-11": "needs profile-covariance.json beside the profile (built from the sample documents)",
 }
 
 
-def _suppress_reason(mk, mv):
+def _suppress_reason(mk, mv, mid=None):
+    if mid in SIDE_FILE_REASON:
+        return SIDE_FILE_REASON[mid]
     if mk in ("w", "s", "q"):
         return SUPPRESS_TEXT[mk] % format(mv, ",")
+    if mk == "ref":
+        return SUPPRESS_TEXT["ref"] % format(mv, ",")
     return SUPPRESS_TEXT.get(mk, "below its minimum")
 
 
@@ -293,8 +307,27 @@ def rank_rule(acc, battery, ref_fw_pooled, total_words):
     return r, k, c_vals
 
 
-def build_report(candidate_text, profile, profile_note=None, sample_files=None):
-    """Render the section-6 report text (and the JSON dict)."""
+def _load_side_file(profile_path, suffix):
+    """Read one profile-side artifact (-pca.json, -covariance.json), named
+    after the profile's stem (profile-fit.json -> profile-fit-pca.json) with
+    the plain profile-pca.json as the fallback. None when absent or
+    unreadable (fail-open; the rows read n/a)."""
+    if not profile_path:
+        return None
+    p = Path(profile_path).expanduser()
+    for name in (p.stem + suffix, "profile" + suffix):
+        try:
+            data = json.loads((p.parent / name).read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if isinstance(data, dict):
+            return data
+    return None
+
+
+def build_report(candidate_text, profile, profile_note=None, sample_files=None, profile_path=None):
+    """Render the section-6 report text (and the JSON dict). profile_path
+    locates the side artifacts written by build_voice_profile.py."""
     lines = []
     report = {"levels": {}, "notes": []}
     notes = [profile_note] if profile_note else []
@@ -311,6 +344,7 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None):
         texts = [f.read_text(encoding="utf-8", errors="replace") for f in sample_files]
         tri_pooled = vb.tri_merge([vb.scan(t, phrases=False, tri=True)["tri"] for t in texts])
     ref_full = None
+    pca = chol = None
     if fw_pooled and fw_profile.get("mean") and fw_profile.get("stddev"):
         ref_full = vb.ref_block(fw_profile["mean"], fw_profile["stddev"],
                                 dict(zip(vb.FUNCTION_WORDS, fw_pooled)), None, tri_pooled, k_docs)
@@ -324,6 +358,20 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None):
             reg["range"] = st71["sd"]
         if reg:
             ref_full["register"] = reg
+        # the reference-derived axes (delta1 rows): per-document rates from the
+        # stored pooled rows, plus the two side artifacts beside the profile
+        docs_fw = ref.get("docs_fw") or []
+        docs_words = ref.get("docs_words") or []
+        if docs_fw and docs_words and len(docs_fw) == len(docs_words):
+            ref_full["docs_rates"] = [[row[w] * 1000.0 / docs_words[i]
+                                       for w in range(len(vb.FUNCTION_WORDS))]
+                                      for i, row in enumerate(docs_fw)]
+        pca = _load_side_file(profile_path, "-pca.json")
+        if pca and {"v1", "mean", "sd"} <= set(pca):
+            ref_full["pca"] = pca
+        chol = _load_side_file(profile_path, "-covariance.json")
+        if chol and {"mean", "chol_lower"} <= set(chol):
+            ref_full["chol"] = chol
     elif battery:
         notes.append("note: the profile carries no function_words section; the L11 distances read n/a.")
 
@@ -342,7 +390,7 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None):
             elif mk == "ref" and mid == "L11-8" and battery:
                 suppressed.append("%s (needs --samples for the pooled character 3-gram rows)" % mid)
             else:
-                suppressed.append("%s (%s)" % (mid, _suppress_reason(mk, mv)))
+                suppressed.append("%s (%s)" % (mid, _suppress_reason(mk, mv, mid)))
 
     rank = None
     if fw_pooled and battery:
@@ -431,6 +479,14 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None):
                 lines.append("    inside the author's range; no edit [edit: none]")
             else:
                 lines.append("    no band from the reference yet (k under 3 or no spread)")
+            if mid == "L11-11" and isinstance(vals.get("L11-11"), float):
+                band = (chol or {}).get("band") or {}
+                dists = band.get("distances") or []
+                if dists:
+                    r = 1 + sum(1 for d in dists if d < vals["L11-11"])
+                    lines.append("    rank %d of %d by the stored leave-one-out distances "
+                                 "(a text by the author draws the last rank in 1 of %d cases)"
+                                 % (r, len(dists) + 1, len(dists) + 1))
         report["levels"][level] = {"readings": readings, "counts": counts, "band": overall_levels[level],
                                    "rows": [{"id": r[0], "value": r[1], "state": r[2]} for r in rows]}
 
@@ -469,7 +525,7 @@ def main(argv=None):
     argv = [a for a in argv if a != "--json"]
     parser = argparse.ArgumentParser(
         prog="voice_battery_report.py",
-        description="The on-demand gestalt report of the 74-measure battery: one band per level "
+        description="The on-demand gestalt report of the 79-measure battery: one band per level "
                     "plus the overall band, each row mapped to an edit class (advisory, never gates).")
     parser.add_argument("candidate", help="candidate file path, or '-' for stdin")
     parser.add_argument("--profile", default=None, help="learned/profile.json path (default: the plugin learned dir)")
@@ -488,8 +544,9 @@ def main(argv=None):
             return 2
         candidate_text = p.read_text(encoding="utf-8", errors="replace")
     profile, profile_note = load_profile(args.profile or learned_profile_path())
+    profile_path = args.profile or learned_profile_path()
     sample_files = load_samples(args.samples) if args.samples else None
-    text, report = build_report(candidate_text, profile, profile_note, sample_files)
+    text, report = build_report(candidate_text, profile, profile_note, sample_files, profile_path)
     if as_json:
         print(json.dumps(report, indent=2))
     else:

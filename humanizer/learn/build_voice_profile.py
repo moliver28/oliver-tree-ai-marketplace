@@ -262,15 +262,18 @@ def load_battery():
 
 
 def battery_block(texts, fw_profile, fw_rows):
-    """Run the 74-measure battery over each sample document and build the
-    profile's battery section: per-measure mean, sample deviation, minimum,
-    maximum, and the document count k with a reading (the measure-once /
-    apply-cheap core), plus the reference rows, the per-level holdout
-    outside counts (map 4.7), and the leave-one-out distance vector for the
-    rank rule (map 4.5)."""
+    """Run the battery over each sample document and build the profile's
+    battery section: per-measure mean, sample deviation, minimum, maximum,
+    and the document count k with a reading (the measure-once / apply-cheap
+    core), plus the reference rows, the per-level holdout outside counts
+    (map 4.7), and the leave-one-out distance vector for the rank rule
+    (map 4.5). Returns (block_or_None, pca_out_or_None, chol_out_or_None):
+    the two side payloads are the delta1 reference-derived axes (L7-6 PCA,
+    L11-11 full-covariance Delta), user-local R3 data that the caller writes
+    beside the profile; nothing ships."""
     vb = load_battery()
     if vb is None or not texts:
-        return None
+        return None, None, None
     accs = [vb.scan(t, phrases=True, tri=True) for t in texts]
     k = len(accs)
     docs_fw = [vb.fw_counts(a) for a in accs]
@@ -285,6 +288,61 @@ def battery_block(texts, fw_profile, fw_rows):
         vals = [v for v in col if v is not None]
         return (vb.sample_mean(vals), vb.sample_sd(vals)) if len(vals) >= 2 else None
 
+    rate_rows = [[row[w] for w in FUNCTION_WORDS] for row in fw_rows]
+    # the reference-derived axes (delta1 L7-6, L11-11): R3, user-local,
+    # rebuilt by this command, never shipped. PCA needs 5 or more documents;
+    # the Cholesky solve needs a positive variance on every word (the
+    # shrinkage keeps it stable below k = 61). Fail-open: an unstable solve
+    # means no file and the rows read n/a.
+    pca_out = chol_out = None
+    pca_ref = chol_ref = None
+    if k >= 5:
+        try:
+            v1, pmean, psd, projs = vb.first_pca(rate_rows)
+            pca_out = {
+                "format_version": "1.0", "words": list(FUNCTION_WORDS),
+                "mean": [round(x, 6) for x in pmean], "sd": [round(x, 6) for x in psd],
+                "v1": [round(x, 6) for x in v1],
+                "proj_mean": round(vb.sample_mean(projs), 6),
+                "proj_sd": round(vb.sample_sd(projs), 6),
+                "k": k,
+            }
+            pca_ref = {"v1": list(v1), "mean": list(pmean), "sd": list(psd)}
+        except Exception as e:
+            print(f"note: PCA projection skipped ({e!r})", file=sys.stderr)
+    if k >= 2:
+        try:
+            # words with zero cross-document variance carry no distance
+            # information and would break the positive-definite solve, so
+            # they drop out (the delta1 variance-reduction design); the
+            # stored words list names the set that the solve covers
+            sds = [vb.sample_sd([row[w] for row in rate_rows]) for w in range(len(FUNCTION_WORDS))]
+            kept = [w for w in range(len(FUNCTION_WORDS)) if sds[w] > 0]
+            if len(kept) >= 2:
+                sub_rows = [[row[w] for w in kept] for row in rate_rows]
+                S, cmean = vb.shrunk_covariance(sub_rows, alpha=0.1)
+                L = vb.cholesky_lower(S)
+                loo_d = []
+                for i, row in enumerate(sub_rows):
+                    rest = sub_rows[:i] + sub_rows[i + 1:]
+                    lmean = [vb.sample_mean([r[j] for r in rest]) for j in range(len(kept))]
+                    d = [row[j] - lmean[j] for j in range(len(kept))]
+                    loo_d.append(math.sqrt(sum(x * x for x in vb.forward_substitution(L, d))))
+                chol_out = {
+                    "format_version": "1.0",
+                    "words": [FUNCTION_WORDS[w] for w in kept],
+                    "mean": [round(x, 6) for x in cmean],
+                    "chol_lower": [[round(x, 6) for x in L[i][:i + 1]] for i in range(len(kept))],
+                    "alpha": 0.1, "k": k,
+                    "band": {"mean": round(vb.sample_mean(loo_d), 6),
+                             "sd": round(vb.sample_sd(loo_d), 6),
+                             "distances": [round(x, 6) for x in loo_d]},
+                }
+                chol_ref = {"words": [FUNCTION_WORDS[w] for w in kept],
+                            "mean": list(cmean), "chol_lower": L}
+        except Exception as e:
+            print(f"note: full-covariance Delta skipped ({e!r})", file=sys.stderr)
+
     ref0 = vb.ref_block(mean, sd, fw_pooled, None, tri_pooled, k)
     rows0 = [vb.values(a, ref=ref0, window=window) for a in accs]
     col71 = [r["L7-1"] for r in rows0]
@@ -297,6 +355,11 @@ def battery_block(texts, fw_profile, fw_rows):
     if pair72:
         register["L7-2"] = pair72
     ref1 = vb.ref_block(mean, sd, fw_pooled, register, tri_pooled, k)
+    ref1["docs_rates"] = rate_rows
+    if pca_ref:
+        ref1["pca"] = pca_ref
+    if chol_ref:
+        ref1["chol"] = chol_ref
     rows = [vb.values(a, ref=ref1, window=window) for a in accs]
 
     measures = {}
@@ -376,7 +439,7 @@ def battery_block(texts, fw_profile, fw_rows):
             "docs_words": [int(a["n"]) for a in accs],
             "total_words": int(sum(a["n"] for a in accs)),
         },
-    }
+    }, pca_out, chol_out
 
 
 def gate_pattern_hits(sents, vt):
@@ -471,11 +534,18 @@ def main():
     stats, sents, fw_rows = analyze(files)
     vt = load_voice_tells()
     stats["gate_pattern_hits"] = gate_pattern_hits(sents, vt)
-    stats["battery"] = battery_block([f.read_text(encoding="utf-8", errors="replace") for f in files],
-                                     stats["function_words"], fw_rows)
+    block, pca_out, chol_out = battery_block(
+        [f.read_text(encoding="utf-8", errors="replace") for f in files],
+        stats["function_words"], fw_rows)
+    if block is not None:
+        stats["battery"] = block
     out = Path(a.out).expanduser()
     if out.parent and str(out.parent):
         out.parent.mkdir(parents=True, exist_ok=True)
+    for payload, suffix in ((pca_out, "-pca.json"), (chol_out, "-covariance.json")):
+        if payload:
+            side = out.with_name(out.stem + suffix)
+            side.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     out.write_text(json.dumps(_ordered_profile(stats, files), indent=2, sort_keys=True) + "\n",
                    encoding="utf-8")
     print(draft_sections(stats, stats["gate_pattern_hits"]))

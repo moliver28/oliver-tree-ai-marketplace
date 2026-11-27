@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""voice_battery.py: the 74-row Tier A measurement battery (v1, zero LLM).
+"""voice_battery.py: the Tier A measurement battery (v1, zero LLM).
 
 One shared pass over a text produces every measure of the battery map
-(.zcode/agent-tasks/humanizer-measures-map.out.md, section 3a). The rows are
-the spec: 74 measures in the levels L1 to L11, each with a source paper of
+(.zcode/agent-tasks/humanizer-measures-map.out.md, section 3a, plus the five
+rows the methodologist's re-tier pass added: L2-5, L7-6, L10-15, L11-2,
+L11-11). The rows are
+the spec: 79 measures in the levels L1 to L11, each with a source paper of
 status "read in full" and a resource class R0 or R1 (closed lists, 5.6 KB in
 all). No packages, corpora, models, or VADER-derived data ship. Standard
 library only.
@@ -129,6 +131,42 @@ BOOSTERS = ("actually always certainly clearly conclude confidently definitely d
 POLITE = "thanks thank appreciate sorry apologize apologies".split()   # + medial please (sentence block)
 MACHINE = ("amidst cacophony camaraderie continuation fleeting grapple ignite intricate palpable pang prioritize "
            "reminder rut shoutout solace tapestry unease unravel vibrant waft underscore").split()  # Reinhart 2024 Table 1
+# The 291 rare excess style words of Kobak et al. 2025, figure S6 (all excess
+# style words of 2024 with frequency below 0.02), read from the stored paper
+# PDF (humanizer-papers/P24-kobak-2025); shipped as R1 with a PROVENANCE row.
+EXCESS_WORDS = ("accentuates acknowledges acknowledging addresses adept adhered adhering advancement advancements "
+                "advancing advocates advocating affirming afflicted aiding akin align aligning aligns alongside "
+                "amidst assessments attains attributed augmenting avenue avenues bolster bolstered bolstering "
+                "broader burgeoning capabilities capitalizing categorized categorizes categorizing combating "
+                "commendable compelling complicates complicating comprehending comprising consequently "
+                "consolidates contributing conversely correlating crafted crafting culminating customizing "
+                "delineates delve delved delves delving demonstrating dependability dependable detailing "
+                "detrimentally diminishes diminishing discern discerned discernible discerning displaying "
+                "disrupts distinctions distinctive elevate elevates elevating elucidate elucidates elucidating "
+                "embracing emerges emphasises emphasising emphasize emphasizes emphasizing employing employs "
+                "empowers emulating emulation enabling encapsulates encompass encompassed encompasses "
+                "encompassing endeavors endeavours enduring enhancements enhances ensuring equipping escalating "
+                "evaluates evolving exacerbating examines exceeding excels exceptional exceptionally exerting "
+                "exhibiting exhibits expedite expediting exploration explores facilitated facilitates "
+                "facilitating featuring formidable fostering fosters foundational furnish garnered garnering "
+                "gauged grappling groundbreaking groundwork harness harnesses harnessing heighten heightened "
+                "hinder hinges hinting hold holds illuminates illuminating imbalances impacting impede impeding "
+                "imperative impressive inadequately incorporates incorporating influencing inherent initially innovative "
+                "inquiries integrates integrating integration interconnectedness interplay intricacies "
+                "intricate intricately introduces invaluable investigates involves juxtaposed leverages "
+                "leveraging maintaining merges methodologies meticulous meticulously multifaceted necessitate "
+                "necessitates necessitating necessity notable noteworthy nuanced nuances offering optimizing "
+                "orchestrating outlines overlook overlooking paving persist pinpoint pinpointed pinpointing "
+                "pioneering pioneers pivotal poised pose posed poses posing predominantly preserving pressing "
+                "promise pronounced propelling realm realms recognizing refine refines refining remarkable "
+                "renowned revealing reveals revolutionize revolutionizing revolves scrutinize scrutinized "
+                "scrutinizing seamless seamlessly seeks serves serving shaping shedding showcased showcases "
+                "showcasing signifying solidify spanned spanning spurred stands stemming strategically "
+                "streamline streamlined streamlines streamlining struggle substantiated substantiates surged "
+                "surmount surpass surpassed surpasses surpassing swift swiftly thorough transformative "
+                "typically ultimately uncharted uncovering underexplored underscore underscored underscores "
+                "underscoring unexplored unlocking unparalleled unraveling unveil unveiled unveiling unveils "
+                "uphold upholding urging utilizes varying versatility warranting yielding").split()
 VERBS = ("is are was were be been being am do does did has have had shows show uses use needs need gives give takes "
          "take makes make finds find keeps keep holds hold moves move reads read writes write tests test tracks "
          "track cuts cut adds add opens open closes close checks check compares compare measures measure covers "
@@ -140,8 +178,9 @@ NEG_SET = frozenset("not no never none nobody nothing neither nor".split())
 # token class ids
 (C_FUNC, C_PREP, C_SUB, C_COORD, C_PRON, C_I, C_WE, C_YOU, C_P3, C_MODPOS, C_MODNEC, C_MODPRED,
  C_ADD, C_ADV, C_CAUS, C_TEMP, C_HEDGE, C_BOOST, C_POLITE, C_INTENS, C_COPULA, C_THE, C_MACH,
- C_VERB, C_SUFNOM, C_SUFADJ, C_SUFLY, C_SUFING, C_SUFED, C_SUFPREF, C_LONG, C_DIGIT) = range(32)
-NCLS = 32
+ C_VERB, C_SUFNOM, C_SUFADJ, C_SUFLY, C_SUFING, C_SUFED, C_SUFPREF, C_LONG, C_DIGIT,
+ C_EXCESS) = range(33)
+NCLS = 33
 
 
 def _lex():
@@ -175,6 +214,7 @@ def _lex():
     put(("the",), C_THE)
     put(MACHINE, C_MACH)
     put(VERBS, C_VERB)
+    put(EXCESS_WORDS, C_EXCESS)
     return d
 
 
@@ -246,6 +286,7 @@ SPEC = {
     "L1-14": ("L1", "ellipses per 1,000 words", "per1000w", "wc10", ("ellipsis", 10), "rate1000w", "ellipsis"),
     "L2-1": ("L2", "type-token ratio", "share01", "win", None, "share_t", None),
     "L2-4": ("L2", "MTLD", "words", "w", 100, "none", None),
+    "L2-5": ("L2", "MATTR", "share01", "w", 200, "share_t", None),
     "L2-6": ("L2", "mean word length", "ratio", "w", 300, "none", None),
     "L2-7": ("L2", "long-word share", "per100w", "w", 300, "rate100w", None),
     "L2-9": ("L2", "top-word share", "share01", "w", 300, "share_t", None),
@@ -282,6 +323,7 @@ SPEC = {
     "L7-1": ("L7", "involved-against-informational score", "score100w", "w", 500, "rate100w", None),
     "L7-2": ("L7", "narrative-against-expository score", "score1000w", "w", 500, "rate1000w", None),
     "L7-4": ("L7", "register range of the author", "spread", "docs", 5, "none", None),
+    "L7-6": ("L7", "function-word PCA projection", "score", "ref", 500, "none", None),
     "L8-1": ("L8", "nominal-against-verbal ratio", "ratio", "w", 500, "none", None),
     "L8-2": ("L8", "content words per sentence", "per1s", "s", 20, "rate1s", None),
     "L9-1": ("L9", "reader-address share", "share01", "s", 20, "share_s", None),
@@ -301,10 +343,13 @@ SPEC = {
     "L10-11": ("L10", "sentence-length uniformity", "ratio", "s", 20, "none", None),
     "L10-13": ("L10", "lower lexical diversity", "words", "w", 100, "none", None),
     "L10-14": ("L10", "register-profile mismatch", "zmean", "w", 500, "none", None),
+    "L10-15": ("L10", "excess-vocabulary rate", "per1000w", "w", 2000, "rate1000w", None),
     "L11-1": ("L11", "Burrows' Delta", "delta", "ref", 500, "none", None),
+    "L11-2": ("L11", "Cosine Delta", "cosdist", "ref", 1500, "none", None),
     "L11-4": ("L11", "Jensen-Shannon distance", "jsd", "ref", 500, "none", None),
     "L11-5": ("L11", "Kullback-Leibler divergence", "kl", "ref", 500, "none", None),
     "L11-8": ("L11", "character 3-gram distance", "cosdist", "ref", 500, "none", None),
+    "L11-11": ("L11", "full-covariance Delta", "mahal", "ref", 500, "none", None),
 }
 ALL_IDS = tuple(SPEC)                       # definition order = map order
 LEVELS = ("L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9", "L10", "L11")
@@ -318,9 +363,14 @@ UNIT_TEXT = {
     "per1000w": "per 1,000 words", "per100w": "per 100 words", "per1000s": "per 1,000 sentences",
     "per100s": "per 100 sentences", "per1s": "per sentence", "share01": "share (0 to 1)",
     "ratio": "ratio", "score100w": "score per 100 words", "score1000w": "score per 1,000 words",
-    "slen": "words", "words": "words", "spread": "spread", "zmean": "mean z",
+    "slen": "words", "words": "words", "spread": "spread", "zmean": "mean z", "score": "score",
     "delta": "delta", "jsd": "distance", "kl": "divergence", "cosdist": "distance",
+    "mahal": "distance",
 }
+
+# MATTR window (Kendro et al. 2025, Method section: window 50). The map
+# prototype's window 100 is superseded; the contract test pins the 50.
+MATTR_WINDOW = 50
 
 # two-sided 95 percent t quantiles by degrees of freedom, df = 2..49 (k = 3..50).
 # Computed by numerical integration of the t CDF (build script in the task
@@ -456,6 +506,29 @@ def _ttr_windows(toks, window):
     return sample_mean(vals)
 
 
+def _mattr(toks, win=MATTR_WINDOW):
+    """MATTR (Kendro et al. 2025, Method section: the moving-window type-
+    token ratio, window 50): the mean type-token ratio over the sliding
+    window positions."""
+    if not toks:
+        return 0.0
+    if len(toks) < win:
+        return len(set(toks)) / float(len(toks))
+    c = {}
+    for w in toks[:win]:
+        c[w] = c.get(w, 0) + 1
+    total = len(c)
+    for i in range(win, len(toks)):
+        old = toks[i - win]
+        c[old] -= 1
+        if not c[old]:
+            del c[old]
+        w = toks[i]
+        c[w] = c.get(w, 0) + 1
+        total += len(c)
+    return total / (float(len(toks) - win + 1) * win)
+
+
 def _js(ca, cb, keys):
     """Jensen-Shannon distance (natural log) between two count rows; 0.5
     count floor on every key."""
@@ -483,6 +556,120 @@ def _cos_dist(ca, cb):
     na = math.sqrt(sum(v * v for v in ca.values()))
     nb = math.sqrt(sum(v * v for v in cb.values()))
     return 1.0 - dot / (na * nb) if (na and nb) else 1.0
+
+
+# ---- reference-derived axes (delta1 row specs; R3 user-local, never shipped) ----
+
+def power_iteration(R, iters=200, tol=1.0e-10):
+    """Leading eigenvector of a symmetric PSD matrix by power iteration with
+    a deterministic all-ones start (delta1 section 4). Returns (v, lambda)."""
+    n = len(R)
+    u = [1.0 / math.sqrt(n)] * n
+    for _ in range(iters):
+        nu = [sum(R[i][j] * u[j] for j in range(n)) for i in range(n)]
+        norm = math.sqrt(sum(x * x for x in nu))
+        if norm == 0:
+            break
+        nu = [x / norm for x in nu]
+        change = math.sqrt(sum((a - b) ** 2 for a, b in zip(u, nu)))
+        u = nu
+        if change < tol:
+            break
+    lam = sum(u[i] * R[i][j] * u[j] for i in range(n) for j in range(n))
+    return u, lam
+
+
+def standardized_columns(rate_rows):
+    """Column means and sample standard deviations over the reference
+    documents (delta1 section 4)."""
+    n_w = len(rate_rows[0]) if rate_rows else 0
+    mean = [sample_mean([row[w] for row in rate_rows]) for w in range(n_w)]
+    sd = [sample_sd([row[w] for row in rate_rows]) for w in range(n_w)]
+    return mean, sd
+
+
+def correlation_matrix(rate_rows, mean, sd):
+    """The 60 by 60 correlation matrix of the standardized rate columns
+    (divide the covariance by the product of the sample deviations)."""
+    k = len(rate_rows)
+    n_w = len(mean)
+    zrows = [[(row[w] - mean[w]) / sd[w] if sd[w] > 0 else 0.0 for w in range(n_w)]
+             for row in rate_rows]
+    R = [[0.0] * n_w for _ in range(n_w)]
+    for i in range(n_w):
+        for j in range(i, n_w):
+            s = sum(zr[i] * zr[j] for zr in zrows) / (k - 1) if k > 1 else 0.0
+            R[i][j] = R[j][i] = s
+    return R, zrows
+
+
+def first_pca(rate_rows):
+    """The FW-PCA of delta1 section 4: standardize each word column, take
+    the correlation matrix's leading eigenvector, and return (v1, mean, sd,
+    projections) with each reference document's projection."""
+    mean, sd = standardized_columns(rate_rows)
+    R, zrows = correlation_matrix(rate_rows, mean, sd)
+    v1, _lam = power_iteration(R)
+    projs = [sum(v1[w] * zr[w] for w in range(len(v1))) for zr in zrows]
+    return v1, mean, sd, projs
+
+
+def cholesky_lower(S):
+    """Lower-triangular Cholesky factor of a symmetric positive definite
+    matrix (offline; delta1 section 5). Raises ValueError when a diagonal
+    entry goes non-positive (rank deficient without shrinkage)."""
+    n = len(S)
+    L = [[0.0] * n for _ in range(n)]
+    for i in range(n):
+        for j in range(i + 1):
+            s = S[i][j] - sum(L[i][k] * L[j][k] for k in range(j))
+            if i == j:
+                if s <= 0:
+                    raise ValueError("matrix not positive definite; shrink first")
+                L[i][j] = math.sqrt(s)
+            else:
+                L[i][j] = s / L[j][j]
+    return L
+
+
+def shrunk_covariance(rate_rows, alpha=0.1):
+    """Covariance of the rate columns with the delta1 shrinkage fix
+    S' = (1 - alpha) S + alpha diag(S): the off-diagonal entries scale by
+    (1 - alpha), the diagonal entries keep their variance (alpha 0.1 is the
+    owner-approved value; the shrinkage makes S' positive definite whenever
+    every diagonal variance is positive, so the Cholesky solve stays stable
+    at k below 61)."""
+    n_w = len(rate_rows[0]) if rate_rows else 0
+    k = len(rate_rows)
+    mean = [sample_mean([row[w] for row in rate_rows]) for w in range(n_w)]
+    S = [[0.0] * n_w for _ in range(n_w)]
+    for i in range(n_w):
+        for j in range(i, n_w):
+            s = sum((row[i] - mean[i]) * (row[j] - mean[j]) for row in rate_rows) / (k - 1) if k > 1 else 0.0
+            S[i][j] = S[j][i] = s
+    for i in range(n_w):
+        for j in range(n_w):
+            if i != j:
+                S[i][j] *= (1.0 - alpha)
+    return S, mean
+
+
+def forward_substitution(L, d):
+    """Solve L y = d with a lower-triangular L; returns y."""
+    n = len(d)
+    y = [0.0] * n
+    for i in range(n):
+        s = d[i] - sum(L[i][j] * y[j] for j in range(i))
+        y[i] = s / L[i][i]
+    return y
+
+
+def mahalanobis_distance(rate_vec, mean_vec, L):
+    """The full-covariance Delta of delta1 section 5: the Euclidean norm of
+    the forward-substitution solution of L y = (rate - mean)."""
+    d = [rate_vec[w] - mean_vec[w] for w in range(len(rate_vec))]
+    y = forward_substitution(L, d)
+    return math.sqrt(sum(x * x for x in y))
 
 
 def _structure(text):
@@ -597,9 +784,10 @@ def scan(text, phrases=True, tri=False):
 
 
 def values(a, ref=None, window=None):
-    """All 74 measure values from one shared pass. Below its minimum a
+    """All 79 measure values from one shared pass. Below its minimum a
     measure reads None. ref carries the pooled reference rows for the L11
-    distances and the register stats for L10-14."""
+    distances, the register stats for L10-14, the per-document rate rows and
+    the PCA and Cholesky blocks for the reference-derived axes."""
     ref = ref or {}
     n, ns = a["n"], a["ns"]
     cnt = a["cnt"]
@@ -640,6 +828,14 @@ def values(a, ref=None, window=None):
     out = {}
     for mid in ALL_IDS:
         out[mid] = None if below_min(mid) else 0.0
+    # the reference-derived axes read None until their side data arrives
+    # (a seeded 0.0 must never stand for "no axis data")
+    if not ref.get("pca"):
+        out["L7-6"] = None
+    if not ref.get("docs_rates"):
+        out["L11-2"] = None
+    if not ref.get("chol"):
+        out["L11-11"] = None
 
     def want(mid):
         return out[mid] is not None
@@ -676,6 +872,8 @@ def values(a, ref=None, window=None):
         out["L2-1"] = _ttr_windows(a["tokens"], window)
     if want("L2-4"):
         out["L2-4"] = _mtld(a["tokens"])
+    if want("L2-5"):
+        out["L2-5"] = _mattr(a["tokens"])
     if want("L2-6"):
         out["L2-6"] = sum(len(w) for w in a["tokens"]) / float(n) if n else 0.0
     if want("L2-7"):
@@ -785,6 +983,8 @@ def values(a, ref=None, window=None):
         out["L10-1"] = _per(cnt[C_MACH], n, 1000.0)
     if want("L10-2"):
         out["L10-2"] = _per(a["phrases"].get("L10-2", 0), ns, 1000.0)
+    if want("L10-15"):
+        out["L10-15"] = _per(cnt[C_EXCESS], n, 1000.0)
     if want("L10-13"):
         out["L10-13"] = out["L2-4"]
     if want("L10-14"):
@@ -818,6 +1018,44 @@ def values(a, ref=None, window=None):
                     se = math.sqrt(s * s + mu * 1000.0 / n)
                     zs.append(abs((f - mu) / se))
             out["L11-1"] = sample_mean(zs) if zs else None
+    # reference-derived axes: L7-6 PCA projection, L11-2 Cosine Delta,
+    # L11-11 full-covariance Delta (delta1 row specs; all ride the existing
+    # function-word counts, no new scan)
+    cand_rates = None
+    if n:
+        fwc = a["fwc"]
+        cand_rates = [fwc.get(w, 0) * 1000.0 / n for w in FUNCTION_WORDS]
+    pca = ref.get("pca")
+    if want("L7-6") and pca and cand_rates:
+        v1, pmean, psd = pca["v1"], pca["mean"], pca["sd"]
+        out["L7-6"] = sum(v1[w] * (cand_rates[w] - pmean[w]) / psd[w]
+                          for w in range(len(v1)) if psd[w] > 0 and v1[w])
+    chol = ref.get("chol")
+    if want("L11-11") and chol and cand_rates:
+        words = chol.get("words") or list(FUNCTION_WORDS)
+        idx = dict((w, i) for i, w in enumerate(FUNCTION_WORDS))
+        d = [cand_rates[idx[w]] - chol["mean"][j] for j, w in enumerate(words)]
+        y = forward_substitution(chol["chol_lower"], d)
+        out["L11-11"] = math.sqrt(sum(x * x for x in y))
+    docs_rates = ref.get("docs_rates")
+    fw_mean, fw_sd = ref.get("fw_mean"), ref.get("fw_sd")
+    if want("L11-2") and docs_rates and cand_rates and fw_mean and fw_sd:
+        if isinstance(fw_mean, dict):
+            mean_l = [fw_mean.get(w, 0.0) for w in FUNCTION_WORDS]
+            sd_l = [fw_sd.get(w, 0.0) for w in FUNCTION_WORDS]
+        else:
+            mean_l, sd_l = fw_mean, fw_sd
+        keep = [w for w in range(len(FUNCTION_WORDS)) if sd_l[w] > 0]
+        zc = [(cand_rates[w] - mean_l[w]) / sd_l[w] for w in keep]
+        norm_c = math.sqrt(sum(x * x for x in zc))
+        ds = []
+        for row in docs_rates:
+            zi = [(row[w] - mean_l[w]) / sd_l[w] for w in keep]
+            norm_i = math.sqrt(sum(x * x for x in zi))
+            if norm_c and norm_i:
+                dot = sum(x * y for x, y in zip(zc, zi))
+                ds.append(1.0 - dot / (norm_c * norm_i))
+        out["L11-2"] = sample_mean(ds) if ds else None
     tri_pooled = ref.get("tri_pooled")
     if want("L11-8"):
         out["L11-8"] = _cos_dist(a["tri"], tri_pooled) if (tri_pooled and a["tri"]) else None
