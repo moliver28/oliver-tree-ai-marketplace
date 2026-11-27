@@ -9,7 +9,7 @@
       "name": "humanizer-voice",
       "source": "./humanizer",
       "description": "Learns the user's writing voice with deterministic tools, rewrites copy in it via /voice, and gates delivery quietly. Use when the user says: '/voice polish this post', 'make this sound like me', 'humanize this draft before it ships'.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "writing"
     },
     {

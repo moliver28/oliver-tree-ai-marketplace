@@ -122,7 +122,10 @@ def _selftest() -> int:
         # once with their reason; any NEW parser literal still fails the check.
         external = {
             # git rev-parse plumbing inside commit_workspace
-            "scaffold_workspace": {"--show-toplevel"},
+            "scaffold_workspace": {"--show-toplevel",
+                                   # optional post-scaffold render switch (0.8.1):
+                                   # parser-only convenience, not MCP surface
+                                   "--then-render-overview"},
             # CSS color class names inside the HTML template
             "report_html": {"--accent", "--bg", "--fg", "--low", "--mid",
                             "--neg", "--pos", "--surface"},

@@ -26,6 +26,15 @@ Measured values in learned/profile.json:
   profile consumed by learn/acceptance_check.py --backend delta.
 - gate_pattern_hits: per-label hit counts and per-1000-sentence rates from the
   hooks/voice_tells.py regex layer (the machine register)
+- battery (v1.2.0, the 74-measure Tier A battery of learn/voice_battery.py):
+  run over each sample document. Per measure: mean, sample deviation
+  (divide by k - 1), minimum, maximum, and the document count k that has a
+  reading. Plus the pooled reference rows the report path reads (function-
+  word counts per document and pooled, document word counts, the window
+  size for the length-sensitive rows), the per-level holdout outside counts
+  (map 4.7), and the leave-one-out distance vector for the rank rule
+  (map 4.5). This is the measure-once / apply-cheap core: the report path
+  reads bands from here instead of re-measuring the samples.
 
 Exit codes: 0 = profile written (or the defined empty-input case: a clear
 message, no file written); 2 = bad arguments (missing path).
@@ -211,24 +220,226 @@ def analyze(files):
         "reader_address_share": round(you_hits / len(sents), 3) if sents else 0.0,
         "function_words": function_word_profile(fw_rows),
     }
-    return stats, sents
+    return stats, sents, fw_rows
 
 
 def function_word_profile(fw_rows):
-    """Burrows' Delta reference profile: per-word mean + stddev of the
-    per-1000-words frequencies across the sample documents (population
-    stddev; a word constant across documents has stddev 0 and contributes 0
-    to a candidate's Delta)."""
+    """Burrows' Delta reference profile: per-word mean + sample stddev of
+    the per-1000-words frequencies across the sample documents (divide by
+    k - 1, AM-04: the population stddev makes every document score exactly
+    1.0 at k = 2 and changes the unit with k). A word constant across
+    documents has stddev 0 and contributes 0 to a candidate's Delta; one
+    document alone carries no spread (stddev 0 everywhere)."""
     n = len(fw_rows)
     if not n:
         return {"unit": "per-1000-words", "docs": 0, "words": list(FUNCTION_WORDS),
                 "mean": {}, "stddev": {}}
     mean = {w: sum(row[w] for row in fw_rows) / n for w in FUNCTION_WORDS}
-    stddev = {w: math.sqrt(sum((row[w] - mean[w]) ** 2 for row in fw_rows) / n)
-              for w in FUNCTION_WORDS}
+    if n > 1:
+        stddev = {w: math.sqrt(sum((row[w] - mean[w]) ** 2 for row in fw_rows) / (n - 1))
+                  for w in FUNCTION_WORDS}
+    else:
+        stddev = {w: 0.0 for w in FUNCTION_WORDS}
     return {"unit": "per-1000-words", "docs": n, "words": list(FUNCTION_WORDS),
             "mean": {w: round(v, 6) for w, v in mean.items()},
             "stddev": {w: round(v, 6) for w, v in stddev.items()}}
+
+
+def load_battery():
+    """Load learn/voice_battery.py (the 74-measure Tier A battery) from its
+    plugin location. Returns the module or None when it cannot be imported
+    (the profile is still written, without the battery section)."""
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "voice_battery_profile", HERE / "voice_battery.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+    except Exception as e:
+        print(f"note: battery layer unavailable ({e!r}); profile carries surface stats only",
+              file=sys.stderr)
+        return None
+
+
+def battery_block(texts, fw_profile, fw_rows):
+    """Run the battery over each sample document and build the profile's
+    battery section: per-measure mean, sample deviation, minimum, maximum,
+    and the document count k with a reading (the measure-once / apply-cheap
+    core), plus the reference rows, the per-level holdout outside counts
+    (map 4.7), and the leave-one-out distance vector for the rank rule
+    (map 4.5). Returns (block_or_None, pca_out_or_None, chol_out_or_None):
+    the two side payloads are the delta1 reference-derived axes (L7-6 PCA,
+    L11-11 full-covariance Delta), user-local R3 data that the caller writes
+    beside the profile; nothing ships."""
+    vb = load_battery()
+    if vb is None or not texts:
+        return None, None, None
+    accs = [vb.scan(t, phrases=True, tri=True) for t in texts]
+    k = len(accs)
+    docs_fw = [vb.fw_counts(a) for a in accs]
+    pooled = vb.pooled_counts(docs_fw)
+    fw_pooled = dict(zip(vb.FUNCTION_WORDS, pooled))
+    tri_pooled = vb.tri_merge([a["tri"] for a in accs])
+    window = int(round(vb.median([float(a["n"]) for a in accs])))
+    mean, sd = fw_profile["mean"], fw_profile["stddev"]
+
+    # base matrix (stored bands); one extra pass carries the register stats
+    def _reg_pair(col):
+        vals = [v for v in col if v is not None]
+        return (vb.sample_mean(vals), vb.sample_sd(vals)) if len(vals) >= 2 else None
+
+    rate_rows = [[row[w] for w in FUNCTION_WORDS] for row in fw_rows]
+    # the reference-derived axes (delta1 L7-6, L11-11): R3, user-local,
+    # rebuilt by this command, never shipped. PCA needs 5 or more documents;
+    # the Cholesky solve needs a positive variance on every word (the
+    # shrinkage keeps it stable below k = 61). Fail-open: an unstable solve
+    # means no file and the rows read n/a.
+    pca_out = chol_out = None
+    pca_ref = chol_ref = None
+    if k >= 5:
+        try:
+            v1, pmean, psd, projs = vb.first_pca(rate_rows)
+            pca_out = {
+                "format_version": "1.0", "words": list(FUNCTION_WORDS),
+                "mean": [round(x, 6) for x in pmean], "sd": [round(x, 6) for x in psd],
+                "v1": [round(x, 6) for x in v1],
+                "proj_mean": round(vb.sample_mean(projs), 6),
+                "proj_sd": round(vb.sample_sd(projs), 6),
+                "k": k,
+            }
+            pca_ref = {"v1": list(v1), "mean": list(pmean), "sd": list(psd)}
+        except Exception as e:
+            print(f"note: PCA projection skipped ({e!r})", file=sys.stderr)
+    if k >= 2:
+        try:
+            # words with zero cross-document variance carry no distance
+            # information and would break the positive-definite solve, so
+            # they drop out (the delta1 variance-reduction design); the
+            # stored words list names the set that the solve covers
+            sds = [vb.sample_sd([row[w] for row in rate_rows]) for w in range(len(FUNCTION_WORDS))]
+            kept = [w for w in range(len(FUNCTION_WORDS)) if sds[w] > 0]
+            if len(kept) >= 2:
+                sub_rows = [[row[w] for w in kept] for row in rate_rows]
+                S, cmean = vb.shrunk_covariance(sub_rows, alpha=0.1)
+                L = vb.cholesky_lower(S)
+                loo_d = []
+                for i, row in enumerate(sub_rows):
+                    rest = sub_rows[:i] + sub_rows[i + 1:]
+                    lmean = [vb.sample_mean([r[j] for r in rest]) for j in range(len(kept))]
+                    d = [row[j] - lmean[j] for j in range(len(kept))]
+                    loo_d.append(math.sqrt(sum(x * x for x in vb.forward_substitution(L, d))))
+                chol_out = {
+                    "format_version": "1.0",
+                    "words": [FUNCTION_WORDS[w] for w in kept],
+                    "mean": [round(x, 6) for x in cmean],
+                    "chol_lower": [[round(x, 6) for x in L[i][:i + 1]] for i in range(len(kept))],
+                    "alpha": 0.1, "k": k,
+                    "band": {"mean": round(vb.sample_mean(loo_d), 6),
+                             "sd": round(vb.sample_sd(loo_d), 6),
+                             "distances": [round(x, 6) for x in loo_d]},
+                }
+                chol_ref = {"words": [FUNCTION_WORDS[w] for w in kept],
+                            "mean": list(cmean), "chol_lower": L}
+        except Exception as e:
+            print(f"note: full-covariance Delta skipped ({e!r})", file=sys.stderr)
+
+    ref0 = vb.ref_block(mean, sd, fw_pooled, None, tri_pooled, k)
+    rows0 = [vb.values(a, ref=ref0, window=window) for a in accs]
+    col71 = [r["L7-1"] for r in rows0]
+    col72 = [r["L7-2"] for r in rows0]
+    register = {}
+    pair71, pair72 = _reg_pair(col71), _reg_pair(col72)
+    if pair71:
+        register["L7-1"] = pair71
+        register["range"] = pair71[1]
+    if pair72:
+        register["L7-2"] = pair72
+    ref1 = vb.ref_block(mean, sd, fw_pooled, register, tri_pooled, k)
+    ref1["docs_rates"] = rate_rows
+    if pca_ref:
+        ref1["pca"] = pca_ref
+    if chol_ref:
+        ref1["chol"] = chol_ref
+    rows = [vb.values(a, ref=ref1, window=window) for a in accs]
+
+    measures = {}
+    for mid in vb.ALL_IDS:
+        col = [r[mid] for r in rows if r[mid] is not None]
+        if col:
+            measures[mid] = {"mean": round(vb.sample_mean(col), 6),
+                             "sd": round(vb.sample_sd(col), 6),
+                             "min": round(min(col), 6), "max": round(max(col), 6),
+                             "k": len(col)}
+
+    # holdout matrix (map 4.5 rank rule and map 4.7 level outside counts):
+    # each document measured against the other documents' own reference rows.
+    # The rank rule needs 3 or more documents and the holdout bands need a
+    # t value at k - 1, so a smaller corpus stores no holdout at all.
+    hold_rows = []
+    d_vec = []
+    for i in range(k if k >= 3 else 0):
+        loo_fw = dict(zip(vb.FUNCTION_WORDS, [pooled[j] - docs_fw[i][j]
+                                              for j in range(len(vb.FUNCTION_WORDS))]))
+        loo_tri = dict(tri_pooled)
+        for g, c in accs[i]["tri"].items():
+            loo_tri[g] -= c
+        loo_rows = fw_rows[:i] + fw_rows[i + 1:]
+        loo_mean = {w: sum(r[w] for r in loo_rows) / len(loo_rows) for w in FUNCTION_WORDS}
+        loo_sd = {w: vb.sample_sd([r[w] for r in loo_rows]) for w in FUNCTION_WORDS}
+        loo71 = col71[:i] + col71[i + 1:]
+        loo72 = col72[:i] + col72[i + 1:]
+        reg_loo = {}
+        pair71, pair72 = _reg_pair(loo71), _reg_pair(loo72)
+        if pair71:
+            reg_loo["L7-1"] = pair71
+            reg_loo["range"] = pair71[1]
+        if pair72:
+            reg_loo["L7-2"] = pair72
+        ref_loo = vb.ref_block(loo_mean, loo_sd, loo_fw, reg_loo, loo_tri, k - 1)
+        hrow = vb.values(accs[i], ref=ref_loo, window=window)
+        hold_rows.append(hrow)
+        d_vec.append(hrow["L11-4"])
+
+    levels_holdout = {}
+    t_hold = vb.t_value(k - 1)
+    if t_hold is not None and k > 1:
+        factor = math.sqrt(1.0 + 1.0 / (k - 1))
+        per_doc = [dict((lv, 0) for lv in vb.LEVELS) for _ in range(k)]
+        for i in range(k):
+            others = [hold_rows[j] for j in range(k) if j != i]
+            for mid in vb.ALL_IDS:
+                v = hold_rows[i][mid]
+                if v is None:
+                    continue
+                col = [o[mid] for o in others if o[mid] is not None]
+                if len(col) < 3:
+                    continue
+                mu = vb.sample_mean(col)
+                s = vb.sample_sd(col)
+                if s <= 0:
+                    continue
+                if abs((v - mu) / (s * factor)) > t_hold:
+                    per_doc[i][vb.SPEC[mid][0]] += 1
+        for lv in vb.LEVELS:
+            levels_holdout[lv] = max(p[lv] for p in per_doc)
+
+    rank = None
+    if k >= 3 and all(d is not None for d in d_vec):
+        rank = {"measure": "L11-4", "d": [round(d, 6) for d in d_vec]}
+
+    return {
+        "docs": k,
+        "window_words": window,
+        "measures": measures,
+        "levels_holdout": levels_holdout,
+        "rank": rank,
+        "reference": {
+            "fw_pooled": [int(c) for c in pooled],
+            "docs_fw": [[int(c) for c in row] for row in docs_fw],
+            "docs_words": [int(a["n"]) for a in accs],
+            "total_words": int(sum(a["n"] for a in accs)),
+        },
+    }, pca_out, chol_out
 
 
 def gate_pattern_hits(sents, vt):
@@ -320,12 +531,21 @@ def main():
     if not files:
         print("no readable .md/.txt samples in the given paths; nothing profiled (write the onboarding template by hand)")
         return 0
-    stats, sents = analyze(files)
+    stats, sents, fw_rows = analyze(files)
     vt = load_voice_tells()
     stats["gate_pattern_hits"] = gate_pattern_hits(sents, vt)
+    block, pca_out, chol_out = battery_block(
+        [f.read_text(encoding="utf-8", errors="replace") for f in files],
+        stats["function_words"], fw_rows)
+    if block is not None:
+        stats["battery"] = block
     out = Path(a.out).expanduser()
     if out.parent and str(out.parent):
         out.parent.mkdir(parents=True, exist_ok=True)
+    for payload, suffix in ((pca_out, "-pca.json"), (chol_out, "-covariance.json")):
+        if payload:
+            side = out.with_name(out.stem + suffix)
+            side.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     out.write_text(json.dumps(_ordered_profile(stats, files), indent=2, sort_keys=True) + "\n",
                    encoding="utf-8")
     print(draft_sections(stats, stats["gate_pattern_hits"]))
