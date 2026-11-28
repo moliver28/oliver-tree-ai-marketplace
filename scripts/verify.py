@@ -797,6 +797,13 @@ if voice_fix.is_dir():
                f"hc data-contract suite (state bands load at scan / cycling bands advisory / "
                f"regenerate chain / learn-write audit / clause 1 gate proof): "
                f"{tail_hc[-1] if tail_hc else r_hc.returncode}")
+            r_pdf = subprocess.run([sys.executable, "-I", str(ROOT / "tests" / "humanizer" / "test_pdf_text.py")],
+                                   capture_output=True, text=True, env=env_base)
+            tail_pdf = (r_pdf.stdout or r_pdf.stderr or "").strip().splitlines()
+            ck(r_pdf.returncode == 0,
+               f"pdf opt-in extra suite (absent-reader hint / lazy import / graceful-skip "
+               f"report paths; present-reader paths SKIP without pypdf on the machine): "
+               f"{tail_pdf[-1] if tail_pdf else r_pdf.returncode}")
         finally:
             for k, v in saved_env.items():
                 if v is None:

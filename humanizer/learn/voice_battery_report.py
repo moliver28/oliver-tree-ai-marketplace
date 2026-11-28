@@ -220,21 +220,56 @@ def load_profile(path):
     return prof, None
 
 
+_pdf_mod = None
+
+
+def _pdf_text(path):
+    """One lazy import of the opt-in PDF extra (learn/pdf_text.py). Returns
+    (text, hint); hint non-None means the extra is absent or the file
+    failed (the caller prints the one line and skips, fail-open)."""
+    global _pdf_mod
+    if _pdf_mod is None:
+        spec = importlib.util.spec_from_file_location(
+            "voice_battery_report_pdf", PLUGIN_DIR / "learn" / "pdf_text.py")
+        _pdf_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_pdf_mod)
+    return _pdf_mod.read_pdf_text(path)
+
+
 def load_samples(path):
-    """Expand --samples to a sorted list of .md/.txt files (same input
-    contract as build_voice_profile.py). Empty result -> SystemExit(2)."""
+    """Expand --samples to a sorted list of .md/.txt/.pdf files (.pdf rides
+    the opt-in extra: without the reader each PDF prints the one-line
+    install hint once and the file is skipped; a PDF with no text layer is
+    skipped with a defined note). Empty result -> SystemExit(2)."""
     p = Path(path).expanduser()
     files = []
     if p.is_dir():
         for cand in sorted(p.rglob("*")):
-            if cand.is_file() and cand.suffix.lower() in (".md", ".txt"):
+            if cand.is_file() and cand.suffix.lower() in (".md", ".txt", ".pdf"):
                 files.append(cand)
-    elif p.is_file() and p.suffix.lower() in (".md", ".txt"):
+    elif p.is_file() and p.suffix.lower() in (".md", ".txt", ".pdf"):
         files.append(p)
     if not files:
-        print(f'usage: --samples path "{path}" is missing or holds no .md/.txt files', file=sys.stderr)
+        print(f'usage: --samples path "{path}" is missing or holds no .md/.txt/.pdf files',
+              file=sys.stderr)
         raise SystemExit(2)
-    return files
+    kept, hinted = [], False
+    for f in files:
+        if f.suffix.lower() != ".pdf":
+            kept.append(f)
+            continue
+        text, hint = _pdf_text(f)
+        if hint:
+            if not hinted:
+                print(hint, file=sys.stderr)
+                hinted = True
+            continue
+        if not text.strip():
+            print("note: %s carries no text layer (scanned image?); skipped" % f.name,
+                  file=sys.stderr)
+            continue
+        kept.append(f)
+    return kept
 
 
 def load_state():
@@ -858,7 +893,18 @@ def main(argv=None):
         if not p.is_file():
             print(f"usage: candidate file not found: {p}", file=sys.stderr)
             return 2
-        candidate_text = p.read_text(encoding="utf-8", errors="replace")
+        if p.suffix.lower() == ".pdf":
+            # the one opt-in PDF branch (formats issue #167): lazy extra,
+            # one-line hint when absent, no error, graceful skip
+            candidate_text, hint = _pdf_text(p)
+            if hint:
+                print(hint, file=sys.stderr)
+            if not candidate_text.strip():
+                print("usage: the PDF candidate holds no readable text layer: %s" % p,
+                      file=sys.stderr)
+                return 2
+        else:
+            candidate_text = p.read_text(encoding="utf-8", errors="replace")
     profile, profile_note = load_profile(args.profile or learned_profile_path())
     profile_path = args.profile or learned_profile_path()
     sample_files = load_samples(args.samples) if args.samples else None
