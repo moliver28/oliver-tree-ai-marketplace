@@ -234,6 +234,9 @@ with tempfile.TemporaryDirectory() as td:
        "regenerate: missing optional inputs print defined skip lines, exit stays 0")
     ck(any("pool empty" in ln for ln in steps),
        "regenerate: an empty reference pool prints the defined pool line")
+    ck((tdp / "learned" / "rules.json").is_file(),
+       "regenerate: the distill output lands in the configured learned dir "
+       "(VOICE_LEARNED_DIR), never the repo default")
     r2 = subprocess.run([sys.executable, "-I", str(reg_path), "--corpus", str(tdp / "missing")],
                         capture_output=True, text=True, env=env)
     ck(r2.returncode == 2, "regenerate: a nonexistent --corpus path is a usage error (exit 2)")
@@ -258,6 +261,163 @@ for p in sorted(learn_dir.glob("*.py")):
 ck(not violations,
    "data contract clause 2: no learn tool writes a code file (audit over learn/*.py)",
    "; ".join(violations[:4]))
+
+# B. Detection methods (method menu A1 / B4 / B2; issue #145) -------------------
+core = load_module("hc_battery_core", PLUGIN_DIR / "learn" / "voice_battery_core.py")
+
+# B1. chunk alignment: the core mirror stays byte-identical to vector_pass
+_LONG = "\n\n".join(
+    ("Paragraph %d carries enough prose to cross the chunk boundary when the "
+     "writer keeps going for a while. The scanner reads the words in one "
+     "shared pass and the chunks stay aligned with the vector pass.") % i
+    for i in range(30))
+ck(core._chunks("short text") == vt._chunks("short text")
+   and core._chunks(_LONG) == vt._chunks(_LONG),
+   "chunk alignment: the core chunk mirror matches voice_tells._chunks exactly "
+   "(short and long texts)")
+sets_c = core.chunk_content_sets(_LONG)
+chunks_c = core._chunks(_LONG)
+ck(len(sets_c) == len(chunks_c) and len(sets_c) >= 2,
+   "chunk alignment: chunk_content_sets returns one content set per chunk")
+ck(all(isinstance(s, frozenset) for s in sets_c)
+   and all(w not in core.STOPWORDS for s in sets_c for w in s),
+   "chunk alignment: content sets hold content words only (stop words excluded)")
+
+# B2. compression profile: deterministic, level 6, advisory shape
+prof1 = core.compression_profile(_LONG)
+prof2 = core.compression_profile(_LONG)
+ck(prof1 == prof2 and 0.0 < prof1["ratio"] < 1.0 and prof1["paragraphs"] > 0,
+   "compression: the profile is deterministic and reports a real ratio",
+   str(prof1))
+import zlib as _zlib
+_para = _LONG.split("\n\n")[0]
+ck(len(_zlib.compress(_para.encode("utf-8"), 6))
+   == len(_zlib.compress(_para.encode("utf-8"), core.ZLIB_LEVEL)),
+   "compression: the shipped zlib level stays pinned at 6")
+
+# B3. aphorism shapes: kickers hit, prose and instructions stay clean
+KICKS = [("No pain, no gain.", "fragment"), ("Ship it.", "imperative"),
+         ("The rule is simple: cut it.", "colon-kicker"),
+         ("Voice is trust.", "copular-definition")]
+ck(all(core._aph_shape(s) == want for s, want in KICKS),
+   "aphorism: the four countable kicker shapes hit their own shapes",
+   str([(s, core._aph_shape(s)) for s, _w in KICKS]))
+CLEANS = ["Set the timeout.", "Save the file.",
+          "The scanner loads the rules from the shared module, so the hook and the "
+          "checker cannot drift.",
+          "It is not just about speed, it is about unlocking value at the end of the day.",
+          "The report shows three things: numbers, facts, and figures.",
+          "No one argued about the deadline."]
+ck(all(core._aph_shape(s) is None for s in CLEANS),
+   "aphorism: instructions and prose sentences carry no shape hits",
+   str([(s, core._aph_shape(s)) for s in CLEANS if core._aph_shape(s)]))
+two_kickers = "Ship it.\n\nNo pain, no gain."
+hits2 = core.aphorism_budget_hits(two_kickers)
+ck(len(hits2) == 1 and "section '(opening)'" in hits2[0] and "2 kicker shapes" in hits2[0],
+   "aphorism: two kickers in one section produce the section budget line", str(hits2))
+four_sections = ("## One\n\nShip it.\n\n## Two\n\nNo pain, no gain.\n\n"
+                 "## Three\n\nVoice is trust.\n\n## Four\n\nMove fast.")
+hits4 = core.aphorism_budget_hits(four_sections)
+ck(len(hits4) == 1 and "piece carries 4" in hits4[0],
+   "aphorism: one kicker per section across four sections trips the piece budget",
+   str(hits4))
+resume_text = "- Lead the team\n\nSkills:\nShip fast.\n\n## Experience\n\nBuild the pipeline."
+ck(core.aphorism_budget_hits(resume_text, profile="resume") == [],
+   "aphorism: the resume profile keeps list items and labeled lines out of the count")
+ck("humanizer 35" in core.aphorism_budget_hits(four_sections)[0],
+   "aphorism: the budget lines carry the humanizer 35 family id for the situational table")
+
+# B4. the gate: budget fail line inside the 5-line cap, clean pass byte-identical
+with tempfile.TemporaryDirectory() as td:
+    tdp = pathlib.Path(td)
+    env = {**os.environ, "VOICE_LEARNED_DIR": str(tdp / "learned"),
+           "VOICE_GATE_LOG": str(tdp / "gate.log"), "VOICE_GATE_VECTOR": "off"}
+    (tdp / "learned").mkdir()
+    r = subprocess.run([sys.executable, "-I", str(PLUGIN_DIR / "hooks" / "gate.py"),
+                        "--surface", "public"],
+                       input=four_sections, capture_output=True, text=True, env=env)
+    ok_line = False
+    try:
+        j = json.loads(r.stdout)
+        aph_lines = [ln for ln in j.get("instruction", "").splitlines()
+                     if "aphorism budget" in ln]
+        ok_line = (r.returncode == 4 and j["status"] == "fail" and len(aph_lines) == 1
+                   and "piece carries 4" in aph_lines[0]
+                   and j.get("reported", 0) <= 5)
+    except Exception:
+        pass
+    ck(ok_line,
+       "gate: the aphorism budget fails over-budget text with ONE family-deduped line "
+       "inside the 5-line cap, naming the count against the budget")
+    clean_ok = ("Set the timeout. The scanner reads the config first. Save the file.\n\n"
+                "Ship it.")
+    r2 = subprocess.run([sys.executable, "-I", str(PLUGIN_DIR / "hooks" / "gate.py"),
+                         "--surface", "public"],
+                        input=clean_ok, capture_output=True, text=True, env=env)
+    ck(r2.returncode == 0
+       and r2.stdout.strip() == '{"status": "pass", "surface": "public", "tokens_to_model": 0}',
+       "gate: a one-kicker instruction text still passes with the byte-identical pass line")
+    try:
+        j2 = json.loads(r2.stdout)
+        ck(not any(k in j2 for k in ("cycling_pairs", "compression_profile")),
+           "gate: the band-gated advisory fields stay absent without learned bands")
+    except Exception:
+        ck(False, "gate: pass JSON parse for the advisory-absent case")
+    # band-gated advisory field: compression bands in the learned state
+    stf = tdp / "voice-rules.json"
+    stf.write_text(json.dumps({"format": 1, "sources": {"calibration": {"bands": {
+        "compression": {"sd_hi": 99.0}}}}}))
+    env_b = {**env, "VOICE_RULES_STATE": str(stf)}
+    r3 = subprocess.run([sys.executable, "-I", str(PLUGIN_DIR / "hooks" / "gate.py"),
+                         "--surface", "public"],
+                        input=clean_ok, capture_output=True, text=True, env=env_b)
+    try:
+        j3 = json.loads(r3.stdout)
+        cp = j3.get("compression_profile")
+        ck(r3.returncode == 0 and isinstance(cp, dict) and "ratio" in cp and "sd" in cp,
+           "gate: compression_profile rides the pass JSON only when the learned state "
+           "carries the band", str(cp))
+    except Exception as e:
+        ck(False, "gate: compression advisory JSON parse: %r" % (e,))
+
+# B5. the report rows L10-18/19/20 ------------------------------------------------
+with tempfile.TemporaryDirectory() as td:
+    tdp = pathlib.Path(td)
+    env = {**os.environ, "VOICE_LEARNED_DIR": str(tdp / "learned"),
+           "VOICE_GATE_LOG": str(tdp / "gate.log")}
+    (tdp / "learned").mkdir()
+    cand = tdp / "cand.md"
+    cand.write_text("## Section\n\nShip it.\n\nNo pain, no gain.\n\nVoice is trust.",
+                    encoding="utf-8")
+    env_nc = {**env, "VOICE_GATE_VECTOR": "off"}
+    r = subprocess.run([sys.executable, "-I", str(PLUGIN_DIR / "learn" / "voice_battery_report.py"),
+                        str(cand)], capture_output=True, text=True, env=env_nc)
+    out1 = r.stdout
+    ck(r.returncode == 0 and "L10-18" in out1 and "L10-19 aphorism shapes" in out1
+       and "L10-20 compression profile" in out1,
+       "report: the three method rows print in the L10 block")
+    ck("needs calibrated cycling bands" in out1,
+       "report: L10-18 reads n/a with the defined note while uncalibrated")
+    ck("outside  L10-19" in out1 and "sections over budget" in out1,
+       "report: L10-19 reads outside against the budget on over-budget text")
+    ck("readings " in out1 and " of 82;" in out1,
+       "report: the length note counts the three method rows (82-row total)")
+    r2 = subprocess.run([sys.executable, "-I", str(PLUGIN_DIR / "learn" / "voice_battery_report.py"),
+                         str(cand)], capture_output=True, text=True, env=env_nc)
+    ck(r2.returncode == 0 and r2.stdout == out1,
+       "report: two runs print byte-identical text (method rows included)")
+    rj = subprocess.run([sys.executable, "-I", str(PLUGIN_DIR / "learn" / "voice_battery_report.py"),
+                         str(cand), "--json"], capture_output=True, text=True, env=env_nc)
+    try:
+        jrep = json.loads(rj.stdout)
+        l10_rows = {row["id"]: row for row in (jrep.get("levels", {}).get("L10", {})
+                                               .get("rows") or [])}
+        ck("L10-19" in l10_rows and "L10-20" in l10_rows and "L10-18" not in l10_rows,
+           "report: --json carries the computed method rows in the L10 block (the "
+           "suppressed cycling row stays out, like L11-12)",
+           str(sorted(l10_rows)))
+    except Exception as e:
+        ck(False, "report: --json parse: %r" % (e,))
 
 print(f"\nhc methods + data contract: {len(fails)} failure(s)")
 sys.exit(1 if fails else 0)

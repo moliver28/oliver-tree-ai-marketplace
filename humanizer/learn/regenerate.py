@@ -40,6 +40,7 @@ Usage:
 import argparse
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -101,9 +102,13 @@ def main(argv=None):
     else:
         print("regenerate calibrate: skipped (--corpus not given)")
 
-    # 2. distill_phrases (defined empty-log behavior)
+    # 2. distill_phrases (defined empty-log behavior); the output goes to the
+    # configured learned dir explicitly, because distill_phrases.py's own
+    # default predates the VOICE_LEARNED_DIR override contract
     dist = _load("distill_phrases")
-    _run_step("distill", lambda: _call_main(dist, "distill_phrases.py") == 0
+    learned = Path(os.environ.get("VOICE_LEARNED_DIR", PLUGIN_DIR / "learned"))
+    _run_step("distill", lambda: _call_main(dist, "distill_phrases.py",
+                                            "--out", str(learned / "rules.json")) == 0
               and "rules.json written")
 
     # 3. voice_vector_build (hash-guarded; embedder or not)

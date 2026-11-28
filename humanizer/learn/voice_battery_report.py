@@ -77,6 +77,22 @@ def load_battery():
 
 vb = load_battery()
 
+_tells_mod = None
+
+
+def _tells():
+    """The shared scanner module (hooks/voice_tells.py), loaded lazily: the
+    method rows need its state-chain loader (bands) and, only when the
+    learned state carries cycling bands, its vector_pass. Fail-open like
+    every loader here: an import problem reads as absent bands."""
+    global _tells_mod
+    if _tells_mod is None:
+        spec = importlib.util.spec_from_file_location(
+            "voice_battery_report_tells", PLUGIN_DIR / "hooks" / "voice_tells.py")
+        _tells_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_tells_mod)
+    return _tells_mod
+
 # Reading sentences and edit classes (map section 6). (below, above, class);
 # below/above describe the position against the reference band.
 EDIT_READINGS = {
@@ -491,6 +507,8 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
 
     quotes = acc["curly"] + acc["chars"]["straight"]
     suppressed = []
+    method_json_rows = []
+    method_readings = 0
     if sample_files is None and battery:
         suppressed.append("L11-12 (needs --samples: the pooled segments come from the sample texts)")
     heavy_note = ("setup level %d keeps the heavy rows off (run learn/voice_setup.py --level 2)" % level
@@ -672,6 +690,89 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
                              "readability ratio) [corpus-level reading]"
                              % (v_ss if isinstance(v_ss, float) else 0.0,
                                 var.get("ss_lo") or 0.0, var.get("ss_hi") or 0.0, dir_ss, ctx_ss))
+        if lvl == "L10":
+            # wave H-C method rows (report path, advisory; the gate carries
+            # the family-35 budget fail line only). Detector bands load from
+            # the learned-state chain (issue #5 data contract); absent bands
+            # mean the row reports values or reads n/a with a note, never a
+            # fail line.
+            try:
+                state_bands = (_tells().effective_rules().get("bands") or {})
+            except Exception:
+                state_bands = {}
+            # L10-18 chunk-pair paraphrase divergence (A1, family 11)
+            cyc = None
+            if level is not None and level < 2:
+                suppressed.append("L10-18 (%s)" % ("setup level %d keeps the heavy rows off "
+                                                   "(run learn/voice_setup.py --level 2)" % level))
+            elif not state_bands.get("cycling"):
+                suppressed.append("L10-18 (needs calibrated cycling bands in the learned state; "
+                                  "the row reads pairs only after calibration)")
+            else:
+                try:
+                    vp = _tells().vector_pass(candidate_text)
+                    pairs = (_tells().cycling_signals(vp, vb.core.chunk_content_sets(candidate_text))
+                             if vp.get("active") else None)
+                    if pairs is not None:
+                        cyc = pairs
+                except Exception:
+                    cyc = None
+                if cyc is None:
+                    suppressed.append("L10-18 (no embedder available; the row fails open)")
+                else:
+                    method_readings += 1
+                    lines.append("  advisory  L10-18 chunk-pair paraphrase divergence  %d pair(s)"
+                                 % len(cyc))
+                    if cyc:
+                        p0 = cyc[0]
+                        chunks = _tells()._chunks(candidate_text)
+                        i0 = p0["pair"]
+                        preview = (chunks[i0][:60] + " | " + chunks[i0 + 1][:60]
+                                   if len(chunks) >= i0 + 2 else "")
+                        lines.append("    first pair: cosine %.2f >= t_sem, jaccard %.2f <= t_lex; "
+                                     "'%s'; advisory (family 11, never gates)"
+                                     % (p0["cosine"], p0["jaccard"], preview))
+                    else:
+                        lines.append("    no adjacent chunk pair crosses the calibrated bands; "
+                                     "advisory (family 11, never gates)")
+                    method_json_rows.append({"id": "L10-18", "value": len(cyc), "state": "advisory"})
+            # L10-19 aphorism shapes (B4, family 35): budget row, deterministic
+            sec_counts = vb.core.aphorism_section_counts(candidate_text)
+            a_total = sum(n for _nm, n in sec_counts)
+            a_worst = max((n for _nm, n in sec_counts), default=0)
+            over_section = [nm for nm, n in sec_counts if n > vb.core.APHORISM_MAX_PER_SECTION]
+            a_over = bool(over_section) or a_total > vb.core.APHORISM_MAX_PER_PIECE
+            method_readings += 1
+            lines.append("  %s  L10-19 aphorism shapes  %d shapes, worst section %d of %d"
+                         % ("outside" if a_over else "inside", a_total, a_worst,
+                            vb.core.APHORISM_MAX_PER_SECTION))
+            lines.append("    budget: at most %d kicker shapes per section, at most %d per piece "
+                         "(family 35; antithesis is credited to the pattern register, never "
+                         "re-counted)%s"
+                         % (vb.core.APHORISM_MAX_PER_SECTION, vb.core.APHORISM_MAX_PER_PIECE,
+                            "; sections over budget: " + ", ".join("'%s'" % nm
+                                                                   for nm in over_section)
+                            if over_section else ""))
+            method_json_rows.append({"id": "L10-19", "value": a_total,
+                                     "state": "outside" if a_over else "inside"})
+            # L10-20 compression profile (B2): advisory values, band when learned
+            prof = vb.core.compression_profile(candidate_text)
+            comp_band = state_bands.get("compression") or {}
+            if isinstance(comp_band.get("sd_hi"), (int, float)):
+                c_state = "outside" if prof["sd"] > comp_band["sd_hi"] else "inside"
+                c_note = ("per-paragraph SD %.3f against the learned band (sd_hi %.3f); "
+                          "advisory, never a gate fail"
+                          % (prof["sd"], comp_band["sd_hi"]))
+            else:
+                c_state = "advisory"
+                c_note = ("no calibrated compression bands in the learned state; the row "
+                          "reports values only (never a fail line)")
+            method_readings += 1
+            lines.append("  %s  L10-20 compression profile  %.3f whole-text ratio, sd %.3f "
+                         "per paragraph" % (c_state, prof["ratio"], prof["sd"]))
+            lines.append("    %s" % c_note)
+            method_json_rows.append({"id": "L10-20", "value": prof["ratio"], "state": c_state})
+            report["levels"][lvl]["rows"].extend(method_json_rows)
 
     outside_levels = [lv for lv in vb.LEVELS if overall_levels.get(lv) == "outside"]
     l11_band = overall_levels.get("L11")
@@ -716,12 +817,13 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
                              "of %d words" % (min(ttrs), max(ttrs), len(ttrs), window))
     lines.append("overall: %s" % overall_text)
 
-    readings_total = sum(1 for mid in vb.ALL_IDS if vals[mid] is not None)
+    readings_total = sum(1 for mid in vb.ALL_IDS if vals[mid] is not None) + method_readings
+    total_rows = len(vb.ALL_IDS) + 3  # the three wave H-C method rows join the count
     fa_text = "1 of %d" % (k_docs + 1) if k_docs >= 3 else "n/a"
     sup_text = "; ".join(suppressed) if suppressed else "none"
     lines.append("length: %d words, %d sentences, %d paragraphs; readings %d of %d; suppressed: %s; "
                  "reference %d documents; rank false alarm %s"
-                 % (n, ns, npar, readings_total, len(vb.ALL_IDS), sup_text, k_docs, fa_text))
+                 % (n, ns, npar, readings_total, total_rows, sup_text, k_docs, fa_text))
     lines.extend(notes)
     text = "\n".join(lines) + "\n"
     report["overall"] = overall
@@ -737,7 +839,7 @@ def main(argv=None):
     argv = [a for a in argv if a != "--json"]
     parser = argparse.ArgumentParser(
         prog="voice_battery_report.py",
-        description="The on-demand gestalt report of the 82-measure battery: one band per level "
+        description="The on-demand gestalt report of the 85-row battery: one band per level "
                     "plus the overall band, each row mapped to an edit class (advisory, never gates).")
     parser.add_argument("candidate", help="candidate file path, or '-' for stdin")
     parser.add_argument("--profile", default=None, help="learned/profile.json path (default: the plugin learned dir)")
