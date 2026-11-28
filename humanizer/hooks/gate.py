@@ -167,6 +167,19 @@ def _log_gate(event, detail):
         except Exception:
             pass
 
+def _budget_band():
+    """The learned-state 'aphorism' band (wave G6), the ONLY band kind that
+    can change a fail line (a budget override: max_per_section /
+    max_per_piece). Absent scanner module, absent band, or loader trouble
+    all read {} -> the embedded constants apply (byte-identical lines)."""
+    if not _TELLS_OK:
+        return {}
+    try:
+        return (tells.effective_rules().get("bands") or {}).get("aphorism") or {}
+    except Exception:
+        return {}
+
+
 def _battery_layer(raw):
     """Battery fast core (v1.2.0) plus the family-35 aphorism budget
     (wave H-C): lazy-import learn/voice_battery_core.py (the small
@@ -178,10 +191,13 @@ def _battery_layer(raw):
     them to at most ONE fail line, never a sixth, and the pass line stays
     byte-identical. The aphorism budget lines follow the same dedup law:
     the mechanical counter enforces the skill's own budget (max one kicker
-    per section, at most three per piece); the line names the section and
-    the count, never an AI accusation; --profile resume and the situational
-    table keep their existing exemptions. Fail-open: an unavailable battery
-    layer means no battery hits, never a gate error.
+    per section, at most three per piece), with the learned-state
+    'aphorism' band as the budget override after the user approves the
+    refreshed numbers (wave G6, hooks/harvest.py --approve-bands); the
+    line names the section and the count, never an AI accusation;
+    --profile resume and the situational table keep their existing
+    exemptions. Fail-open: an unavailable battery layer means no battery
+    hits, never a gate error.
     Returns (marker_hits, aphorism_hits, module_or_None)."""
     try:
         spec = importlib.util.spec_from_file_location(
@@ -198,7 +214,7 @@ def _battery_layer(raw):
         hits.append("battery marker word (L10-1) '%s' (near: '...%s...')" % (word, near))
     aph = []
     try:
-        aph = mod.aphorism_budget_hits(raw, profile)
+        aph = mod.aphorism_budget_hits(raw, profile, budgets=_budget_band())
     except Exception:
         aph = []
     return hits, aph, mod

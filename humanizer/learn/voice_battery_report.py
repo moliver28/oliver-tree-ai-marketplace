@@ -771,20 +771,23 @@ def build_report(candidate_text, profile, profile_note=None, sample_files=None, 
                         lines.append("    no adjacent chunk pair crosses the calibrated bands; "
                                      "advisory (family 11, never gates)")
                     method_json_rows.append({"id": "L10-18", "value": len(cyc), "state": "advisory"})
-            # L10-19 aphorism shapes (B4, family 35): budget row, deterministic
+            # L10-19 aphorism shapes (B4, family 35): budget row, deterministic.
+            # Wave G6: the budget resolves from the learned-state 'aphorism'
+            # band when the user approved one (the same resolve the gate uses),
+            # so the report and the gate never disagree on the budget numbers.
+            a_s, a_p = vb.core.resolve_budget(state_bands.get("aphorism"))
             sec_counts = vb.core.aphorism_section_counts(candidate_text)
             a_total = sum(n for _nm, n in sec_counts)
             a_worst = max((n for _nm, n in sec_counts), default=0)
-            over_section = [nm for nm, n in sec_counts if n > vb.core.APHORISM_MAX_PER_SECTION]
-            a_over = bool(over_section) or a_total > vb.core.APHORISM_MAX_PER_PIECE
+            over_section = [nm for nm, n in sec_counts if n > a_s]
+            a_over = bool(over_section) or a_total > a_p
             method_readings += 1
             lines.append("  %s  L10-19 aphorism shapes  %d shapes, worst section %d of %d"
-                         % ("outside" if a_over else "inside", a_total, a_worst,
-                            vb.core.APHORISM_MAX_PER_SECTION))
+                         % ("outside" if a_over else "inside", a_total, a_worst, a_s))
             lines.append("    budget: at most %d kicker shapes per section, at most %d per piece "
                          "(family 35; antithesis is credited to the pattern register, never "
                          "re-counted)%s"
-                         % (vb.core.APHORISM_MAX_PER_SECTION, vb.core.APHORISM_MAX_PER_PIECE,
+                         % (a_s, a_p,
                             "; sections over budget: " + ", ".join("'%s'" % nm
                                                                    for nm in over_section)
                             if over_section else ""))
