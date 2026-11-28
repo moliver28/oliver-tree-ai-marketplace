@@ -7,7 +7,7 @@ Contract (token economy):
 - PASS: emit {"status": "pass", "tokens_to_model": 0} and stop. The model is never re-engaged.
 - FAIL: emit the violated pattern labels (one line each, max 5) with nearby context, plus one instruction
   block: patch in place, do not regenerate, do not re-emit the full text. One fix line per distinct pattern.
-- ERROR (scan unavailable): fail-open, {"status": "error", "deliver": true}.
+- ERROR (scan unavailable): fail-open: every layer degrades, the gate emits the normal pass line and exits 0 (deliver); a usage problem exits 2 with a stderr line.
 
 Advisory signals (v1.1.0, issue #127 Tiers 1+2; zero model tokens; both
 surfaces; every step fails open, so absent artifacts simply mean absent fields):
@@ -67,6 +67,7 @@ FIX_HINT = (
     ("humanizer 32", "Replace the question with the point it was going to make."),
     ("humanizer 33", "Delete the opener; start the sentence with its subject."),
     ("humanizer 34", "Cut the reassurance clause; the point stands without it."),
+    ("aphorism", "Keep at most one kicker per section (at most three per piece); rewrite the extra kickers as plain sentences."),
     ("humanizer 19", "Swap curly quotes for straight quotes."),
     ("humanizer 16", "Fold the bullet into a sentence listing the items."),
     ("humanizer 17", "Lowercase the heading words (sentence case) except the first."),
@@ -166,16 +167,22 @@ def _log_gate(event, detail):
         except Exception:
             pass
 
-def _battery_hits(raw):
-    """Battery fast core (v1.2.0): lazy-import learn/voice_battery_core.py
-    (the small gate-path module; the full battery sits outside the gate's
-    latency budget) and run its fast core: token loop, sentence block,
-    paragraph block, character counts in one pass (no diversity index, no
-    profile distance). The gate turns only the L10-1 marker-word hits into
-    gate hits, one line per distinct word; the family dedup below collapses
+def _battery_layer(raw):
+    """Battery fast core (v1.2.0) plus the family-35 aphorism budget
+    (wave H-C): lazy-import learn/voice_battery_core.py (the small
+    gate-path module; the full battery sits outside the gate's latency
+    budget) and run its fast core: token loop, sentence block, paragraph
+    block, character counts in one pass (no diversity index, no profile
+    distance). The gate turns only the L10-1 marker-word hits into gate
+    hits, one line per distinct word; the family dedup below collapses
     them to at most ONE fail line, never a sixth, and the pass line stays
-    byte-identical. Fail-open: an unavailable battery layer means no battery
-    hits, never a gate error."""
+    byte-identical. The aphorism budget lines follow the same dedup law:
+    the mechanical counter enforces the skill's own budget (max one kicker
+    per section, at most three per piece); the line names the section and
+    the count, never an AI accusation; --profile resume and the situational
+    table keep their existing exemptions. Fail-open: an unavailable battery
+    layer means no battery hits, never a gate error.
+    Returns (marker_hits, aphorism_hits, module_or_None)."""
     try:
         spec = importlib.util.spec_from_file_location(
             "voice_battery_gate", os.path.join(_HERE, "..", "learn", "voice_battery_core.py"))
@@ -183,13 +190,18 @@ def _battery_hits(raw):
         spec.loader.exec_module(mod)
         fc = mod.fast_core(raw)
     except Exception:
-        return []
+        return [], [], None
     hits = []
     for word in sorted(fc["marker_counts"]):
         m = re.search(r"\b%s\b" % re.escape(word), raw, re.IGNORECASE)
         near = raw[max(0, m.start() - 20):m.end() + 20].replace(chr(10), " ") if m else word
         hits.append("battery marker word (L10-1) '%s' (near: '...%s...')" % (word, near))
-    return hits
+    aph = []
+    try:
+        aph = mod.aphorism_budget_hits(raw, profile)
+    except Exception:
+        aph = []
+    return hits, aph, mod
 
 def _classifier_score(text):
     """Advisory authorship score from learn/train_voice_classifier.py when its
@@ -211,9 +223,15 @@ def _classifier_score(text):
         _log_gate("classifier_skip", {"err": repr(e)})
         return None
 
-def _advisory_signals(raw, source_path):
+def _advisory_signals(raw, source_path, battery_mod=None):
     """Zero-token advisory fields for the gate JSON (both surfaces). Every
-    step fails open: absent artifacts or no embedder -> absent fields."""
+    step fails open: absent artifacts or no embedder -> absent fields.
+    Wave H-C adds two band-gated advisory fields (they appear only when the
+    learned state carries the matching bands, so the pass line stays
+    byte-identical while uncalibrated; neither ever changes pass/fail):
+    cycling_pairs (family 11, chunk-pair divergence on the existing chunk
+    vectors and content sets) and compression_profile (family support,
+    per-paragraph zlib profile)."""
     if not _TELLS_OK:
         return {}
     advisory = {}
@@ -239,6 +257,20 @@ def _advisory_signals(raw, source_path):
     if cs:
         advisory["p_ai"] = cs["p_ai"]
         advisory["voice_delta"] = cs["voice_delta"]
+    try:
+        bands = (tells.effective_rules().get("bands") or {})
+        if battery_mod is not None and bands.get("compression"):
+            advisory["compression_profile"] = battery_mod.compression_profile(raw)
+        if battery_mod is not None and vp and vp.get("active") and bands.get("cycling"):
+            pairs = tells.cycling_signals(vp, battery_mod.chunk_content_sets(raw))
+            if pairs:
+                chunks = tells._chunks(raw)
+                i = pairs[0]["pair"]
+                preview = (chunks[i][:60] + " | " + chunks[i + 1][:60]) if len(chunks) >= i + 2 else ""
+                advisory["cycling_pairs"] = {"count": len(pairs), "first": pairs[0],
+                                             "preview": preview}
+    except Exception as e:
+        _log_gate("vec_skip", {"err": f"hc advisory: {e!r}"})
     return advisory
 
 def main():
@@ -285,9 +317,11 @@ def main():
         hits = list(hits) + ste_hits(raw)
     except Exception:
         pass
-    # battery fast core (L10-1 marker words), both surfaces; family dedup
-    # below caps its contribution at one fail line.
-    hits = list(hits) + _battery_hits(raw)
+    # battery fast core (L10-1 marker words) + aphorism budget (family 35),
+    # both surfaces; family dedup below caps each contribution at one fail
+    # line, and the pass line stays byte-identical.
+    battery_hits, aphorism_hits, battery_mod = _battery_layer(raw)
+    hits = list(hits) + battery_hits + aphorism_hits
     # Voice-rules layer (daneel_style_rules.yaml adapter): the local voice rules
     # and anti-patterns ride on top of the humanizer scan, one source of truth.
     try:
@@ -302,7 +336,7 @@ def main():
             print(f"usage: {e.args[0]}", file=sys.stderr)
             return 2
         advisory["situation"] = situation
-    advisory.update(_advisory_signals(raw, source_path))
+    advisory.update(_advisory_signals(raw, source_path, battery_mod))
     if not hits:
         print(json.dumps({"status": "pass", "surface": surface, "tokens_to_model": 0, **advisory})); return 0
     family = {}

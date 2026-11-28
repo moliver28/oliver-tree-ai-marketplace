@@ -1,5 +1,5 @@
 ---
-description: Print the on-demand voice-fit gestalt report for a file (82-measure battery, one band per level, overall band, edit classes). Advisory and human-only; never gates.
+description: Print the on-demand voice-fit gestalt report for a file (85-row battery, one band per level, overall band, edit classes). Advisory and human-only; never gates.
 ---
 
 Deterministic pointer, like `/voice learn` and `/voice fit`. No rewriting, no model work.

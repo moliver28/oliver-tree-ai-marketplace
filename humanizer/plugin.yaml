@@ -16,8 +16,8 @@ plugin:
     contract: hooks/HOOKS.md
   learn:
     onboard: learn/VOICE_ONBOARDING.template.md
-    tools: [learn/build_voice_profile.py, learn/calibrate.py, learn/distill_phrases.py, learn/voice_vector_build.py, learn/train_voice_classifier.py, learn/edit_learning.py, learn/acceptance_check.py, learn/voice_fit.py, learn/voice_battery_report.py, learn/voice_setup.py]
-    libraries: [learn/voice_battery.py, learn/voice_battery_core.py]
+    tools: [learn/build_voice_profile.py, learn/calibrate.py, learn/distill_phrases.py, learn/voice_vector_build.py, learn/train_voice_classifier.py, learn/edit_learning.py, learn/acceptance_check.py, learn/voice_fit.py, learn/voice_battery_report.py, learn/voice_setup.py, learn/regenerate.py]
+    libraries: [learn/voice_battery.py, learn/voice_battery_core.py, learn/pdf_text.py]
     procedure: learn/LEARN-VOICE.md
   surfaces:
     user_facing: [/voice, /voice-fit, /voice-setup]

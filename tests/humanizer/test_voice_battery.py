@@ -9,9 +9,10 @@ Exit 0 = every contract gate green.
 The contract this file pins:
 
 1. Spec: the 79 per-text Tier A rows (the 74 rows of the measures map section
-   3a plus the 5 rows of the re-tier pass delta1); the battery totals 82 rows
+   3a plus the 5 rows of the re-tier pass delta1); the battery totals 85 rows
    with the 3 corpus-level report rows (L11-12 MMD two-sample, L10-16 and
-   L10-17 variability), with
+   L10-17 variability) and the 3 wave H-C method rows (L10-18 chunk-pair
+   divergence, L10-19 aphorism shapes, L10-20 compression profile), with
    the per-level counts, and every row carries a unit, a minimum rule, and
    a count-floor rule; the renderer carries an edit reading for every row.
 2. Closed-list sizes (deterministic; the payload contract of decision D1b):
@@ -118,6 +119,10 @@ sizes = {
 }
 bad = {k: v for k, v in sizes.items() if v[0] != v[1]}
 ck(not bad, "sizes: the closed lists match their pinned entry counts", str(bad))
+ck(core.STOPWORDS == bvp.STOPWORDS,
+   "sizes: the core content-word stop list stays byte-identical to build_voice_profile (sync pin)")
+ck(set(core.VERBS) == set(vb.VERBS),
+   "sizes: the core verb frame list stays byte-identical to voice_battery VERBS (sync pin)")
 ck(len(vb.PHRASE_FAMILIES) == 3
    and [len(vb.PHRASE_FAMILIES[k]) for k in ("L10-2", "L9-12", "L5-10")] == [15, 5, 15],
    "sizes: the three Tier A phrase families carry their pinned alternative counts")
@@ -516,7 +521,7 @@ with tempfile.TemporaryDirectory() as td:
 # 8 + 9. stdlib-only import pins ------------------------------------------------
 for name, path, allowed in (
         ("voice_battery", PLUGIN_DIR / "learn" / "voice_battery.py", ALLOWED_IMPORTS),
-        ("voice_battery_core", PLUGIN_DIR / "learn" / "voice_battery_core.py", {"re"}),
+        ("voice_battery_core", PLUGIN_DIR / "learn" / "voice_battery_core.py", {"re", "zlib"}),
         ("voice_battery_report", PLUGIN_DIR / "learn" / "voice_battery_report.py", ALLOWED_IMPORTS_REPORT)):
     tree = ast.parse(path.read_text(encoding="utf-8"))
     imported = set()

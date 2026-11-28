@@ -10,7 +10,7 @@ Deterministic pointer, like `/voice learn`. No rewriting, no model work.
    python3 "$CLAUDE_PLUGIN_ROOT/learn/voice_setup.py" <samples-root>
    ```
 
-   `<samples-root>` is optional on a re-run. It is a directory with one subdirectory per situation: `blog/`, `linkedin/`, `report/` (ruling D5b). Each situation learns its own band from 3 or more documents of 500 or more words; a smaller situation falls back to the pooled band and the report says so. Sample documents stay user-local under `VOICE_LEARNED_DIR`; nothing is copied into the repository.
+   `<samples-root>` is optional on a re-run. It is a directory with one subdirectory per situation: `blog/`, `linkedin/`, `report/` (ruling D5b). Each situation learns its own band from 3 or more documents of 500 or more words; a smaller situation falls back to the pooled band and the report says so. Sample documents stay user-local in the learned directory (default: the plugin's own `learned/`; move the whole directory with the `VOICE_LEARNED_DIR` override, the same contract as `VOICE_RULES_STATE` and `VOICE_GATE_LOG`); nothing is copied into the repository.
 
 2. Flags:
    - `--remeasure` re-runs the machine bench (interpreter spawn, the gate command at a fixed 2,000-word fixture, the battery at 500 / 2,000 / 5,000 words). Without it, the measured numbers in `learned/state/machine-bench.json` are reused.

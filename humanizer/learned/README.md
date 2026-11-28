@@ -62,6 +62,53 @@ Everything in this directory is built at runtime by the learn tools or the /voic
   the per-situation voice bands with the layer-2 factors (pooled source-blind bands + shrunk
   situation factors, k / (k + 5)). Samples and bands stay user-local; never committed; never shipped.
 
+## The private reference store (voice-setup, 1.3.0)
+
+The reference pool lives where the user points it, in this order:
+
+1. The `VOICE_REFERENCE_DIR` environment variable (wins when set).
+2. The setup settings file: `learned/state/setup.json`'s `reference_dir`
+   (written by `learn/voice_setup.py --reference-dir <path>`).
+3. The default: the learned directory itself (the plugin's `learned/`,
+   movable with `VOICE_LEARNED_DIR`).
+
+Pool layout: one `<sha256(text)[:16]>.txt` (the document text) beside one
+`<same-id>.json` (the per-document vector: format version, measure-set
+version, situation tag, word count, every battery row value). Storing is
+idempotent by the text sha256: a re-store refreshes the vector in place.
+The bands and factors derive from the stored vectors; they are never
+stored per-source.
+
+`--remeasure` refreshes: any stored vector whose measure set is stale, or
+that lacks rows the current battery carries, is recomputed from the stored
+text, and the bands and factors rebuild from the refreshed vectors even
+with no fresh samples. The one-shot way to refresh every derived artifact
+at once is the scripted regenerate pass:
+`python3 learn/regenerate.py --corpus <clean writing dir> --samples <sample dir>`
+(one line per step, hash-guarded builders, zero model tokens).
+
+To point the store at a NAS mount, set the pool root to any private path
+the user controls, for example:
+
+    VOICE_REFERENCE_DIR=<reference-store-root>/Writing Style References python3 learn/voice_setup.py --samples <samples-root>
+
+or record it once with `--reference-dir <reference-store-root>/Writing Style References`.
+Replace `<reference-store-root>` with the mount point of the share. The
+report names the store path, its document count, the measure-set version,
+and the measured free bytes of the store drive. Nothing from a real pool
+enters the repo, the payload, CI, or a test.
+
+## Detector bands in the runtime state file (wave H-C, 2026-11-27)
+
+The new detection methods read their thresholds from the runtime state
+file (`$VOICE_RULES_STATE` or `<HERMES_HOME>/state/voice-rules.json`), not
+from code constants: a source there may carry a `bands` object, for
+example `"bands": {"cycling": {"t_sem": 0.62, "t_lex": 0.35},
+"compression": {"sd_hi": 0.09}}`. Absent bands mean the signal stays
+advisory with no fail line; invalid band entries skip per entry and log
+`state_skip`; valid numbers load at scan time (issue #5 data contract,
+clause 4).
+
 Maintenance passes distill recurring phrasings from phrases.log into plugin descriptions per
 MAINTENANCE.md section 10; the gate never spends tokens on vocabulary updates. Every tool above is
 deterministic and spends zero model tokens; the per-user directory can be relocated with

@@ -70,7 +70,7 @@ The delivery hooks fire silently after generation and before anything reaches an
 - [ ] One idea per paragraph; no paragraph over six lines
 - [ ] Strongest counterargument acknowledged, not dodged
 - [ ] Reader can name one thing to do differently
-- [ ] Passed the delivery tell scan (one kicker max per section, two or three per piece)
+- [ ] Passed the delivery tell scan and the aphorism budget (at most one kicker shape per section, at most three per piece; the gate enforces the budget mechanically)
 
 ## 8. Calibration
 
