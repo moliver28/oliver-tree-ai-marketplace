@@ -111,9 +111,12 @@ Two more files join the state files above when the loop runs:
 - `state/band-approvals.json` (wave G6): pending budget-band rows
   (candidate + active numbers, plain-words note). A budget-override band
   (`aphorism`) can change a fail line, so its candidate never lands
-  silently. `python3 hooks/harvest.py --approve-bands` promotes the rows
-  into the runtime state file under the source name `harvest-bands`.
-  Until then the old budget stays active.
+  silently. The candidate is the pool maximum shrunk toward the active
+  budget with the plugin's own k/(k+5) shape (k=5), rounded up, never
+  below 1; the raw maximum rides the row beside it (methodology ruling,
+  2026-11-28). `python3 hooks/harvest.py --approve-bands` promotes the
+  rows into the runtime state file under the source name
+  `harvest-bands`. Until then the old budget stays active.
 
 `--remeasure` refreshes: any stored vector whose measure set is stale, or
 that lacks rows the current battery carries, is recomputed from the stored

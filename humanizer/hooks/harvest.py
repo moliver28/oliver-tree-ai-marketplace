@@ -57,11 +57,17 @@ Band refresh (Unit 4, advisory-first): the refreshed bands in
 voice-bands.json are advisory rows and update silently (the
 calibration-before-fail law). The ONLY band kind that can change a fail
 line is a budget-override band ('aphorism', see
-learn/voice_battery_core.py resolve_budget). A refreshed budget candidate
-never lands silently: the candidate and the active numbers are written as
-pending rows into <learned>/state/band-approvals.json with a plain-words
-note of what changed and by how much, and the old budget stays active.
-The explicit command below promotes them:
+learn/voice_battery_core.py resolve_budget). The candidate follows the
+athena methodology ruling (binding Q1, 2026-11-28): the observed pool
+maximum shrunk toward the active budget with the codebase's own k/(k+5)
+shape (SHRINK_K = 5, the voice_setup N0=5 law), rounded UP, never below
+1, per grain derived independently; the bare maximum is disapproved, and
+the raw maximum rides the pending row beside the shrunk number. A
+refreshed budget candidate never lands silently: the candidate and the
+active numbers are written as pending rows into
+<learned>/state/band-approvals.json with a plain-words note (pool-size
+tier, provenance line, what changed and by how much), and the old budget
+stays active. The explicit command below promotes them:
 
     python3 humanizer/hooks/harvest.py --approve-bands
 
@@ -82,6 +88,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import math
 import os
 import sys
 from datetime import datetime, timezone
@@ -99,6 +106,12 @@ DEFAULT_GLOB = "*.md"
 # battery row floors, so the hook skips it with one line instead of storing
 # rows the band derivation cannot use.
 BATTERY_FLOOR_WORDS = 500
+# The codebase's own shrinkage constant (voice_setup.py N0=5, the k/(k+5)
+# situation-factor law, owner-approved 2026-11-27). The budget candidate
+# borrows the same pinned shape per the athena methodology ruling (Q1,
+# 2026-11-28): shrink the pool maximum toward the active budget, round up,
+# floor 1, and report the raw maximum beside it.
+SHRINK_K = 5
 
 
 def learned_dir():
@@ -216,18 +229,55 @@ def append_pool(vs, cfg, files):
     return len(new)
 
 
-def budget_candidates(core, pool_texts):
-    """Unit 4 candidate derivation, mechanical over the stored pool: the
-    largest per-section and per-piece kicker-shape counts across the
-    accepted drafts (the pool's own practice). Deterministic: pool id
-    order in, plain maxima out."""
+def shrink_statistic(observed, default, n):
+    """The approved pool-derived budget candidate (athena methodology
+    ruling, binding Q1, 2026-11-28): the pool maximum shrunk toward the
+    active budget with the codebase's own k/(k+5) shape, then rounded UP
+    to the whole number the resolver needs, never below 1:
+    candidate = max(1, ceil((n/(n+5))*observed + (5/(n+5))*default)).
+    The bare maximum is disapproved as the derivation statistic (an order
+    statistic that one unusual document moves); the shrink keeps the
+    "your own practice, at your scale" semantics with the plugin's own
+    pinned constant. Pure; deterministic; zero model calls."""
+    w = n / (n + SHRINK_K)
+    return max(1, math.ceil(w * float(observed) + (1.0 - w) * float(default)))
+
+
+def budget_candidates(core, pool_texts, default_section, default_piece):
+    """Unit 4 candidate derivation, mechanical over the stored pool, per
+    grain derived independently: the observed per-section and per-piece
+    kicker-shape maxima across the accepted drafts, then the ruling's
+    shrink of each toward its active default. Returns (observed_section,
+    observed_piece, candidate_section, candidate_piece, sections_seen).
+    Deterministic: pool id order in, plain maxima out, pure shrink math."""
     per_section = 0
     per_piece = 0
+    sections = 0
     for text in pool_texts:
         counts = core.aphorism_section_counts(text)
-        per_section = max([per_section] + [n for _name, n in counts])
-        per_piece = max(per_piece, sum(n for _name, n in counts))
-    return per_section, per_piece
+        per_section = max([per_section] + [cnt for _name, cnt in counts])
+        per_piece = max(per_piece, sum(cnt for _name, cnt in counts))
+        sections += len(counts)
+    n = len(pool_texts)
+    return (per_section, per_piece,
+            shrink_statistic(per_section, default_section, n),
+            shrink_statistic(per_piece, default_piece, n),
+            sections)
+
+
+def budget_note_tier(n):
+    """The plain-words uncertainty line for the pending note, selected by
+    the pool size (athena ruling Q3, 2026-11-28). Three tiers, no
+    confidence percentages: at a small pool the honest wording is a start
+    value; at a large one, nearly all. ASD-STE100: short sentences."""
+    if n < 10:
+        return ("Only %d accepted drafts are in the pool. This budget is a start value. "
+                "It will move as you accept more drafts." % n)
+    if n < 30:
+        return ("The pool has %d accepted drafts. This budget tracks most of your "
+                "accepted drafts." % n)
+    return ("The pool has %d accepted drafts. This budget tracks nearly all of your "
+            "accepted drafts." % n)
 
 
 def read_pending():
@@ -295,13 +345,18 @@ def main(argv=None):
 def refresh_bands(vs):
     """Compare the grown pool's budget candidates with the active budget.
     Advisory rows need no approval (the rebuild already refreshed them
-    silently); a changed budget-override band lands as a pending row only."""
+    silently); a changed budget-override band lands as a pending row only.
+    The candidate follows the athena methodology ruling (binding Q1,
+    2026-11-28): the observed maximum shrunk toward the active budget, the
+    raw maximum reported beside it, the note carrying the pool-size tier."""
     core = _load_plugin(os.path.join("learn", "voice_battery_core.py"), "harvest_battery_core")
     vt = _load_plugin(os.path.join("hooks", "voice_tells.py"), "harvest_voice_tells")
     pool_texts = [t for t, _v in vs.pool_read()]
-    cand_s, cand_p = budget_candidates(core, pool_texts)
     band = (vt.effective_rules().get("bands") or {}).get("aphorism") or {}
     act_s, act_p = core.resolve_budget(band)
+    obs_s, obs_p, cand_s, cand_p, sections = budget_candidates(
+        core, pool_texts, act_s, act_p)
+    n = len(pool_texts)
     changes = {}
     if cand_s != act_s:
         changes["max_per_section"] = {"active": act_s, "candidate": cand_s}
@@ -330,21 +385,30 @@ def refresh_bands(vs):
             return pending_notice(kept)
     parts = []
     if "max_per_section" in changes:
-        parts.append("the busiest section carries %d kicker shapes against the active budget "
-                     "of %d" % (changes["max_per_section"]["candidate"],
-                                changes["max_per_section"]["active"]))
+        parts.append("the shrunk candidate is %d kicker shapes per section against the "
+                     "active budget of %d (the raw pool maximum is %d)"
+                     % (changes["max_per_section"]["candidate"],
+                        changes["max_per_section"]["active"], obs_s))
     if "max_per_piece" in changes:
-        parts.append("the busiest piece carries %d kicker shapes against the active budget "
-                     "of %d" % (changes["max_per_piece"]["candidate"],
-                                changes["max_per_piece"]["active"]))
+        parts.append("the shrunk candidate is %d kicker shapes per piece against the "
+                     "active budget of %d (the raw pool maximum is %d)"
+                     % (changes["max_per_piece"]["candidate"],
+                        changes["max_per_piece"]["active"], obs_p))
     new_row = {
         "band": "aphorism",
         "changes": changes,
-        "note": ("your accepted drafts in the reference pool suggest a budget change: %s; "
-                 "approve to make the gate use these numbers, or leave it to keep the "
-                 "active budget" % "; ".join(parts)),
-        "derived_from": {"pool_docs": len(pool_texts),
-                         "method": "largest kicker-shape count across the accepted drafts"},
+        "note": ("%s Your budget comes from your accepted drafts only. The pool suggests "
+                 "a budget change: %s. Approve to make the gate use these numbers, or "
+                 "leave it to keep the active budget."
+                 % (budget_note_tier(n), "; ".join(parts))),
+        "derived_from": {
+            "pool_docs": n,
+            "pool_sections": sections,
+            "observed_max_per_section": obs_s,
+            "observed_max_per_piece": obs_p,
+            "method": "shrunken largest kicker-shape count toward the active budget "
+                      "(k/(k+5), k=5)",
+        },
         "created": datetime.now(timezone.utc).isoformat(),
     }
     kept.append(new_row)
