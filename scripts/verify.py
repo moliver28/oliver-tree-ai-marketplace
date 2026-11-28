@@ -81,6 +81,23 @@ Checks:
     closed-list size pins, tokenizer sync, goldens on the synthetic
     corpus, the profile battery section, the gate fast core, the report
     shape, stdlib-only); version parity moves with the wave (1.5.0, rule 15).
+16. Coverage contract (issue #162): humanizer/COVERAGE.md is the versioned
+    per-pattern coverage contract. The deterministic check (stdlib only,
+    no network, no LLM) requires the file to match the compiled state
+    exactly: the plain-language count block equals the compiled totals
+    (register patterns, exemplars, families, catalog patterns, STE rules,
+    battery families, gate marker words); the catalog table carries exactly
+    ids 1 to 35 with a status from the fixed vocabulary and resolvable
+    file:line evidence in shipped code; every compiled `humanizer N` family
+    has its catalog row marked implemented; implemented rows point into
+    shipped plugin code and name a compiled family, an STE rule id, or a
+    battery family id; the register-family names match the shipped
+    `_family()` classifier byte for byte in both directions; the STE table
+    carries exactly S1 to S6; the battery table carries exactly L10-1,
+    L10-18, L10-19, and L10-20. Row removal, count drift, status flips on
+    mirrored rows, stale family names, and broken pointers fail the gate
+    deterministically. Its contract suite is
+    tests/humanizer/test_coverage_contract.py.
 
 Exit 0 = marketplace verified working; nonzero = broken, do not publish.
 """
@@ -246,6 +263,25 @@ for p in data["plugins"]:
                    "voice_vector_build resolves the default corpus root to the plugin root")
             except (SystemExit, Exception) as e:
                 ck(False, f"voice_vector_build resolves the default corpus root to the plugin root: {e!r}")
+
+            # --- coverage contract drift check (issue #162): the versioned
+            # per-pattern coverage contract must match the compiled state
+            # exactly (counts, 35 catalog rows, register families, STE rules,
+            # battery families, evidence pointers); the checker module lives
+            # at the repo level tests/humanizer/, outside the shipped payload ---
+            try:
+                _cc_spec = importlib.util.spec_from_file_location(
+                    "coverage_contract_check", ROOT / "tests" / "humanizer" / "coverage_contract_check.py")
+                _cc = importlib.util.module_from_spec(_cc_spec)
+                _cc_spec.loader.exec_module(_cc)
+                cc_fails = _cc.check_coverage_contract(ROOT, vt=vt)
+            except Exception as e:
+                cc_fails = [f"coverage contract check crashed: {e!r}"]
+            for m in cc_fails:
+                ck(False, m)
+            ck(not cc_fails,
+               "coverage contract matches the compiled state (issue #162: counts, 35 catalog "
+               "rows, register families, STE rules, battery families, evidence pointers)")
 
         # --- learn/apply decoupling (issue #5): shared state-file loader contract ---
         has_loader = vt is not None and hasattr(vt, "effective_rules") and hasattr(vt, "state_path")
@@ -893,6 +929,13 @@ ck(r_g6.returncode == 0,
    f"g6 passive-harvest contract suite (consent gate / provenance append / deterministic "
    f"rebuild / advisory refresh / re-approval flow / privacy / stdlib-only): "
    f"{tail_g6[-1] if tail_g6 else r_g6.returncode}")
+r_ccs = subprocess.run([sys.executable, "-I", str(ROOT / "tests" / "humanizer" / "test_coverage_contract.py")],
+                       capture_output=True, text=True, env={**os.environ})
+tail_ccs = (r_ccs.stdout or r_ccs.stderr or "").strip().splitlines()
+ck(r_ccs.returncode == 0,
+   f"coverage-contract suite (real-file green / row-removal, count-drift, status-flip, "
+   f"stale-name mutation determinism / pointer resolution / stdlib-only checker): "
+   f"{tail_ccs[-1] if tail_ccs else r_ccs.returncode}")
 
 readme = (ROOT / "README.md").read_text()
 ck("`humanizer/`" in readme, "README indexes humanizer plugin")
