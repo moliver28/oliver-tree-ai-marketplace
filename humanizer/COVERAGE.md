@@ -115,8 +115,8 @@ the embedded register; the drift check compares these names byte for byte.
 
 The gate carries six plain-language rules. Both surfaces enforce them; the
 resume profile exempts bullets and labeled section lines from S1 and filters
-the pattern-16 and pattern-17 formatting families (`gate.py:120-121`,
-`gate.py:323-330`).
+the pattern-16 and pattern-17 formatting families
+(`humanizer/hooks/gate.py:120-121`, `humanizer/hooks/gate.py:323-330`).
 
 | Rule | Family | Status | Evidence |
 |---|---|---|---|

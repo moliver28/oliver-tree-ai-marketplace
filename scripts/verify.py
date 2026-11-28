@@ -929,6 +929,13 @@ ck(r_g6.returncode == 0,
    f"g6 passive-harvest contract suite (consent gate / provenance append / deterministic "
    f"rebuild / advisory refresh / re-approval flow / privacy / stdlib-only): "
    f"{tail_g6[-1] if tail_g6 else r_g6.returncode}")
+r_ccs = subprocess.run([sys.executable, "-I", str(ROOT / "tests" / "humanizer" / "test_coverage_contract.py")],
+                       capture_output=True, text=True, env={**os.environ})
+tail_ccs = (r_ccs.stdout or r_ccs.stderr or "").strip().splitlines()
+ck(r_ccs.returncode == 0,
+   f"coverage-contract suite (real-file green / row-removal, count-drift, status-flip, "
+   f"stale-name mutation determinism / pointer resolution / stdlib-only checker): "
+   f"{tail_ccs[-1] if tail_ccs else r_ccs.returncode}")
 
 readme = (ROOT / "README.md").read_text()
 ck("`humanizer/`" in readme, "README indexes humanizer plugin")
