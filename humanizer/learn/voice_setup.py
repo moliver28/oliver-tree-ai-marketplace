@@ -178,18 +178,26 @@ def pool_read(ref_dir=None):
 def pool_refresh(ref_dir=None):
     """Battery-growth refresh: recompute any stored vector whose measure set
     is stale or that lacks rows the current battery carries, from the stored
-    text. Returns (records_read, vectors_updated)."""
+    text. Returns (records_read, vectors_updated). The shared pool context
+    (one battery scan per stored document) is built lazily on the FIRST
+    vector that actually needs recomputation: an unchanged pool pays only
+    the file reads, never the full-context rescan (measured in the wave G6
+    latency pass; identical outputs either way, so the determinism pins
+    stay byte-identical)."""
     records = pool_read(ref_dir)
     if not records:
         return 0, 0
-    texts = [t for t, _v in records]
-    ref1, window = pool_context(texts)
+    ctx = None
     updated = 0
     for text, vector in records:
         missing = [mid for mid in vb.ALL_IDS if mid not in (vector.get("measures") or {})]
         stale = vector.get("measure_set") != MEASURE_SET
         if not missing and not stale:
             continue
+        if ctx is None:
+            texts = [t for t, _v in records]
+            ctx = pool_context(texts)
+        ref1, window = ctx
         acc = vb.scan(text, phrases=True, tri=False)
         row = vb.values(acc, ref=ref1, window=window)
         vector["measures"] = row

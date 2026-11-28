@@ -29,6 +29,9 @@ F. Privacy: harvested text never enters the repository (a unique marker
    band-approvals payload is tracked anywhere).
 G. resolve_budget unit rules, stdlib-only module imports, and the gate
    pass-line byte-pin without bands.
+H. Ruling Q1 (athena, 2026-11-28): the shrunk budget statistic pins
+   (round-UP interpolation toward the active default, floor 1, per grain)
+   and the three pending-note tiers.
 
 Every fixture is synthetic text generated in this file (about 560 words
 per accepted draft) written to temp directories only: nothing harvested
@@ -97,6 +100,8 @@ def draft(kickers=0, marker=None):
 MARKER = "zxqharvest" + "marker2026"   # runtime join: the literal never sits in this file
 
 core = load_module("g6_battery_core", PLUGIN_DIR / "learn" / "voice_battery_core.py")
+harvest_mod = load_module("g6_harvest", HARVEST)
+ck(hasattr(harvest_mod, "main"), "harvest module: importable with main()")
 
 # A+E helper: run the hook in one isolated learned-state world -------------------
 
@@ -227,6 +232,19 @@ try:
     ck("kicker shapes" in (rows[0].get("note") or ""),
        "approval: the plain-words note says what changed and by how much",
        rows[0].get("note"))
+    ck("start value" in (rows[0].get("note") or "")
+       and "Your budget comes from your accepted drafts only." in (rows[0].get("note") or ""),
+       "approval: the note carries the pool-size tier and the provenance line "
+       "(ruling Q3; the 1-doc pool reads the start-value tier)",
+       rows[0].get("note"))
+    derived = rows[0].get("derived_from") or {}
+    ck(derived.get("pool_docs") == 1
+       and derived.get("observed_max_per_section") == 2
+       and derived.get("observed_max_per_piece") == 2
+       and "k/(k+5)" in (derived.get("method") or ""),
+       "approval: the pending row carries the observed maxima and the shrink method "
+       "beside pool_docs (ruling Q1)",
+       json.dumps(derived))
     g = run_b(gate_env=True)
     ck(g.returncode == 4,
        "approval: the gate keeps the old fail line while the row is pending (exit 4)",
@@ -304,8 +322,67 @@ ck(core.aphorism_budget_hits("Ship it.\n\nNo pain, no gain.",
 ck("at most 1 per section" in core.aphorism_budget_hits("Ship it.\n\nNo pain, no gain.")[0],
    "budget hits: absent band keeps the byte-identical embedded line")
 
+# H. ruling Q1: the shrunk budget statistic (athena ruling, 2026-11-28) ------------
+ck(harvest_mod.shrink_statistic(2, 1, 1) == 2,
+   "shrink: a 1-doc pool with 2 kickers stays at the start value 2 "
+   "(ceil(1/6*2 + 5/6*1) = 2)")
+ck(all(harvest_mod.shrink_statistic(o, 1, 3) == want
+       for o, want in ((1, 1), (2, 2), (3, 2))),
+   "shrink: a 3-doc pool stays inside 1-2 (ruling fixture)")
+ck(harvest_mod.shrink_statistic(6, 1, 5) == 4,
+   "shrink: a 5-doc pool with a 6-kicker outlier reads 4 (ceil(0.5*6 + 0.5*1))")
+ck(harvest_mod.shrink_statistic(6, 1, 10) == 5,
+   "shrink: a 10-doc pool with a 6-kicker outlier reads 5 "
+   "(ceil(2/3*6 + 1/3*1) = ceil(4.33); round UP per the binding formula)")
+ck(harvest_mod.shrink_statistic(6, 1, 30) == 6,
+   "shrink: at 30 docs the candidate is the nearly-raw maximum (ruling fixture)")
+ck(harvest_mod.shrink_statistic(8, 3, 10) == 7,
+   "shrink: the piece grain derives independently toward its own default")
+ck(harvest_mod.shrink_statistic(0, 1, 3) == 1 and harvest_mod.shrink_statistic(1, 1, 100) == 1,
+   "shrink: the floor keeps every candidate at 1 or above")
+ck(harvest_mod.budget_note_tier(3).startswith("Only 3 accepted drafts")
+   and "start value" in harvest_mod.budget_note_tier(3),
+   "note tier: n below 10 reads the start-value line")
+ck(harvest_mod.budget_note_tier(14).startswith("The pool has 14 accepted drafts")
+   and "tracks most of your accepted drafts" in harvest_mod.budget_note_tier(14),
+   "note tier: 10 to 29 reads the tracks-most line")
+ck(harvest_mod.budget_note_tier(34).startswith("The pool has 34 accepted drafts")
+   and "tracks nearly all of your accepted drafts" in harvest_mod.budget_note_tier(34),
+   "note tier: n at 30 or above reads the nearly-all line")
+
+# I. latency pass: the light pool-root mirror matches the heavy resolver -----------
+vs_mirror = load_module("g6_vs_mirror", PLUGIN_DIR / "learn" / "voice_setup.py")
+with tempfile.TemporaryDirectory() as td:
+    t2 = pathlib.Path(td)
+    saved_env = {k: os.environ.get(k)
+                 for k in ("VOICE_LEARNED_DIR", "VOICE_REFERENCE_DIR") if k in os.environ}
+    for k in ("VOICE_LEARNED_DIR", "VOICE_REFERENCE_DIR"):
+        os.environ.pop(k, None)
+    try:
+        learned2 = t2 / "learned"
+        (learned2 / "state").mkdir(parents=True)
+        os.environ["VOICE_LEARNED_DIR"] = str(learned2)
+        (learned2 / "state" / "setup.json").write_text(json.dumps(
+            {"harvest": {"enabled": True}}))
+        ck(harvest_mod.pool_root() == vs_mirror.reference_dir(),
+           "pool root mirror: the default branch matches voice_setup.reference_dir")
+        ref2 = t2 / "nas"
+        (learned2 / "state" / "setup.json").write_text(json.dumps(
+            {"reference_dir": str(ref2)}))
+        ck(harvest_mod.pool_root() == vs_mirror.reference_dir() == ref2,
+           "pool root mirror: the settings reference_dir branch matches in both resolvers")
+        os.environ["VOICE_REFERENCE_DIR"] = str(t2 / "env-root")
+        ck(harvest_mod.pool_root() == vs_mirror.reference_dir() == pathlib.Path(t2 / "env-root"),
+           "pool root mirror: the environment variable wins in both resolvers")
+    finally:
+        for k, v in saved_env.items():
+            os.environ[k] = v
+        for k in ("VOICE_LEARNED_DIR", "VOICE_REFERENCE_DIR"):
+            if k not in saved_env:
+                os.environ.pop(k, None)
+
 # G. stdlib-only module scope ------------------------------------------------------
-_STDLIB = {"argparse", "hashlib", "importlib.util", "json", "os", "sys",
+_STDLIB = {"argparse", "hashlib", "importlib.util", "json", "math", "os", "sys",
            "datetime", "pathlib"}
 tree = ast.parse(HARVEST.read_text(encoding="utf-8"))
 top_imports = set()
@@ -317,8 +394,6 @@ for node in tree.body:
 ck(top_imports <= _STDLIB,
    "harvest module: stdlib-only imports at module scope (lazy plugin loads)",
    str(sorted(top_imports)))
-harvest_mod = load_module("g6_harvest", HARVEST)
-ck(hasattr(harvest_mod, "main"), "harvest module: importable with main()")
 
 # G. gate pass-line byte-pin without bands -----------------------------------------
 with tempfile.TemporaryDirectory() as td:

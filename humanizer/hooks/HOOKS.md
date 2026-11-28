@@ -98,7 +98,12 @@ A budget-override band (`aphorism`: `max_per_section`, `max_per_piece`) is
 the only band kind that can change a fail line, so its refreshed candidate
 never lands silently: the candidate and the active numbers are written as
 pending rows into `learned/state/band-approvals.json` with a plain-words
-note, and the old budget stays active. The user promotes them explicitly:
+note, and the old budget stays active. The candidate is the pool maximum
+shrunk toward the active budget with the plugin's own k/(k+5) shape
+(k=5), rounded up, never below 1 (methodology ruling, 2026-11-28). The
+pending row carries the raw maximum beside the shrunk number. The note
+names the pool size: a small pool reads a start-value line, a larger one
+reads a tracks-most or nearly-all line. The user promotes them explicitly:
 
     python3 hooks/harvest.py --approve-bands
 
