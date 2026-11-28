@@ -184,13 +184,59 @@ def resolve_files(cfg, file_arg):
     return sorted(f for f in root.glob(pattern) if f.is_file()), None
 
 
+def pool_root(settings=None):
+    """The reference-store root, resolved exactly like
+    learn/voice_setup.py reference_dir(): the VOICE_REFERENCE_DIR
+    environment variable, then the settings file's reference_dir, then the
+    learned dir. This light mirror exists for the dedupe pass (wave G6
+    latency pass): the sha256 dedupe runs BEFORE the heavy learn machinery
+    loads, so an all-duplicates run never pays the battery import. The
+    contract pin in tests/humanizer/test_g6_harvest.py compares this
+    against voice_setup.reference_dir() under every resolution branch, so
+    the two cannot drift."""
+    env = os.environ.get("VOICE_REFERENCE_DIR")
+    if env:
+        return Path(env)
+    data = settings if settings is not None else read_settings()
+    ref = data.get("reference_dir")
+    if ref:
+        return Path(ref)
+    return learned_dir()
+
+
+def dedupe_pass(cfg, files, settings=None):
+    """The cheap pre-filter (wave G6 latency pass): sha256 each accepted
+    draft against the pool BEFORE any heavy import, so unchanged documents
+    cost one file read and one hash each. Returns (new_paths, skipped).
+    Fail-open: an unreadable file skips silently."""
+    pd = pool_root(settings) / "pool"
+    new = []
+    skipped = 0
+    for f in files:
+        try:
+            text = f.read_text(encoding="utf-8", errors="replace").strip()
+        except Exception:
+            skipped += 1
+            continue
+        if not text:
+            skipped += 1
+            continue
+        if (pd / (doc_id(text) + ".txt")).is_file():
+            continue
+        new.append(f)
+    return new, skipped
+
+
 def append_pool(vs, cfg, files):
     """Unit 2: append every not-yet-stored draft to the pool with its
-    provenance row; exact sha256 duplicates skip silently. Drafts under
-    the battery's 500-word document floor are skipped with one line (the
-    band math owns that floor). Returns the number of appended documents;
-    the context step fails open (a pool holding under-floor documents from
-    an older install skips the append with a notice, never an error)."""
+    provenance row. Exact sha256 duplicates were already removed by the
+    cheap dedupe pass; this second check keeps the append idempotent on
+    its own. Drafts under the battery's 500-word document floor are
+    skipped with one line (the band math owns that floor). Returns the
+    number of appended documents; the context step fails open (a pool
+    holding under-floor documents from an older install skips the append
+    with a notice, never an error)."""
+    pd = None                             # resolved lazily: a short-only run creates no pool dir
     new = []
     short = 0
     for f in files:
@@ -203,7 +249,9 @@ def append_pool(vs, cfg, files):
         if len(vs.WORD_RE.findall(text)) < BATTERY_FLOOR_WORDS:
             short += 1
             continue
-        if (vs.pool_dir() / (doc_id(text) + ".txt")).is_file():
+        if pd is None:
+            pd = vs.pool_dir()            # one pool-dir resolution per run
+        if (pd / (doc_id(text) + ".txt")).is_file():
             continue
         new.append(text)
     if short:
@@ -307,7 +355,10 @@ def main(argv=None):
     if args.approve_bands:
         return approve_bands()
 
-    cfg = harvest_config()
+    settings = read_settings()        # ONE settings read per run
+    cfg = settings.get(SETTINGS_FLAG)
+    if not isinstance(cfg, dict):
+        cfg = None
     if not consented(cfg):
         return 0                      # flag off or no config: no-op, silent, zero cost
     files, error_line = resolve_files(cfg, args.file)
@@ -316,6 +367,12 @@ def main(argv=None):
         return 2 if args.file else 0  # a consent/config miss fails open; bad usage exits 2
     if not files:
         return 0                      # nothing accepted in this window: silent
+    # Cheap dedupe pass (latency pass): unchanged documents cost one read and
+    # one hash each, and an all-duplicates run returns here without loading
+    # the heavy learn machinery at all.
+    files, _unread = dedupe_pass(cfg, files, settings)
+    if not files:
+        return 0                      # exact duplicates: idempotent skip, silent
 
     vs = _load_plugin(os.path.join("learn", "voice_setup.py"), "harvest_voice_setup")
     appended = append_pool(vs, cfg, files)

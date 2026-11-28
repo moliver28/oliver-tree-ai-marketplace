@@ -350,6 +350,37 @@ ck(harvest_mod.budget_note_tier(34).startswith("The pool has 34 accepted drafts"
    and "tracks nearly all of your accepted drafts" in harvest_mod.budget_note_tier(34),
    "note tier: n at 30 or above reads the nearly-all line")
 
+# I. latency pass: the light pool-root mirror matches the heavy resolver -----------
+vs_mirror = load_module("g6_vs_mirror", PLUGIN_DIR / "learn" / "voice_setup.py")
+with tempfile.TemporaryDirectory() as td:
+    t2 = pathlib.Path(td)
+    saved_env = {k: os.environ.get(k)
+                 for k in ("VOICE_LEARNED_DIR", "VOICE_REFERENCE_DIR") if k in os.environ}
+    for k in ("VOICE_LEARNED_DIR", "VOICE_REFERENCE_DIR"):
+        os.environ.pop(k, None)
+    try:
+        learned2 = t2 / "learned"
+        (learned2 / "state").mkdir(parents=True)
+        os.environ["VOICE_LEARNED_DIR"] = str(learned2)
+        (learned2 / "state" / "setup.json").write_text(json.dumps(
+            {"harvest": {"enabled": True}}))
+        ck(harvest_mod.pool_root() == vs_mirror.reference_dir(),
+           "pool root mirror: the default branch matches voice_setup.reference_dir")
+        ref2 = t2 / "nas"
+        (learned2 / "state" / "setup.json").write_text(json.dumps(
+            {"reference_dir": str(ref2)}))
+        ck(harvest_mod.pool_root() == vs_mirror.reference_dir() == ref2,
+           "pool root mirror: the settings reference_dir branch matches in both resolvers")
+        os.environ["VOICE_REFERENCE_DIR"] = str(t2 / "env-root")
+        ck(harvest_mod.pool_root() == vs_mirror.reference_dir() == pathlib.Path(t2 / "env-root"),
+           "pool root mirror: the environment variable wins in both resolvers")
+    finally:
+        for k, v in saved_env.items():
+            os.environ[k] = v
+        for k in ("VOICE_LEARNED_DIR", "VOICE_REFERENCE_DIR"):
+            if k not in saved_env:
+                os.environ.pop(k, None)
+
 # G. stdlib-only module scope ------------------------------------------------------
 _STDLIB = {"argparse", "hashlib", "importlib.util", "json", "math", "os", "sys",
            "datetime", "pathlib"}
