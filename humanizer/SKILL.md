@@ -1,7 +1,7 @@
 ---
 name: humanizer-voice
 description: "Applies the user's learned voice profile to public-facing copy via the /voice command, with a quiet tell gate. Use when the user says: '/voice polish this post', 'make this sound like me', 'humanize this before it ships', 'learn my voice from these samples'."
-version: 1.4.0
+version: 1.5.0
 author: Michael Oliver (moliver28)
 license: MIT
 ---
