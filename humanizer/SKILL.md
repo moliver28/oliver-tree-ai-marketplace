@@ -1,7 +1,7 @@
 ---
 name: humanizer-voice
 description: "Applies the user's learned voice profile to public-facing copy via the /voice command, with a quiet tell gate. Use when the user says: '/voice polish this post', 'make this sound like me', 'humanize this before it ships', 'learn my voice from these samples'."
-version: 1.4.0
+version: 1.5.0
 author: Michael Oliver (moliver28)
 license: MIT
 ---
@@ -11,7 +11,7 @@ license: MIT
 Quiet-background writing profile system. Three stages, only one of which the user ever sees. The inference boundary: the ONLY place a language model runs is the `/voice` rewrite itself; learning, calibration, and the gate are deterministic scripts that spend zero model tokens.
 
 1. **Learn (quiet, zero-LLM).** Walk the user through `learn/VOICE_ONBOARDING.template.md` once (hand-filled; the model asks and records, never answers). Optionally prefill sections 2/3/5 deterministically: `python3 $CLAUDE_PLUGIN_ROOT/learn/build_voice_profile.py <sample files or dirs>` (prints the draft, writes `learned/profile.json`). Then calibrate the gate to the user's clean writing: `python3 $CLAUDE_PLUGIN_ROOT/learn/calibrate.py --corpus <clean writing dir>` (writes `learned/calibration.json`; flagged patterns print "decide by hand"). The full procedure lives in `learn/LEARN-VOICE.md`. The filled profile lives wherever the platform stores config (memory, `~/.voice-profile.md`, or the platform equivalent). Nothing ships to the user during learning beyond the onboarding questions.
-2. **Hook setup (quiet).** If the platform supports pre-delivery hooks, point them at `python3 $CLAUDE_PLUGIN_ROOT/hooks/gate.py --surface chat|public` (self-contained: the scanner is `hooks/voice_tells.py` beside it; chat = STE layer, public = tell scan + STE; pass = zero tokens, fail = one patch-in-place repair contract, scan error = fail-open). Surface lists come from the user's learned profile, never from hard-coded paths (see `hooks/HOOKS.md`). If hooks are not available, the `/voice` command carries the scan inline. No regular output mentions the gate; it fires in logs only.
+2. **Hook setup (quiet).** If the platform supports pre-delivery hooks, point them at `python3 $CLAUDE_PLUGIN_ROOT/hooks/gate.py --surface chat|public` (self-contained: the scanner is `hooks/voice_tells.py` beside it; chat = STE layer, public = tell scan + STE; pass = zero tokens, fail = one patch-in-place repair contract, scan error = fail-open). Surface lists come from the user's learned profile, never from hard-coded paths (see `hooks/HOOKS.md`). If hooks are not available, the `/voice` command carries the scan inline. No regular output mentions the gate; it fires in logs only. Optional and OFF by default: a platform session-end or acceptance hook may point at `hooks/harvest.py` to grow the user's reference pool from accepted drafts (consent-gated; see the "Passive harvest" section of `hooks/HOOKS.md`).
 3. **Apply (user-facing, minimal).** The user (or the tool's command surface) invokes:
 
 ```

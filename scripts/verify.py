@@ -49,6 +49,15 @@ Checks:
     substantial/light edits and reports the defined no-match line;
     acceptance_check scores the Delta path and prints the defined onnx-absent
     line with exit 2.
+15. Passive harvest loop (wave G6, consent-gated, default OFF): the hook
+    script (hooks/harvest.py) imports with a main() on stdlib-only module
+    scope; with the flag off or half-configured the hook exits 0 silently
+    and writes nothing; the family-35 budget-override band (the 'aphorism'
+    band, the ONLY band kind that can change a fail line) changes the gate
+    fail lines only when present in the learned state, and absent bands
+    keep the byte-identical embedded lines; no harvested pool text and no
+    band-approval payload is tracked anywhere in the repository; version
+    parity at 1.5.0.
 13. Researcher instruction gate (W4, issue #120): when the current
     EOL-normalized sha256 of any researcher instruction asset
     (agents/hcd-researcher.md, prompts/hcd-gate/prompt.md and its fragments,
@@ -71,7 +80,7 @@ Checks:
     tests/humanizer/test_voice_battery.py exits 0 (79-row Tier A spec, 3 corpus rows, and the 3 wave H-C method rows, 85 total,
     closed-list size pins, tokenizer sync, goldens on the synthetic
     corpus, the profile battery section, the gate fast core, the report
-    shape, stdlib-only); version parity at 1.4.0.
+    shape, stdlib-only); version parity moves with the wave (1.5.0, rule 15).
 
 Exit 0 = marketplace verified working; nonzero = broken, do not publish.
 """
@@ -160,7 +169,7 @@ for p in data["plugins"]:
     ck(mj.get("name") == p["name"], f"manifest name matches for {p['name']}")
     ck(mj.get("version") == p.get("version"), f"version parity {p['name']} (manifest vs marketplace)")
     if p["name"] == "humanizer-voice":
-        ck(mj.get("version") == "1.4.0", f"humanizer-voice is at 1.4.0 (battery + gap register + situational rules): got {mj.get('version')}")
+        ck(mj.get("version") == "1.5.0", f"humanizer-voice is at 1.5.0 (battery + gap register + situational rules + passive harvest): got {mj.get('version')}")
     d = mj.get("description", "")
     ck(len(d) <= 256, f"description <=256 chars for {p['name']} ({len(d)})")
     ck("'" in d and "use when the user says" in d.lower(), f"description carries human trigger phrases for {p['name']}")
@@ -810,6 +819,80 @@ if voice_fix.is_dir():
                     os.environ.pop(k, None)
                 else:
                     os.environ[k] = v
+
+# --- Passive harvest loop (wave G6, rule 15) ---------------------------------
+# The hook is consent-gated and default OFF: with no harvest settings the
+# subprocess exits 0 silently and writes nothing. The 'aphorism' band is the
+# only band kind that can change a fail line: with the band present the gate
+# uses the approved budget, without it the embedded lines stand. No harvested
+# pool text or band-approval payload may be tracked anywhere (the learned
+# dir check above already guards humanizer/learned/; this one is repo-wide).
+harvest_py = ROOT / "humanizer" / "hooks" / "harvest.py"
+harvest_mod = None
+try:
+    _h_spec = importlib.util.spec_from_file_location("harvest_verify", harvest_py)
+    harvest_mod = importlib.util.module_from_spec(_h_spec)
+    _h_spec.loader.exec_module(harvest_mod)
+    ck(hasattr(harvest_mod, "main"), "harvest.py importable with main() (wave G6)")
+except Exception as e:
+    ck(False, f"harvest.py importable with main() (wave G6): {e!r}")
+if harvest_mod is not None:
+    with tempfile.TemporaryDirectory() as td:
+        tdp = pathlib.Path(td)
+        learned = tdp / "learned"
+        (learned / "state").mkdir(parents=True)
+        env_g6 = {**os.environ, "VOICE_LEARNED_DIR": str(learned),
+                  "HERMES_HOME": str(tdp / "hermes"),
+                  "VOICE_GATE_LOG": str(tdp / "gate.log")}
+        try:
+            before = sorted(str(p.relative_to(learned)) for p in learned.rglob("*"))
+            r = subprocess.run([sys.executable, "-I", str(harvest_py)],
+                               capture_output=True, text=True, env=env_g6)
+            after = sorted(str(p.relative_to(learned)) for p in learned.rglob("*"))
+            ck(r.returncode == 0 and r.stdout == "" and r.stderr == "" and before == after,
+               "harvest flag off: exit 0, silent, zero writes (default-OFF consent gate)")
+            (learned / "state" / "setup.json").write_text(json.dumps(
+                {"harvest": {"enabled": True}}))
+            r2 = subprocess.run([sys.executable, "-I", str(harvest_py)],
+                                capture_output=True, text=True, env=env_g6)
+            ck(r2.returncode == 0 and r2.stdout == "" and r2.stderr == "",
+               "harvest enabled without accepted input: silent no-op")
+        except Exception as e:
+            ck(False, f"harvest consent gate subprocess: {e!r}")
+        # budget-override band at the gate: present -> new budget; absent -> old lines
+        two_kickers = "Ship it.\n\nNo pain, no gain."
+        try:
+            env_gate = {**env_g6, "VOICE_GATE_VECTOR": "off"}
+            g_old = subprocess.run([sys.executable, "-I", str(ROOT / "humanizer" / "hooks" / "gate.py"),
+                                    "--surface", "public"], input=two_kickers,
+                                   capture_output=True, text=True, env=env_gate)
+            ck(g_old.returncode == 4,
+               "aphorism band absent: the embedded budget fails the 2-kicker text (exit 4)")
+            st = tdp / "state-aphorism.json"
+            st.write_text(json.dumps({"format": 1, "sources": {"harvest-bands": {"bands": {
+                "aphorism": {"max_per_section": 2, "max_per_piece": 6}}}}}))
+            g_new = subprocess.run([sys.executable, "-I", str(ROOT / "humanizer" / "hooks" / "gate.py"),
+                                    "--surface", "public"], input=two_kickers,
+                                   capture_output=True, text=True,
+                                   env={**env_gate, "VOICE_RULES_STATE": str(st)})
+            ck(g_new.returncode == 0,
+               "aphorism band present: the approved budget passes the same text (exit 0)")
+        except Exception as e:
+            ck(False, f"aphorism budget-band gate subprocess: {e!r}")
+tracked_g6 = [t for t in (t.decode("utf-8", "replace") for t in
+                          subprocess.run(["git", "-C", str(ROOT), "ls-files", "-z"],
+                                         capture_output=True).stdout.split(b"\x00") if t)
+              if "/pool/" in t or t.endswith("band-approvals.json")]
+ck(not tracked_g6,
+   "no harvested pool text or band-approval payload tracked anywhere (wave G6 privacy) "
+   + str(tracked_g6[:5]))
+r_g6 = subprocess.run([sys.executable, "-I", str(ROOT / "tests" / "humanizer" / "test_g6_harvest.py")],
+                      capture_output=True, text=True, env={**os.environ})
+tail_g6 = (r_g6.stdout or r_g6.stderr or "").strip().splitlines()
+ck(r_g6.returncode == 0,
+   f"g6 passive-harvest contract suite (consent gate / provenance append / deterministic "
+   f"rebuild / advisory refresh / re-approval flow / privacy / stdlib-only): "
+   f"{tail_g6[-1] if tail_g6 else r_g6.returncode}")
 
 readme = (ROOT / "README.md").read_text()
 ck("`humanizer/`" in readme, "README indexes humanizer plugin")

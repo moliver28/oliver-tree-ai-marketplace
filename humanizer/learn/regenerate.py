@@ -28,7 +28,10 @@ in one pass, in a fixed order, one line per step, zero model tokens:
 Laws: learners write DATA files only, never gate code (clause 2 of the
 ruling); each step fails open (a missing input or an unavailable embedder
 is one skip line, never an error); the order is fixed and the output is
-deterministic for identical inputs. Nothing here runs a model.
+deterministic for identical inputs. Nothing here runs a model. Step 6
+lives in the shared rebuild_pool() body: the passive harvest hook
+(hooks/harvest.py, wave G6) calls the same function after it appends an
+accepted document, so the hook and this pass cannot drift.
 
 Exit codes: 0 = the pass ran (skip lines are expected, not failures);
 2 = bad usage (a named --corpus/--samples path does not exist).
@@ -75,6 +78,26 @@ def _call_main(mod, tool, *args):
         return mod.main()
     finally:
         sys.argv = saved
+
+
+def rebuild_pool():
+    """Step 6 body, shared with the passive harvest loop (wave G6): refresh
+    any stale pool vectors from the stored text, then rebuild the bands and
+    factors from the refreshed vectors and write voice-bands.json into the
+    learned state. Returns the same one result line main() prints for the
+    step. Pure compute over the stored pool; zero model tokens."""
+    vs = _load("voice_setup")
+    records, updated = vs.pool_refresh()
+    if not records:
+        return "pool empty (ingest samples with /voice-setup); nothing refreshed"
+    bands, notes = vs.bands_from_pool()
+    if bands is None:
+        return "pool refresh: %d vectors held, %d recomputed; bands not rebuilt (%s)" % (
+            records, updated, "; ".join(notes) or "no bands derivable")
+    (vs.state_dir() / "voice-bands.json").write_text(
+        json.dumps(bands, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return "pool refresh: %d vectors held, %d recomputed; bands rebuilt from the vectors" % (
+        records, updated)
 
 
 def main(argv=None):
@@ -135,20 +158,7 @@ def main(argv=None):
         print("regenerate profile: skipped (--samples not given)")
 
     # 6. reference pool refresh + bands rebuild from the stored vectors
-    def _pool():
-        vs = _load("voice_setup")
-        records, updated = vs.pool_refresh()
-        if not records:
-            return "pool empty (ingest samples with /voice-setup); nothing refreshed"
-        bands, notes = vs.bands_from_pool()
-        if bands is None:
-            return "pool refresh: %d vectors held, %d recomputed; bands not rebuilt (%s)" % (
-                records, updated, "; ".join(notes) or "no bands derivable")
-        (vs.state_dir() / "voice-bands.json").write_text(
-            json.dumps(bands, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        return "pool refresh: %d vectors held, %d recomputed; bands rebuilt from the vectors" % (
-            records, updated)
-    _run_step("pool", _pool)
+    _run_step("pool", rebuild_pool)
 
     return 0
 

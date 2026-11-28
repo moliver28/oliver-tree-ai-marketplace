@@ -74,10 +74,49 @@ The reference pool lives where the user points it, in this order:
 
 Pool layout: one `<sha256(text)[:16]>.txt` (the document text) beside one
 `<same-id>.json` (the per-document vector: format version, measure-set
-version, situation tag, word count, every battery row value). Storing is
+version, situation tag, word count, every battery row value; a harvested
+document also carries its provenance row: source `harvest`, the UTC
+timestamp, the word count, and the situation tag). Storing is
 idempotent by the text sha256: a re-store refreshes the vector in place.
 The bands and factors derive from the stored vectors; they are never
-stored per-source.
+stored per-source. Nothing from a real pool enters the repo, the payload,
+CI, or a test.
+
+## Passive harvest (wave G6, consent-gated, default OFF)
+
+The hook `hooks/harvest.py` appends accepted final drafts to this pool and
+rebuilds the derived measurements mechanically. It runs only when the
+settings file carries both the flag and the accepted input:
+
+    "harvest": {
+      "enabled": true,
+      "accepted_dir": "<directory of accepted drafts>",
+      "accepted_glob": "*.md",
+      "situation": "blog"
+    }
+
+(`accepted_glob` and `situation` are optional.) With the flag off or
+without `accepted_dir` the hook does nothing and logs nothing. Turning the
+flag on means: accepted drafts get stored in your own local reference
+pool. They are never transmitted anywhere. No model distill runs and no
+repository file is written. An exact duplicate skips silently. A draft
+under the battery's 500-word document floor skips with one line. Full
+details: `hooks/HOOKS.md`, section "Passive harvest".
+
+Two more files join the state files above when the loop runs:
+
+- `state/voice-bands.json` (existing): refreshed silently by the shared
+  `learn/regenerate.py` `rebuild_pool()` body after pool growth; the
+  bands are advisory rows.
+- `state/band-approvals.json` (wave G6): pending budget-band rows
+  (candidate + active numbers, plain-words note). A budget-override band
+  (`aphorism`) can change a fail line, so its candidate never lands
+  silently. The candidate is the pool maximum shrunk toward the active
+  budget with the plugin's own k/(k+5) shape (k=5), rounded up, never
+  below 1; the raw maximum rides the row beside it (methodology ruling,
+  2026-11-28). `python3 hooks/harvest.py --approve-bands` promotes the
+  rows into the runtime state file under the source name
+  `harvest-bands`. Until then the old budget stays active.
 
 `--remeasure` refreshes: any stored vector whose measure set is stale, or
 that lacks rows the current battery carries, is recomputed from the stored

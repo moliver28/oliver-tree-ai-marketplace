@@ -150,6 +150,9 @@ ZLIB_LEVEL = 6                  # method menu B2: per-paragraph zlib level 6
 APHORISM_MAX_WORDS = 12         # the short-kicker word cap (about 12 words)
 APHORISM_MAX_PER_SECTION = 1    # README: max one kicker per section
 APHORISM_MAX_PER_PIECE = 3      # README: two to three per piece
+# wave G6: these constants are the embedded defaults only. The learned-state
+# 'aphorism' band (a budget-override band; see resolve_budget) replaces them
+# at scan time when the user approved its numbers.
 
 _FRAG_AUX = frozenset(
     "is are was were be been being am do does did has have had will would can "
@@ -289,23 +292,51 @@ def aphorism_section_counts(text, profile="public"):
     return [(name, len(aphorism_shapes(sents))) for name, sents in _aph_units(text, profile)]
 
 
-def aphorism_budget_hits(text, profile="public"):
+def resolve_budget(band):
+    """The effective family-35 budget from one learned-state band dict
+    (wave G6): keys 'max_per_section' and 'max_per_piece'; a key applies
+    only when it is a whole number of at least 1 (booleans never count),
+    and every other case keeps the embedded budget constants. Returns
+    (max_per_section, max_per_piece). The band is the ONLY band kind the
+    gate maps into a fail line (a budget override), which is why a
+    refreshed value lands behind the explicit approval step in
+    hooks/harvest.py instead of updating silently."""
+    per_section = APHORISM_MAX_PER_SECTION
+    per_piece = APHORISM_MAX_PER_PIECE
+    if isinstance(band, dict):
+        v = band.get("max_per_section")
+        if (isinstance(v, int) and not isinstance(v, bool) and v >= 1) \
+                or (isinstance(v, float) and v.is_integer() and float(v) >= 1.0):
+            per_section = int(v)
+        v = band.get("max_per_piece")
+        if (isinstance(v, int) and not isinstance(v, bool) and v >= 1) \
+                or (isinstance(v, float) and v.is_integer() and float(v) >= 1.0):
+            per_piece = int(v)
+    return per_section, per_piece
+
+
+def aphorism_budget_hits(text, profile="public", budgets=None):
     """Family-35 budget fail lines: one line per over-budget section, then
     the piece line when the total passes the per-piece budget. The lines
     name the section and the count, never an AI accusation. Exemptions
     follow the existing precedents: --profile resume (labeled lines and
     list items stay out of the count) and the situational table (the
-    'humanizer 35' family is off in the chat and email situations)."""
+    'humanizer 35' family is off in the chat and email situations).
+    budgets (wave G6): the learned-state 'aphorism' band dict (a budget
+    override, the only band kind that feeds a fail line); resolved with
+    resolve_budget, so absent or invalid entries keep the embedded
+    constants and the lines stay byte-identical."""
+    per_section, per_piece = resolve_budget(budgets if isinstance(budgets, dict) else None)
     hits = []
     total = 0
     for name, sents in _aph_units(text, profile):
         n = len(aphorism_shapes(sents))
         total += n
-        if n > APHORISM_MAX_PER_SECTION:
+        if n > per_section:
             hits.append("humanizer 35 aphorism budget: section '%s' carries %d kicker shapes "
                         "(budget: at most %d per section)"
-                        % (name, n, APHORISM_MAX_PER_SECTION))
-    if total > APHORISM_MAX_PER_PIECE:
+                        % (name, n, per_section))
+    if total > per_piece:
         hits.append("humanizer 35 aphorism budget: the piece carries %d kicker shapes "
-                    "(budget: at most %d per piece)" % (total, APHORISM_MAX_PER_PIECE))
+                    "(budget: at most %d per piece)" % (total, per_piece))
     return hits

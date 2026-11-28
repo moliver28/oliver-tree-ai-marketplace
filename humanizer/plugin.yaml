@@ -1,6 +1,6 @@
 plugin:
   name: humanizer-voice
-  version: 1.4.0
+  version: 1.5.0
   description: Learned voice profile + quiet delivery gate; user surface is the /voice command only.
   author: moliver28
   entry: SKILL.md
@@ -13,6 +13,7 @@ plugin:
     command: /voice-setup (learn/voice_setup.py; the install experience: machine bench, level picker, per-situation bands with layer-2 factors, plain-words report; state in learned/state/, user-local)
   hooks:
     gate: hooks/gate.py (deterministic regex scan + battery fast core of learn/voice_battery_core.py; pass = silence/zero tokens; fail = repair contract naming up to 5 family-deduped patterns with in-place fix hints, at most one of them a battery marker line; scan error = fail-open; --source FILE adds source_fidelity, voice_fit and classifier signals appear when their learned artifacts exist, advisory only, never blocking)
+    harvest: hooks/harvest.py (wave G6, consent-gated, default OFF: appends accepted drafts from the configured accepted_dir to the user's local reference pool with provenance rows, rebuilds the derived measurements through the shared regenerate pass with zero model calls, holds any budget-band change as a pending row until --approve-bands promotes it; with the flag off it reads one settings file and exits 0; contract section "Passive harvest" in hooks/HOOKS.md)
     contract: hooks/HOOKS.md
   learn:
     onboard: learn/VOICE_ONBOARDING.template.md
