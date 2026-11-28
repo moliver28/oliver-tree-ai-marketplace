@@ -45,3 +45,64 @@ the installing user's learned profile, not by anything hard-coded here:
 Every fire logs JSONL events (block/pass/render_block/state_load/state_skip and
 the vector-layer events) to the platform's log sink. Fail-open posture is
 unchanged: a scan error delivers, never blocks.
+
+## Passive harvest (wave G6, consent-gated, default OFF)
+
+`hooks/harvest.py` grows the user's reference pool from accepted final drafts,
+then rebuilds every derived measurement mechanically. It spends zero model
+tokens: no distill pass, no network model call, no embedding pass.
+
+What the flag does. The hook runs only when BOTH settings exist in
+`<learned>/state/setup.json` (the file `/voice-setup` owns):
+
+    "harvest": {
+      "enabled": true,
+      "accepted_dir": "<directory of accepted drafts>",
+      "accepted_glob": "*.md",
+      "situation": "blog"
+    }
+
+`accepted_glob` and `situation` are optional. With the flag off, absent, or
+without `accepted_dir`, the hook reads that one settings file and exits 0.
+It costs nothing and logs nothing. Turning the flag on means: accepted
+drafts in `accepted_dir` get stored in the user's own local reference pool.
+
+Wiring. A platform never re-implements the pool append; it points its hooks
+at this script:
+
+- Session end: run `python3 hooks/harvest.py`. The hook scans
+  `accepted_dir` through `accepted_glob` in sorted order and harvests the
+  new drafts.
+- Document acceptance: run `python3 hooks/harvest.py --file <path>` right
+  after the user accepts a draft. The file must sit inside the consented
+  `accepted_dir`; anything else is bad usage (exit 2).
+
+What is stored where. One pool record per accepted draft in the reference
+pool (the `VOICE_REFERENCE_DIR` chain): `<sha256(text)[:16]>.txt` beside the
+per-document vector JSON. The vector carries a provenance row: source
+`harvest`, the UTC timestamp, the word count, and the situation tag. An
+exact sha256 duplicate skips silently (idempotent append). A draft under
+the battery's 500-word document floor skips with one line. The hook stores
+only in the user's learned-state chain. It never touches repository files.
+
+What never happens. Nothing harvested is transmitted anywhere. No model
+distill runs. No repository file is written. The script contains no
+document text. After pool growth the hook calls the shared `rebuild_pool()`
+body of `learn/regenerate.py`: stale pool vectors recompute from the stored
+text and the bands rebuild into `learned/state/voice-bands.json`. That
+rebuild is pure local compute. If the regenerate pass is absent (older
+install), the hook prints one notice line and skips it; it never errors.
+
+Band approvals. The refreshed bands are advisory rows and update silently.
+A budget-override band (`aphorism`: `max_per_section`, `max_per_piece`) is
+the only band kind that can change a fail line, so its refreshed candidate
+never lands silently: the candidate and the active numbers are written as
+pending rows into `learned/state/band-approvals.json` with a plain-words
+note, and the old budget stays active. The user promotes them explicitly:
+
+    python3 hooks/harvest.py --approve-bands
+
+This writes the approved numbers into the runtime state file
+(`<HERMES_HOME>/state/voice-rules.json`, override `VOICE_RULES_STATE`)
+under the source name `harvest-bands`. That is a data write only; gate code
+never changes. Until the approval the old budget stays active.
