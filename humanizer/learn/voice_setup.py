@@ -133,9 +133,12 @@ def pool_dir(ref_dir=None):
     return d
 
 
-def pool_store(text, situation, row, ref_dir=None):
+def pool_store(text, situation, row, ref_dir=None, provenance=None):
     """Write one pool record: the plain text beside its vector (idempotent
-    by the sha256 of the text; a re-store refreshes the vector)."""
+    by the sha256 of the text; a re-store refreshes the vector). provenance
+    (wave G6, optional) merges extra provenance keys into the vector, for
+    example the harvest row (source marker, timestamp, word count,
+    situation tag); the layout and the sha256 keying stay unchanged."""
     import hashlib
     doc_id = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
     d = pool_dir(ref_dir)
@@ -147,6 +150,8 @@ def pool_store(text, situation, row, ref_dir=None):
         "words": len(WORD_RE.findall(text)),
         "measures": row,
     }
+    if isinstance(provenance, dict):
+        vector["provenance"] = dict(sorted(provenance.items()))
     payload = json.dumps(vector, indent=2, sort_keys=True) + "\n"
     (d / (doc_id + ".json")).write_text(payload, encoding="utf-8")
     return doc_id
