@@ -1,5 +1,27 @@
 # Changelog
 
+## [Unreleased]
+
+Tag note (owner ruling 2026-11-27): `v1.2.0` and `v1.3.0` stay untagged; the
+version numbers exist in the changelog history only, and `v1.4.0` remains the
+first tagged humanizer release (tag on the live release commit). No back-tags
+will be created for them.
+
+### Added
+- The learn-to-gate data contract (issue #5 ruling, all four clauses): the shared state-file loader gains a `bands` data kind (detector thresholds load from the learned-state chain at scan time, per-source provenance, entry-level fail-open with `state_skip`); a clause-1 gate-level proof test, the clause-2 audit (no learn tool writes a code file), and the one scripted regenerate pass (`learn/regenerate.py`: every hash-guarded builder in one pass, one line per step, zero model tokens; it also writes the distill output into the configured learned dir, which `distill_phrases.py`'s own default predates).
+- Detection methods for the two register-gap families (issue #145, wave H-C): family 35 aphorism density is enforced mechanically (`learn/voice_battery_core.py aphorism_shapes` + `aphorism_budget_hits`: four compiled kicker shapes; antithesis stays credited to the pattern register, never re-counted; the gate's one family-deduped fail line names the section and the count against the skill's own budget, never an AI accusation; resume list-item and label exemptions and the situational table keep their existing scope), and family 11 synonym cycling gets the chunk-grain advisory signal (`voice_tells.cycling_signals`: high semantic cosine + low lexical Jaccard on the EXISTING chunk vectors and content sets, zero added embeds), advisory until the owner calibrates its bands.
+- The chunk-pair divergence and the compression profile ride the gate JSON as BAND-GATED advisory fields (`cycling_pairs`, `compression_profile`): they appear only when the learned state carries the matching bands, so the uncalibrated pass line stays byte-identical; neither ever changes pass/fail.
+- The battery report gains the method rows L10-18 (chunk-pair divergence; n/a with a defined note until calibrated), L10-19 (aphorism shapes against the budget), and L10-20 (compression profile, advisory); the report totals 85 rows (79 per-text spec rows, 3 corpus rows, 3 method rows).
+- The opt-in PDF text-layer extra (formats issue #167 amendment, owner 2026-11-27: the end user installs only what they need): `learn/pdf_text.py` reads text-layer PDFs through a lazy pypdf import (floor pin `pypdf >= 7.2.0`, newest stable at build time 2026-11-26, no ceiling pin; no OCR claim); without the reader a PDF input prints one install hint and is skipped, no error; the default payload does not grow.
+- The private reference store and the detector bands are documented (`learned/README.md`: the `VOICE_REFERENCE_DIR` chain, the sha256-keyed pool layout, `--remeasure`, a NAS example with a generic placeholder; the state-file `bands` schema).
+
+### Changed
+- The C1 sentence-grain variant was measured on the build machine and NOT shipped: batched ONNX bge-small int8 sentence windows measure 166 / 501 / 961 ms at 500 / 2,000 / 5,000 words (onnxruntime 1.32.0, int8 CPU), far over the 100 ms gate cap and over the 1,000 ms report budget at 5,000 words. No sentence-grain code ships this wave.
+- The battery totals move honestly where the code moved them: verify.py rule 14, README, SKILL.md, `/voice-fit`, and the report description say 85 rows; the 98-pattern and 22-exemplar pins stay untouched (the methods add signals and battery rows, not register entries). The battery core import pin gains `zlib`.
+- The issue #161 docs-drift fixes (docs only, no behavior change): `calibrate.py`'s documented flag surface now shows the required `--corpus` (LEARN-VOICE.md, SKILL.md); the gate status wording now matches the code path (scan-unavailable degrades to the normal pass; usage exits 2 with a stderr line, in `commands/voice.md` and the gate docstring); `VOICE_LEARNED_DIR` is documented as the override with the plugin's `learned/` as the default (`commands/voice-setup.md`); the aphorism budget descriptions now state the enforced numbers (`README.md`, `VOICE_ONBOARDING.template.md`).
+- Em dash cleanup in `commands/voice.md` (issue #161 section 3; the two pre-existing U+2014 characters are gone; no other file touched).
+- `PROVENANCE.md` gains the 1.4.0 union row (98 patterns / 22 exemplars + the 82-row battery as released), the wave H-C row with its evidence grades, and the 150-word imperative frame list row (owned selection).
+
 ## [1.4.0] - 2026-11-26
 ### Added
 - Release union: this release reunites the main-line register (98 patterns, 22 exemplars, `--situation`, `--profile resume`, voice-rules YAML layer) with the measurement battery. The two lines shipped on separate branches: main carried the register line (1.2.0 and 1.3.0, 2026-11-22), develop carried the battery line. One payload now carries both, and the version steps to 1.4.0 because main already serves 1.3.0; a same-version content swap would never propagate as a plugin update.

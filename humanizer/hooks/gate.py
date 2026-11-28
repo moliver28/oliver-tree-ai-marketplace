@@ -7,7 +7,7 @@ Contract (token economy):
 - PASS: emit {"status": "pass", "tokens_to_model": 0} and stop. The model is never re-engaged.
 - FAIL: emit the violated pattern labels (one line each, max 5) with nearby context, plus one instruction
   block: patch in place, do not regenerate, do not re-emit the full text. One fix line per distinct pattern.
-- ERROR (scan unavailable): fail-open, {"status": "error", "deliver": true}.
+- ERROR (scan unavailable): fail-open: every layer degrades, the gate emits the normal pass line and exits 0 (deliver); a usage problem exits 2 with a stderr line.
 
 Advisory signals (v1.1.0, issue #127 Tiers 1+2; zero model tokens; both
 surfaces; every step fails open, so absent artifacts simply mean absent fields):

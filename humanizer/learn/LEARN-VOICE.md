@@ -39,7 +39,7 @@ nothing runs at install time except the host's own plugin loader.
 
 ## Stage 3: Initial learn
 
-1. `python3 humanizer/learn/calibrate.py <corpus dir> [--deliveries DIR]`
+1. `python3 humanizer/learn/calibrate.py --corpus <clean writing dir> [--deliveries DIR]`
    over a directory of the user's real clean writing. The tool runs the
    `voice_tells.py` regex layer over the corpus and writes
    `learned/calibration.json` (per-pattern hit rates, deviation flags). A
@@ -103,7 +103,11 @@ nothing runs at install time except the host's own plugin loader.
   which scans the index entries too.
 - Periodically (or during a maintenance pass), rerun `learn/calibrate.py` on
   new clean writing, `learn/distill_phrases.py` on the grown log, and
-  `learn/voice_vector_build.py` after any exemplar or state-file change.
+  `learn/voice_vector_build.py` after any exemplar or state-file change. The
+  one-shot way is the scripted regenerate pass (issue #5 ruling, clause 3):
+  `python3 learn/regenerate.py --corpus <clean writing dir> --samples <sample dir>`
+  runs every hash-guarded builder in one pass, one line per step, zero model
+  tokens; each step with a missing input prints a defined skip line.
 - Rule edits from learned data go into the runtime state file
   (`voice-rules.json`) as DATA with per-source provenance; the gate picks them
   up at scan time without a restart.
@@ -138,6 +142,18 @@ never runs in the delivery gate and never blocks delivery.
   columns, exit 0. The same numbers pass a parity fixture generated from the
   sitefactory P18 portable stylometry block
   (`tests/humanizer/test_voice_fit.py`); never in the delivery gate.
+
+## File formats: the opt-in PDF extra (formats issue #167)
+
+The report surface (`/voice-fit`, `learn/voice_battery_report.py`) reads
+text-layer PDFs through the OPT-IN extra `learn/pdf_text.py`. Install the
+reader once (floor pin: `pypdf >= 7.2.0`, the newest stable release at
+build time 2026-11-26; no ceiling pin): `pip install pypdf`. Without the
+reader a PDF input prints one line (the install hint and the note that
+most LLM harnesses read PDFs natively) and the file is skipped; no error,
+no OCR claim (a scanned-image PDF reads as no text layer). The default
+install never carries pypdf: absence = graceful skip, and the default
+payload does not grow. All other inputs stay .md/.txt.
 
 ## Conflict rule (no model arbitration)
 
