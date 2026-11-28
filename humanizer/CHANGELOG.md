@@ -4,7 +4,9 @@
 
 This release ships the wave H-C entries that sat unreleased below plus the
 wave G6 passive harvest loop; the version steps once for the combined
-payload. Stacked PR: G6 builds on the open H-C branch (PR #175).
+payload. Stacked PR: G6 builds on the open H-C branch (PR #175). The release
+also carries the versioned per-pattern coverage contract wave (issue #162,
+stacked on the G6 branch), so the section state below covers all three waves.
 
 Tag note (owner ruling 2026-11-27): `v1.2.0` and `v1.3.0` stay untagged; the
 version numbers exist in the changelog history only, and `v1.4.0` remains the
@@ -23,6 +25,8 @@ will be created for them.
 - The battery report gains the method rows L10-18 (chunk-pair divergence; n/a with a defined note until calibrated), L10-19 (aphorism shapes against the budget), and L10-20 (compression profile, advisory); the report totals 85 rows (79 per-text spec rows, 3 corpus rows, 3 method rows).
 - The opt-in PDF text-layer extra (formats issue #167 amendment, owner 2026-11-27: the end user installs only what they need): `learn/pdf_text.py` reads text-layer PDFs through a lazy pypdf import (floor pin `pypdf >= 7.2.0`, newest stable at build time 2026-11-26, no ceiling pin; no OCR claim); without the reader a PDF input prints one install hint and is skipped, no error; the default payload does not grow.
 - The private reference store and the detector bands are documented (`learned/README.md`: the `VOICE_REFERENCE_DIR` chain, the sha256-keyed pool layout, `--remeasure`, a NAS example with a generic placeholder; the state-file `bands` schema).
+- The versioned per-pattern coverage contract `humanizer/COVERAGE.md` (issue #162): one row per catalog pattern (35 rows: 22 implemented, 13 contextual-only, none out of scope), one row per register family outside the catalog numbering (16 rows), the 6 ASD-STE100 rules, and the 4 battery families; every row carries a file:line evidence pointer into the shipped code, verified at build time at the wave G6 tip, and the plain-language count block pins the compiled totals (98 patterns, 22 exemplars, 31 families, 35 catalog patterns, 6 rules, 4 battery families, 20 gate marker words).
+- Its deterministic drift check (`tests/humanizer/coverage_contract_check.py`, wired into `scripts/verify.py` as rule 16; stdlib only, no network, no LLM, no gate code touched): the file must match the compiled state exactly — the count block, exactly catalog ids 1 to 35 with a status from the fixed vocabulary and resolvable evidence, every compiled `humanizer N` family mapped to an implemented row, byte-exact register-family names in both directions, exactly S1 to S6, and exactly the four battery family ids. Row removal, count edits, status flips on mirrored rows, stale family names, and broken pointers fail the gate deterministically. The contract suite `tests/humanizer/test_coverage_contract.py` proves the real file green, all 81 pointers resolving, and the eight mutation classes deterministic across runs. The 98-pattern, 22-exemplar, and 85-row pins stay untouched, and SKILL.md and PROVENANCE.md point at the contract.
 
 ### Changed
 - The family-35 budget lines resolve their numbers through `resolve_budget` (wave G6) in the gate and in the report's L10-19 row alike, so the gate and the report never disagree on the budget; with no band in the learned state the lines stay byte-identical to 1.4.0 (the embedded constants: at most one kicker per section, at most three per piece).
